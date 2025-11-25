@@ -33,7 +33,7 @@ jobs:
       - name: Run the tests
         shell: cmd
         run: |
-          "C:\\Program Files (x86)\\LLVM\\bin\\clang" test.cc -fno-exceptions -o test.exe && test.exe
+          "C:\\Program Files (x86)\\LLVM\\bin\\clang" test.cc -fno-exceptions -D_CRT_SECURE_NO_WARNINGS -o test.exe && test.exe
       - name: Build EXE
         shell: cmd
         run: |

@@ -1,6 +1,5 @@
 @echo off
-REM call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x86
 taskkill /IM persian-calendar.exe /FI "STATUS eq RUNNING" ^
-    && cl test.cc && test.exe ^
-    && build.bat && python postlink.py && build.msvc.bat && dir persian-calendar*.exe && persian-calendar.exe && build.gcc.bat
+    && "C:\Program Files (x86)\LLVM\bin\clang" test.cc -D_CRT_SECURE_NO_WARNINGS && test.exe ^
+    && build.bat && python postlink.py && dir persian-calendar*.exe && persian-calendar.exe
 REM dumpbin /DISASM persian-calendar.exe
