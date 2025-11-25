@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <shlwapi.h>
+#include <dwmapi.h>
 #include "persian-calendar.h"
 
 static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_background)
@@ -298,7 +299,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
         }
         else if (lparam == WM_LBUTTONUP)
         {
-            CreateWindowExA(0, "MainWindow", "Main Window", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+            CreateWindowExA(WS_EX_TOPMOST, "MainWindow", "Main Window",
+                            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_VISIBLE,
                             CW_USEDEFAULT, CW_USEDEFAULT, 400, 300, hwnd, nullptr, GetModuleHandleA(nullptr), nullptr);
         }
         return 0;
@@ -329,16 +331,91 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
     return DefWindowProcA(hwnd, msg, wparam, lparam);
 }
 
+static void apply_dark_mode_to_window(HWND hwnd)
+{
+    HMODULE dwmapi = LoadLibraryA("dwmapi.dll");
+    if (!dwmapi)
+        return;
+    
+    typedef HRESULT(WINAPI * func_t)(HWND, DWORD, LPCVOID, DWORD);
+    func_t func = reinterpret_cast<func_t>(
+        reinterpret_cast<void *>(GetProcAddress(dwmapi, "DwmSetWindowAttribute")));
+    
+    if (func)
+    {
+        BOOL useDarkMode = TRUE;
+        func(hwnd, 20 /*DWMWA_USE_IMMERSIVE_DARK_MODE*/, &useDarkMode, sizeof(useDarkMode));
+    }
+    
+    FreeLibrary(dwmapi);
+}
+
+static void enable_dark_mode_for_window(HWND hwnd)
+{
+    HMODULE uxtheme = LoadLibraryA("uxtheme.dll");
+    if (!uxtheme)
+        return;
+    
+    // Undocumented AllowDarkModeForWindow (ordinal 133)
+    typedef BOOL(WINAPI * func_t)(HWND, BOOL);
+    func_t func = reinterpret_cast<func_t>(
+        reinterpret_cast<void *>(GetProcAddress(uxtheme, MAKEINTRESOURCEA(133))));
+    
+    if (func)
+        func(hwnd, TRUE);
+    
+    FreeLibrary(uxtheme);
+}
+
 static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
     {
+    case WM_CREATE:
+    {
+        apply_dark_mode_to_window(hwnd);
+        CreateWindowExA(
+            0,
+            "BUTTON",
+            "Click Me",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            150, 120, 100, 30,
+            hwnd,
+            reinterpret_cast<HMENU>(1001),
+            GetModuleHandleA(nullptr),
+            nullptr);
+        enable_dark_mode_for_window(hwnd);
+        return 0;
+    }
+    case WM_CTLCOLORBTN:
+    {
+        HDC hdcButton = reinterpret_cast<HDC>(wparam);
+        SetBkColor(hdcButton, GetSysColor(COLOR_WINDOW));
+        SetTextColor(hdcButton, GetSysColor(COLOR_WINDOWTEXT));
+        return reinterpret_cast<LRESULT>(GetSysColorBrush(COLOR_WINDOW));
+    }
+    case WM_ERASEBKGND:
+    {
+        HDC hdc = reinterpret_cast<HDC>(wparam);
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        FillRect(hdc, &rc, GetSysColorBrush(COLOR_WINDOW));
+        return 1;
+    }
+    case WM_COMMAND:
+        if (LOWORD(wparam) == 1001)
+        {
+            MessageBoxA(hwnd, "Button clicked!", "Info", MB_OK);
+            return 0;
+        }
+        break;
     case WM_CLOSE:
         DestroyWindow(hwnd);
         return 0;
     default:
-        return DefWindowProcA(hwnd, msg, wparam, lparam);
+        break;
     }
+    return DefWindowProcA(hwnd, msg, wparam, lparam);
 }
 
 // https://web.archive.org/web/20190205041452/https://blogs.msdn.microsoft.com/oldnewthing/20041025-00/?p=37483
@@ -352,6 +429,11 @@ void start()
         ExitProcess(EXIT_FAILURE);
     HMODULE module = reinterpret_cast<HMODULE>(&__ImageBase);
 
+    INITCOMMONCONTROLSEX icc;
+    icc.dwSize = sizeof(INITCOMMONCONTROLSEX);
+    icc.dwICC = ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES;
+    InitCommonControlsEx(&icc);
+
     {
         WNDCLASSEXA wc;
         SecureZeroMemory(&wc, sizeof(WNDCLASSEXA));
@@ -359,7 +441,9 @@ void start()
         wc.hInstance = module;
         wc.lpfnWndProc = MainWndProc;
         wc.lpszClassName = "MainWindow";
-        wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+        wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
+        wc.style = CS_HREDRAW | CS_VREDRAW;
+        wc.hCursor = LoadCursorA(nullptr, MAKEINTRESOURCEA(32512));
         RegisterClassExA(&wc);
     }
 
