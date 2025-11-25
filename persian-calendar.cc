@@ -8,15 +8,13 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
 {
     const int size = 128; // GetSystemMetrics(SM_CXSMICON); oversized icon looks better
     HBITMAP hbmColor = CreateCompatibleBitmap(hdc, size, size);
-    HBITMAP hbmMask = CreateBitmap(size, size, 1, 1, nullptr);
+    HBITMAP hbmMask = CreateCompatibleBitmap(hdc, size, size);
 
     HDC memDC = CreateCompatibleDC(hdc);
     HGDIOBJ oldBmp = SelectObject(memDC, hbmColor);
     RECT rc = {0, 0, size, size};
 
     FillRect(memDC, &rc, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
-
-    SetBkMode(memDC, TRANSPARENT);
     SetTextColor(memDC, RGB(255, 255, 255));
 
     HFONT hFont = CreateFontA(
@@ -26,7 +24,6 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
     HGDIOBJ oldFont = SelectObject(memDC, hFont);
 
     DrawTextW(memDC, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
     SelectObject(memDC, hbmMask);
 
     FillRect(memDC, &rc, reinterpret_cast<HBRUSH>(GetStockObject(black_background ? BLACK_BRUSH : WHITE_BRUSH)));
@@ -250,7 +247,8 @@ private:
 static void enable_hidpi()
 {
     HMODULE user32 = LoadLibraryA("user32.dll");
-    if (!user32) return;
+    if (!user32)
+        return;
     typedef BOOL(WINAPI * func_t)(DPI_AWARENESS_CONTEXT);
     func_t func = reinterpret_cast<func_t>(reinterpret_cast<void *>(
         GetProcAddress(user32, "SetProcessDpiAwarenessContext")));
@@ -262,7 +260,8 @@ static void enable_hidpi()
 static void enable_dark_mode_support()
 {
     HMODULE uxtheme = LoadLibraryA("uxtheme.dll");
-    if (!uxtheme) return;
+    if (!uxtheme)
+        return;
     typedef INT(WINAPI * func_t)(INT); // undocumented SetPreferredAppMode's signature
     func_t func = reinterpret_cast<func_t>(reinterpret_cast<void *>(
         GetProcAddress(uxtheme, MAKEINTRESOURCEA(135))));
