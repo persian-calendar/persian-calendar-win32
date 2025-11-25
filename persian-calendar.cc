@@ -15,6 +15,7 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
     RECT rc = {0, 0, size, size};
 
     FillRect(memDC, &rc, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
+    SetBkMode(memDC, TRANSPARENT);
     SetTextColor(memDC, RGB(255, 255, 255));
 
     HFONT hFont = CreateFontA(
