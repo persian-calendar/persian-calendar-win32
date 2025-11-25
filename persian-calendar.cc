@@ -67,7 +67,9 @@ constexpr unsigned first_separator_id = 1001;
 constexpr unsigned local_digits_id = 1002;
 constexpr unsigned black_background_id = 1003;
 constexpr unsigned second_separator_id = 1004;
-constexpr unsigned exit_id = 1005;
+constexpr unsigned html_app_id = 1005;
+constexpr unsigned third_separator_id = 1006;
+constexpr unsigned exit_id = 1007;
 static void create_menu(app_state_t *state, wchar_t *date)
 {
     HMENU menu = CreatePopupMenu();
@@ -95,6 +97,13 @@ static void create_menu(app_state_t *state, wchar_t *date)
         InsertMenuItemW(menu, black_background_id, TRUE, &menu_item);
     }
     InsertMenuA(menu, second_separator_id, MF_SEPARATOR, TRUE, nullptr);
+    {
+        menu_item.fState = 0;
+        menu_item.wID = html_app_id;
+        menu_item.dwTypeData = const_cast<wchar_t *>(L"نمایش برنامه");
+        InsertMenuItemW(menu, html_app_id, TRUE, &menu_item);
+    }
+    InsertMenuA(menu, third_separator_id, MF_SEPARATOR, TRUE, nullptr);
     {
         menu_item.fState = 0;
         menu_item.wID = exit_id;
@@ -130,6 +139,40 @@ const static wchar_t *weekdays[] = {
     L"پنجشنبه",
     L"جمعه",
 };
+
+const static char html[] = {
+#embed "index.html"  
+};
+
+static void export_and_open_html()
+{
+    char temp_path[MAX_PATH];
+    char file_path[MAX_PATH];
+
+    if (!GetTempPathA(MAX_PATH, temp_path))
+        return;
+
+    wnsprintfA(file_path, MAX_PATH, "%spersian-calendar.html", temp_path);
+
+    HANDLE hFile = CreateFileA(
+        file_path,
+        GENERIC_WRITE,
+        0,
+        nullptr,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr);
+
+    if (hFile == INVALID_HANDLE_VALUE)
+        return;
+
+    DWORD bytes_written;
+    WriteFile(hFile, html, sizeof(html), &bytes_written, nullptr);
+    CloseHandle(hFile);
+
+    ShellExecuteA(nullptr, "open", file_path, nullptr, nullptr, SW_SHOWNORMAL);
+}
+
 static void update(HWND hwnd, app_state_t *state)
 {
     SYSTEMTIME st;
@@ -310,6 +353,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
             state->black_background = !state->black_background;
             update(hwnd, state);
             Registry().set_black_background(state->black_background);
+            return 0;
+        }
+        else if (wparam == html_app_id)
+        {
+            export_and_open_html();
             return 0;
         }
         else if (wparam == exit_id)
