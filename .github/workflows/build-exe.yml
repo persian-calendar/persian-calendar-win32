@@ -1,7 +1,7 @@
 name: Build EXE
 
 permissions:
-  contents: read
+  contents: write
 
 on:
   push:
@@ -49,55 +49,16 @@ jobs:
           pip install pefile
           python postlink.py
 
-      - name: Upload EXE
-        uses: actions/upload-artifact@v4
-        with:
-          name: exe
-          path: persian-calendar.exe
-
-  ubuntu-continue:
-    needs: upload-exe
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download EXE artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: exe
-          path: ./downloaded-exe
-
-      - name: Show downloaded files
+      - name: Rename artifact with commit hash
+        shell: pwsh
         run: |
-          ls -la downloaded-exe
-          file downloaded-exe/persian-calendar.exe || true
+          $hash = git rev-parse --short HEAD
+          Copy-Item persian-calendar.exe "persian-calendar-$hash.exe"
+          echo "ARTIFACT=persian-calendar-$hash.exe" >> $env:GITHUB_ENV
 
-      - name: Notify
-        env:
-          COMMITS: ${{ toJson(github.event.commits) }}
-          TEMPLATE: '.[] | "<a href=\"\(.url)\">\(.id[:8])</a> • <a href=\"https://github.com/\(.author.username | @html)\">\(.author.username | @html)</a>
-
-          \(.message | gsub("(?<a>[<>&\"])"; .a|@html))
-
-          "'
-        run: |
-          # Upload the file
-          MESSAGE_ID=$(
-            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendDocument" \
-              -F chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-              -F document=@"downloaded-exe/persian-calendar.exe" | jq '.result.message_id'
-          )
-
-          # Edit the post description
-          (
-            printenv COMMITS | jq -r "$TEMPLATE"
-            printf "%s\n\n" "$(stat -c%s downloaded-exe/persian-calendar.exe) bytes"
-            printf '📅 @Persian_Calendar (win32)'
-          ) | \
-          jq -R --slurp --argjson mid "$MESSAGE_ID" '{
-            caption: .,
-            message_id: $mid,
-            chat_id: "${{ secrets.TELEGRAM_CHAT_ID }}",
-            parse_mode: "HTML"
-          }' | \
-          curl -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/editMessageCaption \
-            -H 'Content-Type: application/json' \
-            --data-binary @-
+      - name: Publish rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build
+          files: ${{ env.ARTIFACT }}
