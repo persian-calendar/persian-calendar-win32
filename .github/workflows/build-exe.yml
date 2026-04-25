@@ -49,16 +49,9 @@ jobs:
           pip install pefile
           python postlink.py
 
-      - name: Rename artifact with commit hash
-        shell: pwsh
-        run: |
-          $hash = git rev-parse --short HEAD
-          Copy-Item persian-calendar.exe "persian-calendar-$hash.exe"
-          echo "ARTIFACT=persian-calendar-$hash.exe" >> $env:GITHUB_ENV
-
       - name: Publish rolling release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Latest build
-          files: ${{ env.ARTIFACT }}
+          files: persian-calendar.exe
