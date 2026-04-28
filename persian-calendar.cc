@@ -247,28 +247,20 @@ private:
 
 static void enable_hidpi()
 {
-    HMODULE user32 = LoadLibraryA("user32.dll");
-    if (!user32)
-        return;
     typedef BOOL(WINAPI * func_t)(DPI_AWARENESS_CONTEXT);
     func_t func = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-        GetProcAddress(user32, "SetProcessDpiAwarenessContext")));
+        GetProcAddress(GetModuleHandleA("user32.dll"), "SetProcessDpiAwarenessContext")));
     if (func)
         func(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    FreeLibrary(user32);
 }
 
 static void enable_dark_mode_support()
 {
-    HMODULE uxtheme = LoadLibraryA("uxtheme.dll");
-    if (!uxtheme)
-        return;
     typedef INT(WINAPI * func_t)(INT); // undocumented SetPreferredAppMode's signature
     func_t func = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-        GetProcAddress(uxtheme, MAKEINTRESOURCEA(135))));
+        GetProcAddress(GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(135))));
     if (func)
         func(/*Allow dark*/ 1);
-    FreeLibrary(uxtheme);
 }
 
 const unsigned notifyClickId = WM_USER + 1;
