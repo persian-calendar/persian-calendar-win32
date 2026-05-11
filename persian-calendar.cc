@@ -327,20 +327,8 @@ void start()
         ExitProcess(EXIT_FAILURE);
     HMODULE module = reinterpret_cast<HMODULE>(&__ImageBase);
 
-    {
-        WNDCLASSEXA wc;
-        SecureZeroMemory(&wc, sizeof(WNDCLASSEXA));
-        wc.cbSize = sizeof(WNDCLASSEXW);
-        wc.hInstance = module;
-        wc.lpfnWndProc = WndProc;
-        wc.lpszClassName = appId;
-        if (!RegisterClassExA(&wc))
-            ExitProcess(EXIT_FAILURE);
-    }
-
-    HWND hwnd = CreateWindowExA(0, appId, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, module, nullptr);
-    if (!hwnd)
-        ExitProcess(EXIT_FAILURE);
+    HWND hwnd = CreateWindowExA(0, "STATIC", nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, module, nullptr);
+    SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc));
 
     // Initiation
     NOTIFYICONDATAW notify_icon_data;
