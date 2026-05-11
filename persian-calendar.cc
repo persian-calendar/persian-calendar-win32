@@ -362,6 +362,5 @@ void start()
         DestroyIcon(state.notify_icon_data->hIcon);
     }
 
-    UnregisterClassA(appId, module);
     ExitProcess(msg.wParam);
 }
