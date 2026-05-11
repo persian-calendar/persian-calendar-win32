@@ -39,3 +39,33 @@ inline persian_date_t gregorian_to_persian(unsigned gy, unsigned gm, unsigned gd
   }
   return result;
 }
+
+typedef struct { unsigned year; unsigned month; unsigned day; } gregorian_date_t;
+inline gregorian_date_t persian_to_gregorian(unsigned jy, unsigned jm, unsigned jd) {
+  jy += 1595;
+  long days = -355668 + (365 * jy) + (((int)(jy / 33)) * 8) + ((int)(((jy % 33) + 3) / 4)) + jd + ((jm < 7) ? (jm - 1) * 31 : ((jm - 7) * 30) + 186);
+  unsigned gy = 400 * ((int)(days / 146097));
+  days %= 146097;
+  if (days > 36524) {
+    gy += 100 * ((int)(--days / 36524));
+    days %= 36524;
+    if (days >= 365) days++;
+  }
+  gy += 4 * ((int)(days / 1461));
+  days %= 1461;
+  if (days > 365) {
+    gy += (int)((days - 1) / 365);
+    days = (days - 1) % 365;
+  }
+  unsigned gd = days + 1;
+  unsigned gm;
+  {
+    int sal_a[13] = {0, 31, ((gy % 4 == 0 && gy % 100 != 0) || (gy % 400 == 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    for (gm = 0; gm < 13 && gd > sal_a[gm]; gm++) gd -= sal_a[gm];
+  }
+  gregorian_date_t result;
+  result.year = gy;
+  result.month = gm;
+  result.day = gd;
+  return result;
+}
