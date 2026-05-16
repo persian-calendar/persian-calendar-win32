@@ -327,6 +327,9 @@ void start()
         ExitProcess(EXIT_FAILURE);
     HMODULE module = reinterpret_cast<HMODULE>(&__ImageBase);
 
+    // Passing "STATIC" as a class name and overriding its Window procedure is a hack to avoid
+    // registering a window class, which would require more code. The created window is never shown, so it doesn't
+    // matter that it's a "STATIC" control.
     HWND hwnd = CreateWindowExA(0, "STATIC", nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, module, nullptr);
     SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc));
 
