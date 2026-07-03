@@ -15,7 +15,7 @@ IF NOT DEFINED WinKitsRoot FOR /F "tokens=2*" %%i IN ('reg query "HKLM\SOFTWARE\
 FOR /F "delims=" %%i IN ('dir /B /AD "%WinKitsRoot%Lib" 2^>nul') DO SET WinKitsVer=%%i
 SET WinKitsLib=%WinKitsRoot%Lib\%WinKitsVer%\um\x86
 
-.\Crinkler.exe /OUT:persian-calendar.exe ^
+.\Crinkler.exe /OUT:persian-calendar-minified.exe ^
     /SUBSYSTEM:WINDOWS,5.1 /ENTRY:start /NODEFAULTLIB ^
     /COMPMODE:VERYSLOW /HASHTRIES:100 /HASHSIZE:100 /ORDERTRIES:1000 ^
     /TRANSFORM:CALLS /UNALIGNCODE ^

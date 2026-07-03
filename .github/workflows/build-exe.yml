@@ -35,23 +35,6 @@ jobs:
         run: |
           "C:\\Program Files\\LLVM\\bin\\clang" test.cc -m32 -fno-exceptions -D_CRT_SECURE_NO_WARNINGS -o test.exe && test.exe
 
-      # - name: Cache Crinkler
-      #   id: cache-crinkler
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: crinkler30a.zip
-      #     key: crinkler-v3.0a
-      # - name: Download Crinkler
-      #   if: steps.cache-crinkler.outputs.cache-hit != 'true'
-      #   run: |
-      #     curl -L -o crinkler30a.zip https://github.com/runestubbe/Crinkler/releases/download/v3.0a/crinkler30a.zip
-      # - name: Extract Crinkler
-      #   shell: pwsh
-      #   run: |
-      #     Expand-Archive crinkler30a.zip -DestinationPath crinkler_tmp -Force
-      #     Get-ChildItem -Recurse crinkler_tmp -Filter Crinkler.exe | Where-Object { $_.FullName -like '*Win32*' } | Select-Object -First 1 | Copy-Item -Destination .
-      #     Remove-Item crinkler_tmp -Recurse -Force
-
       - name: Build EXE
         shell: cmd
         run: |
@@ -67,9 +50,30 @@ jobs:
           pip install pefile
           python postlink.py
 
+      - name: Cache Crinkler
+        id: cache-crinkler
+        uses: actions/cache@v4
+        with:
+          path: crinkler30a.zip
+          key: crinkler-v3.0a
+      - name: Download Crinkler
+        if: steps.cache-crinkler.outputs.cache-hit != 'true'
+        run: |
+          curl -L -o crinkler30a.zip https://github.com/runestubbe/Crinkler/releases/download/v3.0a/crinkler30a.zip
+      - name: Extract Crinkler
+        shell: pwsh
+        run: |
+          Expand-Archive crinkler30a.zip -DestinationPath crinkler_tmp -Force
+          Get-ChildItem -Recurse crinkler_tmp -Filter Crinkler.exe | Where-Object { $_.FullName -like '*Win32*' } | Select-Object -First 1 | Copy-Item -Destination .
+          Remove-Item crinkler_tmp -Recurse -Force
+      - name: Build Crinkler EXE
+        shell: cmd
+        run: |
+          build.bat
+
       - name: Publish rolling release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Latest build
-          files: persian-calendar.exe
+          files: persian-calendar.exe persian-calendar-minified.exe
