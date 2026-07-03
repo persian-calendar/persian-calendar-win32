@@ -69,7 +69,7 @@ jobs:
       - name: Build Crinkler EXE
         shell: cmd
         run: |
-          build.bat
+          build.crinkler.bat
 
       - name: Publish rolling release
         uses: softprops/action-gh-release@v2
