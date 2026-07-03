@@ -76,4 +76,6 @@ jobs:
         with:
           tag_name: latest
           name: Latest build
-          files: persian-calendar.exe persian-calendar-minified.exe
+          files: |
+            persian-calendar.exe
+            persian-calendar-minified.exe
