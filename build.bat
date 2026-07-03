@@ -16,7 +16,7 @@ FOR /F "delims=" %%i IN ('dir /B /AD "%WinKitsRoot%Lib" 2^>nul') DO SET WinKitsV
 SET WinKitsLib=%WinKitsRoot%Lib\%WinKitsVer%\um\x86
 
 .\Crinkler.exe /OUT:persian-calendar.exe ^
-    /SUBSYSTEM:WINDOWS,4.0 /ENTRY:start /NODEFAULTLIB ^
+    /SUBSYSTEM:WINDOWS,5.1 /ENTRY:start /NODEFAULTLIB ^
     /COMPMODE:VERYSLOW /HASHTRIES:100 /HASHSIZE:100 /ORDERTRIES:1000 ^
     /TRANSFORM:CALLS /UNALIGNCODE ^
     /LIBPATH:"%WinKitsLib%" ^
