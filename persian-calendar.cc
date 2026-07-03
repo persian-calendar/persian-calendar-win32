@@ -313,7 +313,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
     default:
         break;
     }
-    return DefWindowProcA(hwnd, msg, wparam, lparam);
+    return 0;
 }
 
 // https://web.archive.org/web/20190205041452/https://blogs.msdn.microsoft.com/oldnewthing/20041025-00/?p=37483
