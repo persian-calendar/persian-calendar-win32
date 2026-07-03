@@ -2,7 +2,7 @@
 REM https://releases.llvm.org/download.html Install from the Windows installer, e.g. LLVM-18.1.8-win32.exe
 REM https://github.com/runestubbe/Crinkler - Crinkler.exe must be in the project directory
 
-"C:\Program Files (x86)\LLVM\bin\clang" --target=i686-pc-windows-msvc ^
+"C:\Program Files\LLVM\bin\clang" --target=i686-pc-windows-msvc ^
     -c persian-calendar.cc -o persian-calendar.obj ^
     -Weverything -Wall -Wextra -Wpedantic -Werror -Weffc++ ^
     -Wno-c++98-compat-pedantic -Wno-nonportable-system-include-path -Wno-reserved-identifier ^
