@@ -20,7 +20,7 @@ Build
 
 Windows with MSVC
 * https://github.com/llvm/llvm-project/releases Install from the Windows installer, e.g. LLVM-22.1.8-win64.exe
-* Make sure Visual Studio is installed from llvm (llvm uses Visual Studio provided headers)
+* Make sure Visual Studio is installed (llvm uses Visual Studio provided headers)
 * Run `build.bat`
 * Execute `postlink.py` to get the same binary (which patches the exe to support older Windows versions and removes its build timestamp)
 
