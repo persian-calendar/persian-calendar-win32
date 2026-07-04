@@ -19,8 +19,7 @@ Build
 -----
 
 Windows with MSVC
-* Find a 32bit llvm installation file from, e.g. LLVM-18.1.8-win32.exe,
-from https://releases.llvm.org/download.html
+* https://github.com/llvm/llvm-project/releases Install from the Windows installer, e.g. LLVM-22.1.8-win64.exe
 * Make sure Visual Studio is installed from llvm (llvm uses Visual Studio provided headers)
 * Run `build.bat`
 * Execute `postlink.py` to get the same binary (which patches the exe to support older Windows versions and removes its build timestamp)
