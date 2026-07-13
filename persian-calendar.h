@@ -12,13 +12,12 @@ License: GNU/LGPL _ Open Source & Free :: Version: 2.80 : [2020=1399]
 1461=(365*4)+(4/4) & 146097=(365*400)+(400/4)-(400/100)+(400/400)  */
 
 typedef struct { unsigned year; unsigned month; unsigned day; } persian_date_t;
-inline persian_date_t gregorian_to_persian(unsigned gy, unsigned gm, unsigned gd) {
-  unsigned days;
-  {
-    unsigned gy2 = (gm > 2) ? gy + 1 : gy;
-    static const unsigned g_d_m[12] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
-    days = 355666 + 365 * gy + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400 + gd + g_d_m[(gm - 1) % 12];
-  }
+inline unsigned gregorian_to_days(unsigned gy, unsigned gm, unsigned gd) {
+  unsigned gy2 = (gm > 2) ? gy + 1 : gy;
+  static const unsigned g_d_m[12] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+  return 355666 + 365 * gy + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400 + gd + g_d_m[(gm - 1) % 12];
+}
+inline persian_date_t days_to_persian(unsigned days) {
   unsigned year = days / 12053 * 33 - 1595;
   days %= 12053;
   year += days / 1461 * 4;

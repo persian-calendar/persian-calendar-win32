@@ -2,7 +2,13 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <shlwapi.h>
+#include <dwmapi.h>
+
 #include "persian-calendar.h"
+
+// https://web.archive.org/web/20190205041452/https://blogs.msdn.microsoft.com/oldnewthing/20041025-00/?p=37483
+extern "C" IMAGE_DOS_HEADER __ImageBase;
+#define hInst (reinterpret_cast<HMODULE>(&__ImageBase))
 
 static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_background)
 {
@@ -67,7 +73,10 @@ constexpr unsigned first_separator_id = 1001;
 constexpr unsigned local_digits_id = 1002;
 constexpr unsigned black_background_id = 1003;
 constexpr unsigned second_separator_id = 1004;
-constexpr unsigned exit_id = 1005;
+constexpr unsigned converter_from_persian_id = 1005;
+constexpr unsigned converter_from_gregorian_id = 1006;
+constexpr unsigned third_separator_id = 1007;
+constexpr unsigned exit_id = 1008;
 static void create_menu(app_state_t *state, wchar_t *date)
 {
     HMENU menu = CreatePopupMenu();
@@ -97,6 +106,19 @@ static void create_menu(app_state_t *state, wchar_t *date)
     InsertMenuA(menu, second_separator_id, MF_SEPARATOR, TRUE, nullptr);
     {
         menu_item.fState = 0;
+        menu_item.wID = converter_from_persian_id;
+        menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل تاریخ از شمسی");
+        InsertMenuItemW(menu, converter_from_persian_id, TRUE, &menu_item);
+    }
+    {
+        menu_item.fState = 0;
+        menu_item.wID = converter_from_gregorian_id;
+        menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل تاریخ از میلادی");
+        InsertMenuItemW(menu, converter_from_persian_id, TRUE, &menu_item);
+    }
+    InsertMenuA(menu, third_separator_id, MF_SEPARATOR, TRUE, nullptr);
+    {
+        menu_item.fState = 0;
         menu_item.wID = exit_id;
         menu_item.dwTypeData = const_cast<wchar_t *>(L"خروج");
         InsertMenuItemW(menu, exit_id, TRUE, &menu_item);
@@ -107,7 +129,7 @@ static void create_menu(app_state_t *state, wchar_t *date)
         DestroyMenu(old_menu);
 }
 
-const static wchar_t *months[] = {
+const static wchar_t *persian_months[] = {
     L"فروردین",
     L"اردیبهشت",
     L"خرداد",
@@ -130,41 +152,334 @@ const static wchar_t *weekdays[] = {
     L"پنجشنبه",
     L"جمعه",
 };
-static void update(HWND hwnd, app_state_t *state)
+
+static const wchar_t *gregorian_months[] = {
+    L"ژانویه",
+    L"فوریه",
+    L"مارس",
+    L"آوریل",
+    L"مه",
+    L"ژوئن",
+    L"ژوئیه",
+    L"اوت",
+    L"سپتامبر",
+    L"اکتبر",
+    L"نوامبر",
+    L"دسامبر",
+};
+
+constexpr unsigned dlg_day_combo_id = 2001;
+constexpr unsigned dlg_month_combo_id = 2002;
+constexpr unsigned dlg_year_combo_id = 2003;
+
+enum converter_mode_t
+{
+    INVALID,
+    PERSIAN,
+    GREGORIAN
+};
+
+struct formatted_number_t
+{
+    wchar_t value[8];
+};
+static formatted_number_t format_number(unsigned number, BOOL local_digits = 1)
+{
+    formatted_number_t result;
+    constexpr unsigned size = sizeof(result.value) / sizeof(wchar_t);
+    wnsprintfW(result.value, size, L"%d", number);
+    if (local_digits)
+        for (unsigned j = 0; j < size && result.value[j % size]; ++j)
+            result.value[j % size] += L'۰' - L'0';
+    return result;
+}
+
+static void format_date(
+    BOOL local_digits, converter_mode_t mode, unsigned day, unsigned month, unsigned year, unsigned dayOfWeek, wchar_t *result, int result_size)
+{
+    wnsprintfW(result, result_size,
+               L"%ls، %ls %ls(%ls) %ls",
+               weekdays[(dayOfWeek + 3) % 7],
+               format_number(day, local_digits).value,
+               mode == PERSIAN ? persian_months[(month - 1) % 12] : gregorian_months[(month - 1) % 12],
+               format_number(month, local_digits).value,
+               format_number(year, local_digits).value);
+}
+
+static void do_conversion(HWND hwnd, converter_mode_t mode)
+{
+    BOOL ok;
+    unsigned day = GetDlgItemInt(hwnd, dlg_day_combo_id, &ok, FALSE);
+    unsigned month = GetDlgItemInt(hwnd, dlg_month_combo_id, &ok, FALSE);
+    unsigned year = GetDlgItemInt(hwnd, dlg_year_combo_id, &ok, FALSE);
+
+    if (day == 0 || day > 31 || month == 0 || month > 12 || year == 0)
+    {
+        SetWindowTextW(hwnd, L"ورودی نامعتبر است");
+        // wchar_t result[128];
+        // wnsprintfW(result, sizeof(result) / sizeof(wchar_t), L"%d %d %d", day, month, year);
+        // SetWindowTextW(hwnd, result);
+        return;
+    }
+
+    wchar_t result[128];
+    unsigned days = 0, converted_day = 0, converted_month = 0, converted_year = 0;
+    {
+        if (mode == GREGORIAN)
+        {
+            days = gregorian_to_days(year, month, day);
+            persian_date_t date = days_to_persian(days);
+            converted_year = date.year;
+            converted_month = date.month;
+            converted_day = date.day;
+        }
+        else if (mode == PERSIAN)
+        {
+            gregorian_date_t date = persian_to_gregorian(year, month, day);
+            days = gregorian_to_days(date.year, date.month, date.day);
+            converted_year = date.year;
+            converted_month = date.month;
+            converted_day = date.day;
+        }
+    }
+    format_date(TRUE, mode == PERSIAN ? GREGORIAN : PERSIAN,
+                converted_day,
+                converted_month,
+                converted_year,
+                days % 7,
+                result, sizeof(result) / sizeof(wchar_t));
+    SetWindowTextW(hwnd, result);
+}
+
+static gregorian_date_t today_in_gregorian()
 {
     SYSTEMTIME st;
     GetLocalTime(&st);
-    persian_date_t date = gregorian_to_persian(st.wYear, st.wMonth, st.wDay);
+    gregorian_date_t date;
+    date.day = st.wDay;
+    date.month = st.wMonth;
+    date.year = st.wYear;
+    return date;
+}
 
-    wchar_t day[3];
-    wnsprintfW(day, sizeof(day) / sizeof(wchar_t), L"%d", date.day);
-    wchar_t month[3];
-    wnsprintfW(month, sizeof(month) / sizeof(wchar_t), L"%d", date.month);
-    wchar_t year[5];
-    wnsprintfW(year, sizeof(year) / sizeof(wchar_t), L"%d", date.year);
-    if (state->local_digits)
+static UINT GetSystemDpi()
+{
+    typedef UINT(WINAPI * func_t)();
+    func_t func = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+        GetProcAddress(GetModuleHandleA("user32.dll"), "GetDpiForSystem")));
+    return func ? func() : 96;
+}
+
+static int dp(UINT dpi, int value)
+{
+    return MulDiv(value, static_cast<int>(dpi), 72);
+}
+constexpr int padding = 8;
+constexpr int combo_width = 72;
+constexpr int combo_height = 42;
+
+static BOOL IsDarkModeActive()
+{
+    DWORD value = 1;
+    DWORD size = sizeof(value);
+    HKEY key;
+    if (RegOpenKeyExA(HKEY_CURRENT_USER,
+                      "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                      0, KEY_READ, &key) == ERROR_SUCCESS)
     {
-        day[0] += L'۰' - L'0';
-        if (day[1])
-            day[1] += L'۰' - L'0';
-        month[0] += L'۰' - L'0';
-        if (month[1])
-            month[1] += L'۰' - L'0';
-        year[0] += L'۰' - L'0';
-        year[1] += L'۰' - L'0';
-        year[2] += L'۰' - L'0';
-        year[3] += L'۰' - L'0';
+        RegQueryValueExA(key, "AppsUseLightTheme", nullptr, nullptr, reinterpret_cast<LPBYTE>(&value), &size);
+        RegCloseKey(key);
     }
+    return value == 0;
+}
 
-    wnsprintfW(state->notify_icon_data->szTip, sizeof(state->notify_icon_data->szTip) / sizeof(wchar_t),
-               L"%ls، %ls %ls/%ls %ls",
-               weekdays[(static_cast<size_t>(st.wDayOfWeek) + 1) % 7], day, months[(date.month - 1) % 12], month, year);
+static void ApplyDarkMode(HWND hDlg)
+{
+    HMODULE hDwm = LoadLibraryA("dwmapi.dll");
+    if (!hDwm)
+        return;
+    BOOL darkMode = IsDarkModeActive();
+    typedef HRESULT(WINAPI * DwmSetWindowAttribute_t)(HWND, DWORD, LPCVOID, DWORD);
+    auto pfnDwmSetWindowAttribute = reinterpret_cast<DwmSetWindowAttribute_t>(reinterpret_cast<void *>(
+        GetProcAddress(hDwm, "DwmSetWindowAttribute")));
+    if (pfnDwmSetWindowAttribute)
+        pfnDwmSetWindowAttribute(hDlg, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
+    InvalidateRect(hDlg, nullptr, TRUE);
+}
+
+static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+    converter_mode_t mode = static_cast<converter_mode_t>(
+        GetWindowLongPtrA(hwnd, GWLP_USERDATA));
+    switch (msg)
+    {
+    case WM_CREATE:
+        ApplyDarkMode(hwnd);
+        break;
+    case WM_SHOWWINDOW:
+    {
+        if (mode == INVALID)
+            return 0;
+        UINT dpi = GetSystemDpi();
+        auto d = [dpi](int value)
+        {
+            return dp(dpi, value);
+        };
+
+        HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
+        typedef HRESULT(WINAPI *pfnSetWindowTheme_t)(HWND, LPCWSTR, LPCWSTR);
+        pfnSetWindowTheme_t setWindowTheme = reinterpret_cast<pfnSetWindowTheme_t>(reinterpret_cast<void *>(
+            GetProcAddress(hUxtheme, "SetWindowTheme")));
+
+        typedef bool (WINAPI* pfnAllowDarkModeForWindow_t)(HWND hWnd, BOOL allow); 
+        pfnAllowDarkModeForWindow_t allowDarkModeForWindow = reinterpret_cast<pfnAllowDarkModeForWindow_t>(
+            reinterpret_cast<void *>(GetProcAddress(hUxtheme, MAKEINTRESOURCEA(133))));
+
+        BOOL darkMode = IsDarkModeActive();
+
+        LOGFONTW lf;
+        {
+            SecureZeroMemory(&lf, sizeof(LOGFONTW));
+            lf.lfHeight = -d(12);
+            lf.lfWeight = 400;
+            lf.lfOutPrecision = 1;
+            lf.lfClipPrecision = 2;
+            lf.lfQuality = 1;
+            lf.lfPitchAndFamily = VARIABLE_PITCH | FF_SWISS;
+            wnsprintfW(lf.lfFaceName, sizeof(lf.lfFaceName) / sizeof(wchar_t), L"Segoe UI");
+        }
+        HFONT font = CreateFontIndirectW(&lf);
+
+        unsigned year = 0, month = 0, day = 0;
+        {
+            gregorian_date_t today = today_in_gregorian();
+            if (mode == GREGORIAN)
+            {
+                year = today.year;
+                month = today.month;
+                day = today.day;
+            }
+            else if (mode == PERSIAN)
+            {
+                unsigned days = gregorian_to_days(today.year, today.month, today.day);
+                persian_date_t date = days_to_persian(days);
+                year = date.year;
+                month = date.month;
+                day = date.day;
+            }
+        }
+        {
+            HWND hDay = CreateWindowExA(0, "COMBOBOX", nullptr,
+                                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                                        d(padding), d(padding), d(combo_width), d(combo_width), hwnd,
+                                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_day_combo_id)), hInst, nullptr);
+            for (unsigned i = 1; i <= 31; ++i)
+                SendMessageW(hDay, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(i).value));
+            SendMessageW(hDay, CB_SETCURSEL, day - 1, 0);
+            SendMessageW(hDay, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+            if (allowDarkModeForWindow) allowDarkModeForWindow(hDay, true);
+            if (setWindowTheme) setWindowTheme(hDay, darkMode ? L"CFD" : L"", nullptr);
+        }
+        {
+            HWND hMonth = CreateWindowExA(0, "COMBOBOX", nullptr,
+                                          WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                                          d(2 * padding + combo_width), d(padding), d(combo_width), d(combo_width), hwnd,
+                                          reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_month_combo_id)), hInst, nullptr);
+            for (unsigned i = 1; i <= 12; ++i)
+            {
+                wchar_t buf[32];
+                wnsprintfW(buf, sizeof(buf) / sizeof(wchar_t), L"%ls (%ls)", // L"%ls (%ls)",
+                           format_number(i).value,
+                           mode == PERSIAN ? persian_months[(i - 1) % 12] : gregorian_months[(i - 1) % 12]);
+                SendMessageW(hMonth, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(buf));
+            }
+            SendMessageW(hMonth, CB_SETCURSEL, month - 1, 0);
+            SendMessageW(hMonth, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+            if (allowDarkModeForWindow) allowDarkModeForWindow(hMonth, true);
+            if (setWindowTheme) setWindowTheme(hMonth, darkMode ? L"CFD" : L"", nullptr);
+        }
+        {
+            HWND hYear = CreateWindowExA(0, "COMBOBOX", nullptr,
+                                         WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                                         d(3 * padding + 2 * combo_width), d(padding), d(combo_width), d(combo_width), hwnd,
+                                         reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_year_combo_id)), hInst, nullptr);
+            constexpr unsigned years = 100;
+            for (unsigned i = 0; i <= years; ++i)
+                SendMessageW(hYear, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(year + i - years / 2).value));
+            SendMessageW(hYear, CB_SETCURSEL, years / 2, 0);
+            SendMessageW(hYear, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+            if (allowDarkModeForWindow) allowDarkModeForWindow(hYear, true);
+            if (setWindowTheme) setWindowTheme(hYear, darkMode ? L"CFD" : L"", nullptr);
+        }
+        do_conversion(hwnd, mode);
+        return 0;
+    }
+    case WM_ERASEBKGND:
+    {
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        BOOL darkMode = IsDarkModeActive();
+        HBRUSH brush = CreateSolidBrush(darkMode ? RGB(30, 30, 30) : GetSysColor(COLOR_BTNFACE));
+        FillRect(reinterpret_cast<HDC>(wparam), &rc, brush);
+        return 1;
+    }
+    case WM_SETTINGCHANGE:
+        ApplyDarkMode(hwnd);
+        break;
+    case WM_COMMAND:
+    {
+        const WORD id = LOWORD(wparam);
+        const WORD code = HIWORD(wparam);
+        if ((id == dlg_day_combo_id || id == dlg_month_combo_id || id == dlg_year_combo_id) && code == CBN_SELCHANGE)
+        {
+            do_conversion(hwnd, mode);
+            return 0;
+        }
+        break;
+    }
+    case WM_CLOSE:
+        DestroyWindow(hwnd);
+        return 0;
+    default:
+        break;
+    }
+    return DefWindowProcW(hwnd, msg, wparam, lparam);
+}
+
+constexpr static const wchar_t *converterClassName = L"ConverterDialog";
+
+static void open_converter_dialog(converter_mode_t mode)
+{
+    UINT dpi = GetSystemDpi();
+    HWND hwnd = CreateWindowExW(
+        WS_EX_DLGMODALFRAME | WS_EX_RTLREADING | WS_EX_LAYOUTRTL,
+        converterClassName,
+        L"",
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        dp(dpi, 4 * padding + padding / 2 + 3 * combo_width),
+        dp(dpi, combo_height + 2 * padding),
+        nullptr, nullptr, hInst, nullptr);
+    SetWindowLongPtr(hwnd, GWLP_USERDATA, static_cast<LONG_PTR>(mode));
+    if (hwnd)
+        ShowWindow(hwnd, SW_SHOW);
+}
+
+static void update(HWND hwnd, app_state_t *state)
+{
+    gregorian_date_t today = today_in_gregorian();
+    unsigned days = gregorian_to_days(today.year, today.month, today.day);
+    persian_date_t date = days_to_persian(days);
+    format_date(state->local_digits, PERSIAN, date.day, date.month, date.year,
+                days % 7,
+                state->notify_icon_data->szTip,
+                sizeof(state->notify_icon_data->szTip) / sizeof(wchar_t));
 
     // szTip allocated string is both used for the tooltip and first item of the menu
     create_menu(state, state->notify_icon_data->szTip);
 
     HDC hdc = GetDC(hwnd);
-    HICON icon = create_text_icon(hdc, day, state->black_background);
+    HICON icon = create_text_icon(hdc, format_number(date.day).value, state->black_background);
     ReleaseDC(hwnd, hdc);
     if (state->notify_icon_data->hIcon)
         DestroyIcon(state->notify_icon_data->hIcon);
@@ -304,6 +619,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
             Registry().set_black_background(state->black_background);
             return 0;
         }
+        else if (wparam == converter_from_persian_id)
+        {
+            open_converter_dialog(PERSIAN);
+            return 0;
+        }
+        else if (wparam == converter_from_gregorian_id)
+        {
+            open_converter_dialog(GREGORIAN);
+            return 0;
+        }
         else if (wparam == exit_id)
         {
             PostQuitMessage(EXIT_SUCCESS);
@@ -316,8 +641,25 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
     return DefWindowProcA(hwnd, msg, wparam, lparam);
 }
 
-// https://web.archive.org/web/20190205041452/https://blogs.msdn.microsoft.com/oldnewthing/20041025-00/?p=37483
-extern "C" IMAGE_DOS_HEADER __ImageBase;
+// https://stackoverflow.com/a/10444161
+static ULONG_PTR EnableVisualStyles(VOID)
+{
+    TCHAR dir[MAX_PATH];
+    ULONG_PTR ulpActivationCookie = FALSE;
+    ACTCTX actCtx;
+    SecureZeroMemory(&actCtx, sizeof(actCtx));
+    actCtx.cbSize = sizeof(actCtx);
+    actCtx.dwFlags = ACTCTX_FLAG_RESOURCE_NAME_VALID | ACTCTX_FLAG_SET_PROCESS_DEFAULT | ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID;
+    actCtx.lpSource = TEXT("shell32.dll");
+    actCtx.lpAssemblyDirectory = dir;
+    actCtx.lpResourceName = reinterpret_cast<LPCTSTR>(124);
+    UINT cch = GetSystemDirectory(dir, sizeof(dir) / sizeof(*dir));
+    if (cch >= sizeof(dir) / sizeof(*dir))
+        return FALSE; /*shouldn't happen*/
+    dir[cch % (sizeof(dir) / sizeof(*dir))] = TEXT('\0');
+    ActivateActCtx(CreateActCtx(&actCtx), &ulpActivationCookie);
+    return ulpActivationCookie;
+}
 
 extern "C" [[noreturn]] void start();
 void start()
@@ -325,12 +667,26 @@ void start()
     HANDLE mutex = CreateMutexA(nullptr, 0, const_cast<char *>(appId));
     if (!mutex || GetLastError() == ERROR_ALREADY_EXISTS)
         ExitProcess(EXIT_FAILURE);
-    HMODULE module = reinterpret_cast<HMODULE>(&__ImageBase);
+
+    EnableVisualStyles();
+
+    // Converter Dialog's class
+    {
+        WNDCLASSEXW wc;
+        SecureZeroMemory(&wc, sizeof(WNDCLASSEXW));
+        wc.cbSize = sizeof(WNDCLASSEXW);
+        wc.lpfnWndProc = ConverterDlgProc;
+        wc.hInstance = hInst;
+        wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_3DFACE + 1);
+        wc.lpszClassName = converterClassName;
+        wc.hCursor = LoadCursorA(nullptr, IDC_ARROW);
+        RegisterClassExW(&wc);
+    }
 
     // Passing "STATIC" as a class name and overriding its Window procedure is a hack to avoid
     // registering a window class, which would require more code. The created window is never shown, so it doesn't
     // matter that it's a "STATIC" control.
-    HWND hwnd = CreateWindowExA(0, "STATIC", nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, module, nullptr);
+    HWND hwnd = CreateWindowExA(0, "STATIC", nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
     SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc));
 
     // Initiation
@@ -350,6 +706,9 @@ void start()
         update(hwnd, &state);
         SetTimer(hwnd, 1 /*timer id*/, 60000, nullptr);
     }
+
+    // open_converter_dialog(PERSIAN);
+    // open_converter_dialog(GREGORIAN);
 
     // Main loop
     MSG msg;
