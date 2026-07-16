@@ -206,23 +206,38 @@ static void format_date(
                format_number(year, local_digits).value);
 }
 
+static gregorian_date_t today_in_gregorian()
+{
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    gregorian_date_t date;
+    date.day = st.wDay;
+    date.month = st.wMonth;
+    date.year = st.wYear;
+    return date;
+}
+
+constexpr unsigned combobox_years = 100;
+
 static void do_conversion(HWND hwnd, converter_mode_t mode)
 {
-    BOOL ok;
-    unsigned day = GetDlgItemInt(hwnd, dlg_day_combo_id, &ok, FALSE);
-    unsigned month = GetDlgItemInt(hwnd, dlg_month_combo_id, &ok, FALSE);
-    unsigned year = GetDlgItemInt(hwnd, dlg_year_combo_id, &ok, FALSE);
-
-    if (day == 0 || day > 31 || month == 0 || month > 12 || year == 0)
+    unsigned day = static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_day_combo_id, CB_GETCURSEL, 0, 0)) + 1;
+    unsigned month = static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_month_combo_id, CB_GETCURSEL, 0, 0)) + 1;
+    unsigned base_year = 0;
+    unsigned today_days;
     {
-        SetWindowTextW(hwnd, L"ورودی نامعتبر است");
-        // wchar_t result[128];
-        // wnsprintfW(result, sizeof(result) / sizeof(wchar_t), L"%d %d %d", day, month, year);
-        // SetWindowTextW(hwnd, result);
-        return;
+        gregorian_date_t today = today_in_gregorian();
+        today_days = gregorian_to_days(today.year, today.month, today.day);
+        if (mode == GREGORIAN)
+            base_year = today.year;
+        else if (mode == PERSIAN)
+        {
+            persian_date_t date = days_to_persian(today_days);
+            base_year = date.year;
+        }
     }
+    unsigned year = static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_year_combo_id, CB_GETCURSEL, 0, 0)) + base_year - combobox_years / 2;
 
-    wchar_t result[128];
     unsigned days = 0, converted_day = 0, converted_month = 0, converted_year = 0;
     {
         if (mode == GREGORIAN)
@@ -242,24 +257,49 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
             converted_day = date.day;
         }
     }
+
+    bool invalid = false;
+    {
+        if (mode == PERSIAN)
+        {
+            persian_date_t date = days_to_persian(days);
+            invalid = date.year != year || date.month != month || date.day != day;
+        }
+        else if (mode == GREGORIAN)
+        {
+            gregorian_date_t date = persian_to_gregorian(converted_year, converted_month, converted_day);
+            invalid = date.year != year || date.month != month || date.day != day;
+        }
+    }
+
+    if (day == 0 || day > 31 || month == 0 || month > 12 || invalid)
+    {
+        SetWindowTextW(hwnd, L"روز انتخاب‌شده نامعتبر است");
+        // wchar_t result[128];
+        // wnsprintfW(result, sizeof(result) / sizeof(wchar_t), L"%d %d %d", day, month, year);
+        // SetWindowTextW(hwnd, result);
+        return;
+    }
+
+    wchar_t formatted_date[128];
     format_date(TRUE, mode == PERSIAN ? GREGORIAN : PERSIAN,
                 converted_day,
                 converted_month,
                 converted_year,
                 days % 7,
-                result, sizeof(result) / sizeof(wchar_t));
+                formatted_date, sizeof(formatted_date) / sizeof(wchar_t));
+    wchar_t suffix[128];
+    if (days < today_days)
+        wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز پیش",
+                   format_number(today_days - days).value);
+    else if (days > today_days)
+        wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز بعد",
+                   format_number(days - today_days).value);
+    else
+        wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"امروز");
+    wchar_t result[128];
+    wnsprintfW(result, sizeof(result) / sizeof(wchar_t), L"%ls، %ls", formatted_date, suffix);
     SetWindowTextW(hwnd, result);
-}
-
-static gregorian_date_t today_in_gregorian()
-{
-    SYSTEMTIME st;
-    GetLocalTime(&st);
-    gregorian_date_t date;
-    date.day = st.wDay;
-    date.month = st.wMonth;
-    date.year = st.wYear;
-    return date;
 }
 
 static UINT GetSystemDpi()
@@ -327,11 +367,11 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         };
 
         HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
-        typedef HRESULT(WINAPI *pfnSetWindowTheme_t)(HWND, LPCWSTR, LPCWSTR);
+        typedef HRESULT(WINAPI * pfnSetWindowTheme_t)(HWND, LPCWSTR, LPCWSTR);
         pfnSetWindowTheme_t setWindowTheme = reinterpret_cast<pfnSetWindowTheme_t>(reinterpret_cast<void *>(
             GetProcAddress(hUxtheme, "SetWindowTheme")));
 
-        typedef bool (WINAPI* pfnAllowDarkModeForWindow_t)(HWND hWnd, BOOL allow); 
+        typedef bool(WINAPI * pfnAllowDarkModeForWindow_t)(HWND hWnd, BOOL allow);
         pfnAllowDarkModeForWindow_t allowDarkModeForWindow = reinterpret_cast<pfnAllowDarkModeForWindow_t>(
             reinterpret_cast<void *>(GetProcAddress(hUxtheme, MAKEINTRESOURCEA(133))));
 
@@ -377,8 +417,10 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 SendMessageW(hDay, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(i).value));
             SendMessageW(hDay, CB_SETCURSEL, day - 1, 0);
             SendMessageW(hDay, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-            if (allowDarkModeForWindow) allowDarkModeForWindow(hDay, true);
-            if (setWindowTheme) setWindowTheme(hDay, darkMode ? L"CFD" : L"", nullptr);
+            if (allowDarkModeForWindow)
+                allowDarkModeForWindow(hDay, true);
+            if (setWindowTheme)
+                setWindowTheme(hDay, darkMode ? L"CFD" : L"", nullptr);
         }
         {
             HWND hMonth = CreateWindowExA(0, "COMBOBOX", nullptr,
@@ -388,28 +430,31 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             for (unsigned i = 1; i <= 12; ++i)
             {
                 wchar_t buf[32];
-                wnsprintfW(buf, sizeof(buf) / sizeof(wchar_t), L"%ls (%ls)", // L"%ls (%ls)",
-                           format_number(i).value,
-                           mode == PERSIAN ? persian_months[(i - 1) % 12] : gregorian_months[(i - 1) % 12]);
+                wnsprintfW(buf, sizeof(buf) / sizeof(wchar_t), L"%ls (%ls)",
+                           mode == PERSIAN ? persian_months[(i - 1) % 12] : gregorian_months[(i - 1) % 12],
+                           format_number(i).value);
                 SendMessageW(hMonth, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(buf));
             }
             SendMessageW(hMonth, CB_SETCURSEL, month - 1, 0);
             SendMessageW(hMonth, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-            if (allowDarkModeForWindow) allowDarkModeForWindow(hMonth, true);
-            if (setWindowTheme) setWindowTheme(hMonth, darkMode ? L"CFD" : L"", nullptr);
+            if (allowDarkModeForWindow)
+                allowDarkModeForWindow(hMonth, true);
+            if (setWindowTheme)
+                setWindowTheme(hMonth, darkMode ? L"CFD" : L"", nullptr);
         }
         {
             HWND hYear = CreateWindowExA(0, "COMBOBOX", nullptr,
                                          WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
                                          d(3 * padding + 2 * combo_width), d(padding), d(combo_width), d(combo_width), hwnd,
                                          reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_year_combo_id)), hInst, nullptr);
-            constexpr unsigned years = 100;
-            for (unsigned i = 0; i <= years; ++i)
-                SendMessageW(hYear, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(year + i - years / 2).value));
-            SendMessageW(hYear, CB_SETCURSEL, years / 2, 0);
+            for (unsigned i = 0; i <= combobox_years; ++i)
+                SendMessageW(hYear, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(year + i - combobox_years / 2).value));
+            SendMessageW(hYear, CB_SETCURSEL, combobox_years / 2, 0);
             SendMessageW(hYear, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-            if (allowDarkModeForWindow) allowDarkModeForWindow(hYear, true);
-            if (setWindowTheme) setWindowTheme(hYear, darkMode ? L"CFD" : L"", nullptr);
+            if (allowDarkModeForWindow)
+                allowDarkModeForWindow(hYear, true);
+            if (setWindowTheme)
+                setWindowTheme(hYear, darkMode ? L"CFD" : L"", nullptr);
         }
         do_conversion(hwnd, mode);
         return 0;
