@@ -290,10 +290,10 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
                 formatted_date, sizeof(formatted_date) / sizeof(wchar_t));
     wchar_t suffix[128];
     if (days < today_days)
-        wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز پیش",
+        wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز در گذشته",
                    format_number(today_days - days).value);
     else if (days > today_days)
-        wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز بعد",
+        wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز در آینده",
                    format_number(days - today_days).value);
     else
         wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"امروز");
