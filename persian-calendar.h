@@ -17,7 +17,7 @@ inline persian_date_t gregorian_to_persian(unsigned gy, unsigned gm, unsigned gd
   {
     unsigned gy2 = (gm > 2) ? gy + 1 : gy;
     static const unsigned g_d_m[12] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
-    days = 355666 + (365 * gy) + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400 + gd + g_d_m[(gm - 1) % 12];
+    days = 355666 + 365 * gy + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400 + gd + g_d_m[(gm - 1) % 12];
   }
   unsigned year = days / 12053 * 33 - 1595;
   days %= 12053;
@@ -37,5 +37,37 @@ inline persian_date_t gregorian_to_persian(unsigned gy, unsigned gm, unsigned gd
     result.month = 7 + (days - 186) / 30;
     result.day = 1 + (days - 186) % 30;
   }
+  return result;
+}
+
+typedef struct { unsigned year; unsigned month; unsigned day; } gregorian_date_t;
+inline gregorian_date_t persian_to_gregorian(unsigned py, unsigned pm, unsigned pd) {
+  py += 1595;
+  unsigned days = 365 * py + py / 33 * 8 + (py % 33 + 3) / 4 + pd + ((pm < 7) ? (pm - 1) * 31 : (pm - 7) * 30 + 186) - 355668;
+  unsigned gy = days / 146097 * 400;
+  days %= 146097;
+  if (days > 36524) {
+    gy += 100 * (--days / 36524);
+    days %= 36524;
+    if (days >= 365) ++days;
+  }
+  gy += 4 * (days / 1461);
+  days %= 1461;
+  if (days > 365) {
+    gy += (days - 1) / 365;
+    days = (days - 1) % 365;
+  }
+  unsigned gd = days + 1;
+  unsigned gm;
+  {
+    unsigned leap_month = (gy % 4 == 0 && gy % 100 != 0) || (gy % 400 == 0) ? 29 : 28;
+    static const unsigned sal_a[13] = {0, 31, 0, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    for (gm = 0; gm < 13 && gd > (gm == 2 ? leap_month : sal_a[gm % 13]); ++gm)
+      gd -= gm == 2 ? leap_month : sal_a[gm % 13];
+  }
+  gregorian_date_t result;
+  result.year = gy;
+  result.month = gm;
+  result.day = gd;
   return result;
 }
