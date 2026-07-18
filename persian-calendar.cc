@@ -254,11 +254,9 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
     {
         unsigned today_days = today_in_days();
         if (days < today_days)
-            wsprintfW(suffix, L"، %s روز پیش",
-                      format_number(today_days - days).value);
+            wsprintfW(suffix, L"، %s روز پیش", format_number(today_days - days).value);
         else if (days > today_days)
-            wsprintfW(suffix, L"، %s روز آتی",
-                      format_number(days - today_days).value);
+            wsprintfW(suffix, L"، %s روز آتی", format_number(days - today_days).value);
         else
             wsprintfW(suffix, L"، امروز");
     }
@@ -311,6 +309,7 @@ static void ApplyAeroAndMica(HWND hDlg)
     HMODULE hDwm = LoadLibraryA("dwmapi.dll");
     if (!hDwm)
         return;
+
     {
         using func_t = HRESULT(WINAPI *)(HWND, MARGINS *);
         auto pDwmExtendFrameIntoClientArea = reinterpret_cast<func_t>(reinterpret_cast<void *>(
