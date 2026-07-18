@@ -198,7 +198,7 @@ static formatted_number_t format_number(unsigned number, bool local_digits = tru
 {
     formatted_number_t result;
     constexpr unsigned size = sizeof(result.value) / sizeof(wchar_t);
-    wnsprintfW(result.value, size, L"%d", number);
+    wsprintfW(result.value, L"%d", number);
     if (local_digits)
         for (unsigned i = 0; i < size && result.value[i % size]; ++i)
             result.value[i % size] += L'۰' - L'0';
@@ -207,16 +207,16 @@ static formatted_number_t format_number(unsigned number, bool local_digits = tru
 
 static void format_date(
     BOOL local_digits, converter_mode_t mode, date_triplet_t date, unsigned dayOfWeek,
-    wchar_t *result, int result_size, const wchar_t *suffix = L"")
+    wchar_t *result, const wchar_t *suffix = L"")
 {
-    wnsprintfW(result, result_size,
-               L"%s، %s %s(%s) %s%s",
-               weekdays[(dayOfWeek + 3) % 7],
-               format_number(date.day, local_digits).value,
-               mode == PERSIAN ? persian_months[(date.month - 1) % 12] : gregorian_months[(date.month - 1) % 12],
-               format_number(date.month, local_digits).value,
-               format_number(date.year, local_digits).value,
-               suffix);
+    wsprintfW(result,
+              L"%s، %s %s(%s) %s%s",
+              weekdays[(dayOfWeek + 3) % 7],
+              format_number(date.day, local_digits).value,
+              mode == PERSIAN ? persian_months[(date.month - 1) % 12] : gregorian_months[(date.month - 1) % 12],
+              format_number(date.month, local_digits).value,
+              format_number(date.year, local_digits).value,
+              suffix);
 }
 
 static unsigned today_in_days()
@@ -245,29 +245,28 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
     {
         SetWindowTextW(hwnd, L"روز انتخاب‌شده نامعتبر است");
         // wchar_t result[128];
-        // wnsprintfW(result, sizeof(result) / sizeof(wchar_t), L"%d %d %d", day, month, year);
+        // wsprintfW(result, L"%d %d %d", day, month, year);
         // SetWindowTextW(hwnd, result);
         return;
     }
 
-    constexpr size_t buffer_size = 128;
-    wchar_t suffix[buffer_size];
+    wchar_t suffix[128];
     {
         unsigned today_days = today_in_days();
         if (days < today_days)
-            wnsprintfW(suffix, buffer_size, L"، %s روز در گذشته",
-                       format_number(today_days - days).value);
+            wsprintfW(suffix, L"، %s روز در گذشته",
+                      format_number(today_days - days).value);
         else if (days > today_days)
-            wnsprintfW(suffix, buffer_size, L"، %s روز در آینده",
-                       format_number(days - today_days).value);
+            wsprintfW(suffix, L"، %s روز در آینده",
+                      format_number(days - today_days).value);
         else
-            wnsprintfW(suffix, buffer_size, L"، امروز");
+            wsprintfW(suffix, L"، امروز");
     }
-    wchar_t result[buffer_size];
+    wchar_t result[128];
     format_date(TRUE, mode == PERSIAN ? GREGORIAN : PERSIAN,
                 converted_date,
                 days % 7,
-                result, buffer_size, suffix);
+                result, suffix);
     SetWindowTextW(hwnd, result);
 }
 
@@ -395,9 +394,9 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             for (unsigned i = 1; i <= 12; ++i)
             {
                 wchar_t buf[32];
-                wnsprintfW(buf, sizeof(buf) / sizeof(wchar_t), L"%s (%s)",
-                           mode == PERSIAN ? persian_months[(i - 1) % 12] : gregorian_months[(i - 1) % 12],
-                           format_number(i).value);
+                wsprintfW(buf, L"%s (%s)",
+                          mode == PERSIAN ? persian_months[(i - 1) % 12] : gregorian_months[(i - 1) % 12],
+                          format_number(i).value);
                 SendMessageW(hMonth, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(buf));
             }
             SendMessageW(hMonth, CB_SETCURSEL, date.month - 1, 0);
@@ -484,8 +483,7 @@ static void update(HWND hwnd, app_state_t *state)
     unsigned days = today_in_days();
     persian_date_t date = days_to_persian(days);
     format_date(state->local_digits, PERSIAN, date, days % 7,
-                state->notify_icon_data->szTip,
-                sizeof(state->notify_icon_data->szTip) / sizeof(wchar_t));
+                state->notify_icon_data->szTip);
 
     // szTip allocated string is both used for the tooltip and first item of the menu
     create_menu(state, state->notify_icon_data->szTip);
