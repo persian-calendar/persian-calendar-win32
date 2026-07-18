@@ -235,8 +235,8 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
         }
         else if (mode == PERSIAN)
         {
-            gregorian_date_t date = persian_to_gregorian(year, month, day);
-            days = gregorian_to_days(date.year, date.month, date.day);
+            days = persian_to_days(year, month, day);
+            gregorian_date_t date = days_to_gregorian(days);
             converted_year = date.year;
             converted_month = date.month;
             converted_day = date.day;
@@ -252,7 +252,7 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
         }
         else if (mode == GREGORIAN)
         {
-            gregorian_date_t date = persian_to_gregorian(converted_year, converted_month, converted_day);
+            gregorian_date_t date = days_to_gregorian(days);
             invalid = date.year != year || date.month != month || date.day != day;
         }
     }

@@ -40,9 +40,13 @@ inline persian_date_t days_to_persian(unsigned days) {
 }
 
 typedef struct { unsigned year; unsigned month; unsigned day; } gregorian_date_t;
-inline gregorian_date_t persian_to_gregorian(unsigned py, unsigned pm, unsigned pd) {
+inline unsigned persian_to_days(unsigned py, unsigned pm, unsigned pd) {
   py += 1595;
-  unsigned days = 365 * py + py / 33 * 8 + (py % 33 + 3) / 4 + pd + ((pm < 7) ? (pm - 1) * 31 : (pm - 7) * 30 + 186) - 355668;
+  return 365 * py + py / 33 * 8 + (py % 33 + 3) / 4 + pd + ((pm < 7) ? (pm - 1) * 31 : (pm - 7) * 30 + 186) - 1;
+}
+
+inline gregorian_date_t days_to_gregorian(unsigned days) {
+  days -= 355667;
   unsigned gy = days / 146097 * 400;
   days %= 146097;
   if (days > 36524) {
