@@ -332,8 +332,9 @@ static void ApplyAeroAndMica(HWND hDlg)
             pDwmSetWindowAttribute(hDlg, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
         }
     }
-    FreeLibrary(hDwm);
+
     InvalidateRect(hDlg, nullptr, TRUE);
+    FreeLibrary(hDwm);
 }
 
 static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
