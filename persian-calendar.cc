@@ -118,13 +118,13 @@ static void create_menu(app_state_t *state, wchar_t *date)
     {
         menu_item.fState = 0;
         menu_item.wID = converter_from_persian_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل تاریخ از شمسی");
+        menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل از شمسی");
         InsertMenuItemW(menu, converter_from_persian_id, TRUE, &menu_item);
     }
     {
         menu_item.fState = 0;
         menu_item.wID = converter_from_gregorian_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل تاریخ از میلادی");
+        menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل از میلادی");
         InsertMenuItemW(menu, converter_from_gregorian_id, TRUE, &menu_item);
     }
     InsertMenuA(menu, third_separator_id, MF_SEPARATOR, TRUE, nullptr);
@@ -254,7 +254,7 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
                 converted_date,
                 days % 7,
                 formatted_date, buffer_size);
-    wchar_t suffix[buffer_size];
+    wchar_t suffix[buffer_size] = L"امروز";
     {
         unsigned today_days = today_in_days();
         if (days < today_days)
@@ -263,8 +263,6 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
         else if (days > today_days)
             wnsprintfW(suffix, buffer_size, L"%s روز در آینده",
                        format_number(days - today_days).value);
-        else
-            wnsprintfW(suffix, buffer_size, L"امروز");
     }
     wchar_t result[buffer_size];
     wnsprintfW(result, buffer_size, L"%s، %s", formatted_date, suffix);
