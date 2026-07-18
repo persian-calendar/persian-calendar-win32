@@ -306,7 +306,7 @@ static BOOL IsDarkModeActive()
 
 static void ApplyAeroAndMica(HWND hDlg)
 {
-    HMODULE hDwm = LoadLibraryA("dwmapi.dll");
+    HMODULE hDwm = GetModuleHandleA("dwmapi.dll");
     if (!hDwm)
         return;
 
@@ -334,7 +334,6 @@ static void ApplyAeroAndMica(HWND hDlg)
     }
 
     InvalidateRect(hDlg, nullptr, TRUE);
-    FreeLibrary(hDwm);
 }
 
 static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -429,11 +428,9 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     {
         RECT rc;
         GetClientRect(hwnd, &rc);
-        HMODULE hDwm = LoadLibraryA("dwmapi.dll");
-        // Quick XP detection via dwmapi, use Window color instead of transparent color key
+        HMODULE hDwm = GetModuleHandleA("dwmapi.dll");
+        // Quick XP detection via dwmapi existence, use Window color instead of transparent color key
         HBRUSH brush = CreateSolidBrush(hDwm ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
-        if (hDwm)
-            FreeLibrary(hDwm);
         FillRect(reinterpret_cast<HDC>(wparam), &rc, brush);
         DeleteObject(brush);
         return 1;
