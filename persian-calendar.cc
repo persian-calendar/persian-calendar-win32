@@ -251,14 +251,14 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
     }
 
     constexpr size_t buffer_size = 128;
-    wchar_t suffix[buffer_size] = L"امروز";
+    wchar_t suffix[buffer_size] = L"، امروز";
     {
         unsigned today_days = today_in_days();
         if (days < today_days)
-            wnsprintfW(suffix, buffer_size, L"%s روز در گذشته",
+            wnsprintfW(suffix, buffer_size, L"، %s روز در گذشته",
                        format_number(today_days - days).value);
         else if (days > today_days)
-            wnsprintfW(suffix, buffer_size, L"%s روز در آینده",
+            wnsprintfW(suffix, buffer_size, L"، %s روز در آینده",
                        format_number(days - today_days).value);
     }
     wchar_t result[buffer_size];
