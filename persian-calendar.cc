@@ -705,7 +705,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
 }
 
 // https://stackoverflow.com/a/10444161
-static ULONG_PTR EnableVisualStyles(VOID)
+// This is instead of putting a manifest XML
+static ULONG_PTR EnableVisualStyles()
 {
     TCHAR dir[MAX_PATH];
     ULONG_PTR ulpActivationCookie = FALSE;
