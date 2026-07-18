@@ -260,7 +260,8 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
         else if (days > today_days)
             wnsprintfW(suffix, buffer_size, L"، %s روز در آینده",
                        format_number(days - today_days).value);
-        else wnsprintfW(suffix, buffer_size, L"، امروز");
+        else
+            wnsprintfW(suffix, buffer_size, L"، امروز");
     }
     wchar_t result[buffer_size];
     format_date(TRUE, mode == PERSIAN ? GREGORIAN : PERSIAN,
@@ -349,6 +350,9 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         break;
     case WM_SHOWWINDOW:
     {
+        if (mode == INVALID)
+            return 0;
+
         UINT dpi = GetSystemDpi();
         auto d = [dpi](int value)
         {
@@ -368,16 +372,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
         HFONT font = get_system_font(-d(12));
 
-        date_triplet_t date;
-        {
-            unsigned today = today_in_days();
-            if (mode == GREGORIAN)
-                date = days_to_gregorian(today);
-            else if (mode == PERSIAN)
-                date = days_to_persian(today);
-            else
-                return 0;
-        }
+        date_triplet_t date = mode == PERSIAN ? days_to_persian(today_in_days()) : days_to_gregorian(today_in_days());
         {
             HWND hDay = CreateWindowExA(0, "COMBOBOX", nullptr,
                                         WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
