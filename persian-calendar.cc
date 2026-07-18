@@ -1,4 +1,5 @@
 #define WIN32_LEAN_AND_MEAN
+#define WINVER 0x0500 // XP support, and maybe 2000? Why not
 #include <windows.h>
 #include <shellapi.h>
 #include <shlwapi.h>
@@ -355,18 +356,19 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
         BOOL darkMode = IsDarkModeActive();
 
-        LOGFONTW lf;
+        HFONT font;
         {
-            SecureZeroMemory(&lf, sizeof(LOGFONTW));
-            lf.lfHeight = -d(12);
-            lf.lfWeight = 400;
-            lf.lfOutPrecision = 1;
-            lf.lfClipPrecision = 2;
-            lf.lfQuality = 1;
-            lf.lfPitchAndFamily = VARIABLE_PITCH | FF_SWISS;
-            wnsprintfW(lf.lfFaceName, sizeof(lf.lfFaceName) / sizeof(wchar_t), L"Segoe UI");
+            NONCLIENTMETRICSA ncm;
+            SecureZeroMemory(&ncm, sizeof(ncm));
+            ncm.cbSize = sizeof(NONCLIENTMETRICSA);
+            if (SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
+            {
+                ncm.lfMessageFont.lfHeight = -d(12);
+                font = CreateFontIndirectA(&ncm.lfMessageFont);
+            }
+            else
+                font = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
         }
-        HFONT font = CreateFontIndirectW(&lf);
 
         date_triplet_t date;
         {
@@ -662,21 +664,21 @@ static void enable_dark_mode_support()
 // This is instead of putting a manifest XML
 static ULONG_PTR enable_visual_styles()
 {
-    wchar_t dir[MAX_PATH];
+    char dir[MAX_PATH];
     ULONG_PTR ulpActivationCookie = FALSE;
-    ACTCTXW actCtx;
+    ACTCTXA actCtx;
     SecureZeroMemory(&actCtx, sizeof(actCtx));
     actCtx.cbSize = sizeof(actCtx);
     actCtx.dwFlags = ACTCTX_FLAG_RESOURCE_NAME_VALID | ACTCTX_FLAG_SET_PROCESS_DEFAULT | ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID;
-    actCtx.lpSource = L"shell32.dll";
+    actCtx.lpSource = "shell32.dll";
     actCtx.lpAssemblyDirectory = dir;
-    actCtx.lpResourceName = reinterpret_cast<LPCWSTR>(124);
+    actCtx.lpResourceName = MAKEINTRESOURCEA(124);
     constexpr unsigned dir_size = sizeof(dir) / sizeof(*dir);
-    UINT cch = GetSystemDirectoryW(dir, dir_size);
+    UINT cch = GetSystemDirectoryA(dir, dir_size);
     if (cch >= dir_size)
         return FALSE; /*shouldn't happen*/
-    dir[cch % dir_size] = L'\0';
-    ActivateActCtx(CreateActCtxW(&actCtx), &ulpActivationCookie);
+    dir[cch % dir_size] = '\0';
+    ActivateActCtx(CreateActCtxA(&actCtx), &ulpActivationCookie);
     return ulpActivationCookie;
 }
 
