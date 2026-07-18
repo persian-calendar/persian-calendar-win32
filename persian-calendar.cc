@@ -183,14 +183,14 @@ struct formatted_number_t
 {
     wchar_t value[8];
 };
-static formatted_number_t format_number(unsigned number, BOOL local_digits = 1)
+static formatted_number_t format_number(unsigned number, bool local_digits = true)
 {
     formatted_number_t result;
     constexpr unsigned size = sizeof(result.value) / sizeof(wchar_t);
     wnsprintfW(result.value, size, L"%d", number);
     if (local_digits)
-        for (unsigned j = 0; j < size && result.value[j % size]; ++j)
-            result.value[j % size] += L'۰' - L'0';
+        for (unsigned i = 0; i < size && result.value[i % size]; ++i)
+            result.value[i % size] += L'۰' - L'0';
     return result;
 }
 
