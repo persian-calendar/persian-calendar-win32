@@ -688,8 +688,6 @@ void start()
     if (!mutex || GetLastError() == ERROR_ALREADY_EXISTS)
         ExitProcess(EXIT_FAILURE);
 
-    enable_visual_styles();
-
     // Converter Dialog's class
     {
         WNDCLASSEXW wc;
@@ -713,9 +711,9 @@ void start()
     SecureZeroMemory(&notify_icon_data, sizeof(NOTIFYICONDATAW));
     app_state_t state(&notify_icon_data);
     {
+        enable_visual_styles();
         enable_hidpi();
         enable_dark_mode_support();
-        enable_visual_styles();
         notify_icon_data.cbSize = sizeof(NOTIFYICONDATAW);
         notify_icon_data.uCallbackMessage = notifyClickId;
         notify_icon_data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
