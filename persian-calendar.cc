@@ -449,9 +449,6 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         }
         break;
     }
-    case WM_CLOSE:
-        DestroyWindow(hwnd);
-        return 0;
     default:
         break;
     }
@@ -577,9 +574,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
         GetWindowLongPtrA(hwnd, GWLP_USERDATA));
     switch (msg)
     {
-    case WM_CLOSE:
-        DestroyWindow(hwnd);
-        return 0;
     case WM_DESTROY:
         PostQuitMessage(EXIT_SUCCESS);
         return 0;
