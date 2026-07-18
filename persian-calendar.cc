@@ -248,26 +248,26 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
         return;
     }
 
-    constexpr size_t bufffer_size = 128;
-    wchar_t formatted_date[bufffer_size];
+    constexpr size_t buffer_size = 128;
+    wchar_t formatted_date[buffer_size];
     format_date(TRUE, mode == PERSIAN ? GREGORIAN : PERSIAN,
                 converted_date,
                 days % 7,
-                formatted_date, bufffer_size);
-    wchar_t suffix[bufffer_size];
+                formatted_date, buffer_size);
+    wchar_t suffix[buffer_size];
     {
         unsigned today_days = today_in_days();
         if (days < today_days)
-            wnsprintfW(suffix, bufffer_size, L"%s روز در گذشته",
+            wnsprintfW(suffix, buffer_size, L"%s روز در گذشته",
                        format_number(today_days - days).value);
         else if (days > today_days)
-            wnsprintfW(suffix, bufffer_size, L"%s روز در آینده",
+            wnsprintfW(suffix, buffer_size, L"%s روز در آینده",
                        format_number(days - today_days).value);
         else
-            wnsprintfW(suffix, bufffer_size, L"امروز");
+            wnsprintfW(suffix, buffer_size, L"امروز");
     }
-    wchar_t result[bufffer_size];
-    wnsprintfW(result, bufffer_size, L"%s، %s", formatted_date, suffix);
+    wchar_t result[buffer_size];
+    wnsprintfW(result, buffer_size, L"%s، %s", formatted_date, suffix);
     SetWindowTextW(hwnd, result);
 }
 
