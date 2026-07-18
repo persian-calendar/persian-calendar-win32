@@ -251,7 +251,7 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
     }
 
     constexpr size_t buffer_size = 128;
-    wchar_t suffix[buffer_size] = L"، امروز";
+    wchar_t suffix[buffer_size];
     {
         unsigned today_days = today_in_days();
         if (days < today_days)
@@ -260,6 +260,7 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
         else if (days > today_days)
             wnsprintfW(suffix, buffer_size, L"، %s روز در آینده",
                        format_number(days - today_days).value);
+        else wnsprintfW(suffix, buffer_size, L"، امروز");
     }
     wchar_t result[buffer_size];
     format_date(TRUE, mode == PERSIAN ? GREGORIAN : PERSIAN,
