@@ -304,10 +304,10 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
 
 static UINT GetSystemDpi()
 {
-    typedef UINT(WINAPI * func_t)();
-    func_t func = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+    using func_t = UINT(WINAPI *)();
+    auto pGetDpiForSystem = reinterpret_cast<func_t>(reinterpret_cast<void *>(
         GetProcAddress(GetModuleHandleA("user32.dll"), "GetDpiForSystem")));
-    return func ? func() : 96;
+    return pGetDpiForSystem ? pGetDpiForSystem() : 96;
 }
 
 static int dp(UINT dpi, int value)
@@ -340,23 +340,27 @@ static void ApplyAeroAndMica(HWND hDlg)
     HMODULE hDwm = LoadLibraryA("dwmapi.dll");
     if (!hDwm)
         return;
-    typedef HRESULT(WINAPI * DwmExtendFrameIntoClientArea_t)(HWND, MARGINS *);
-    auto pfnDwmExtendFrameIntoClientArea = reinterpret_cast<DwmExtendFrameIntoClientArea_t>(reinterpret_cast<void *>(
-        GetProcAddress(hDwm, "DwmExtendFrameIntoClientArea")));
-    MARGINS margins = {-1, -1, -1, -1};
-    if (pfnDwmExtendFrameIntoClientArea)
-        pfnDwmExtendFrameIntoClientArea(hDlg, &margins);
-
-    typedef HRESULT(WINAPI * DwmSetWindowAttribute_t)(HWND, DWORD, LPCVOID, DWORD);
-    auto pfnDwmSetWindowAttribute = reinterpret_cast<DwmSetWindowAttribute_t>(reinterpret_cast<void *>(
-        GetProcAddress(hDwm, "DwmSetWindowAttribute")));
-    if (pfnDwmSetWindowAttribute)
     {
-        BOOL darkMode = IsDarkModeActive();
-        if (darkMode)
-            pfnDwmSetWindowAttribute(hDlg, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
-        int backdropType = DWMSBT_MAINWINDOW;
-        pfnDwmSetWindowAttribute(hDlg, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
+        using func_t = HRESULT(WINAPI *)(HWND, MARGINS *);
+        auto pDwmExtendFrameIntoClientArea = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+            GetProcAddress(hDwm, "DwmExtendFrameIntoClientArea")));
+        MARGINS margins = {-1, -1, -1, -1};
+        if (pDwmExtendFrameIntoClientArea)
+            pDwmExtendFrameIntoClientArea(hDlg, &margins);
+    }
+
+    {
+        using func_t = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+        auto pDwmSetWindowAttribute = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+            GetProcAddress(hDwm, "DwmSetWindowAttribute")));
+        if (pDwmSetWindowAttribute)
+        {
+            BOOL darkMode = IsDarkModeActive();
+            if (darkMode)
+                pDwmSetWindowAttribute(hDlg, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
+            int backdropType = DWMSBT_MAINWINDOW;
+            pDwmSetWindowAttribute(hDlg, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
+        }
     }
     FreeLibrary(hDwm);
     InvalidateRect(hDlg, nullptr, TRUE);
@@ -383,12 +387,12 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         };
 
         HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
-        typedef HRESULT(WINAPI * pfnSetWindowTheme_t)(HWND, LPCWSTR, LPCWSTR);
-        pfnSetWindowTheme_t setWindowTheme = reinterpret_cast<pfnSetWindowTheme_t>(reinterpret_cast<void *>(
+        using func1_t = HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR);
+        auto pSetWindowTheme = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
             GetProcAddress(hUxtheme, "SetWindowTheme")));
 
-        typedef bool(WINAPI * pfnAllowDarkModeForWindow_t)(HWND hWnd, BOOL allow);
-        pfnAllowDarkModeForWindow_t allowDarkModeForWindow = reinterpret_cast<pfnAllowDarkModeForWindow_t>(
+        using func2_t = bool(WINAPI *)(HWND hWnd, BOOL allow);
+        auto pAllowDarkModeForWindow = reinterpret_cast<func2_t>(
             reinterpret_cast<void *>(GetProcAddress(hUxtheme, MAKEINTRESOURCEA(133))));
 
         BOOL darkMode = IsDarkModeActive();
@@ -433,10 +437,10 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 SendMessageW(hDay, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(i).value));
             SendMessageW(hDay, CB_SETCURSEL, day - 1, 0);
             SendMessageW(hDay, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-            if (allowDarkModeForWindow && darkMode)
-                allowDarkModeForWindow(hDay, true);
-            if (setWindowTheme && darkMode)
-                setWindowTheme(hDay, L"CFD", nullptr);
+            if (pAllowDarkModeForWindow && darkMode)
+                pAllowDarkModeForWindow(hDay, true);
+            if (pSetWindowTheme && darkMode)
+                pSetWindowTheme(hDay, L"CFD", nullptr);
         }
         {
             HWND hMonth = CreateWindowExA(0, "COMBOBOX", nullptr,
@@ -453,10 +457,10 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             }
             SendMessageW(hMonth, CB_SETCURSEL, month - 1, 0);
             SendMessageW(hMonth, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-            if (allowDarkModeForWindow && darkMode)
-                allowDarkModeForWindow(hMonth, true);
-            if (setWindowTheme && darkMode)
-                setWindowTheme(hMonth, L"CFD", nullptr);
+            if (pAllowDarkModeForWindow && darkMode)
+                pAllowDarkModeForWindow(hMonth, true);
+            if (pSetWindowTheme && darkMode)
+                pSetWindowTheme(hMonth, L"CFD", nullptr);
         }
         {
             HWND hYear = CreateWindowExA(0, "COMBOBOX", nullptr,
@@ -467,10 +471,10 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 SendMessageW(hYear, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(year + i - combobox_years / 2).value));
             SendMessageW(hYear, CB_SETCURSEL, combobox_years / 2, 0);
             SendMessageW(hYear, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-            if (allowDarkModeForWindow && darkMode)
-                allowDarkModeForWindow(hYear, true);
-            if (setWindowTheme && darkMode)
-                setWindowTheme(hYear, L"CFD", nullptr);
+            if (pAllowDarkModeForWindow && darkMode)
+                pAllowDarkModeForWindow(hYear, true);
+            if (pSetWindowTheme && darkMode)
+                pSetWindowTheme(hYear, L"CFD", nullptr);
         }
         do_conversion(hwnd, mode);
         return 0;
@@ -688,20 +692,20 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
 
 static void enable_hidpi()
 {
-    typedef BOOL(WINAPI * func_t)(DPI_AWARENESS_CONTEXT);
-    func_t func = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+    using func_t = BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT);
+    auto pSetProcessDpiAwarenessContext = reinterpret_cast<func_t>(reinterpret_cast<void *>(
         GetProcAddress(GetModuleHandleA("user32.dll"), "SetProcessDpiAwarenessContext")));
-    if (func)
-        func(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    if (pSetProcessDpiAwarenessContext)
+        pSetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 }
 
 static void enable_dark_mode_support()
 {
-    typedef INT(WINAPI * func_t)(INT); // undocumented SetPreferredAppMode's signature
-    func_t func = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+    using func_t = INT(WINAPI *)(INT); // undocumented SetPreferredAppMode's signature
+    auto pSetPreferredAppMode = reinterpret_cast<func_t>(reinterpret_cast<void *>(
         GetProcAddress(GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(135))));
-    if (func)
-        func(/*Allow dark*/ 1);
+    if (pSetPreferredAppMode)
+        pSetPreferredAppMode(/*Allow dark*/ 1);
 }
 
 // https://stackoverflow.com/a/10444161
