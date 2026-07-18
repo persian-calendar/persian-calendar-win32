@@ -206,15 +206,17 @@ static formatted_number_t format_number(unsigned number, bool local_digits = tru
 }
 
 static void format_date(
-    BOOL local_digits, converter_mode_t mode, date_triplet_t date, unsigned dayOfWeek, wchar_t *result, int result_size)
+    BOOL local_digits, converter_mode_t mode, date_triplet_t date, unsigned dayOfWeek,
+    wchar_t *result, int result_size, const wchar_t *suffix = L"")
 {
     wnsprintfW(result, result_size,
-               L"%s، %s %s(%s) %s",
+               L"%s، %s %s(%s) %s%s",
                weekdays[(dayOfWeek + 3) % 7],
                format_number(date.day, local_digits).value,
                mode == PERSIAN ? persian_months[(date.month - 1) % 12] : gregorian_months[(date.month - 1) % 12],
                format_number(date.month, local_digits).value,
-               format_number(date.year, local_digits).value);
+               format_number(date.year, local_digits).value,
+               suffix);
 }
 
 static unsigned today_in_days()
@@ -249,11 +251,6 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
     }
 
     constexpr size_t buffer_size = 128;
-    wchar_t formatted_date[buffer_size];
-    format_date(TRUE, mode == PERSIAN ? GREGORIAN : PERSIAN,
-                converted_date,
-                days % 7,
-                formatted_date, buffer_size);
     wchar_t suffix[buffer_size] = L"امروز";
     {
         unsigned today_days = today_in_days();
@@ -265,7 +262,10 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
                        format_number(days - today_days).value);
     }
     wchar_t result[buffer_size];
-    wnsprintfW(result, buffer_size, L"%s، %s", formatted_date, suffix);
+    format_date(TRUE, mode == PERSIAN ? GREGORIAN : PERSIAN,
+                converted_date,
+                days % 7,
+                result, buffer_size, suffix);
     SetWindowTextW(hwnd, result);
 }
 
