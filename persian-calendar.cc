@@ -429,7 +429,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         RECT rc;
         GetClientRect(hwnd, &rc);
         HMODULE hDwm = GetModuleHandleA("dwmapi.dll");
-        // Quick XP detection via dwmapi existence, use Window color instead of transparent color key
+        // Quick XP detection via dwmapi existence, use button face color instead of transparent color key
         HBRUSH brush = CreateSolidBrush(hDwm ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
         FillRect(reinterpret_cast<HDC>(wparam), &rc, brush);
         DeleteObject(brush);
