@@ -465,7 +465,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     return DefWindowProcW(hwnd, msg, wparam, lparam);
 }
 
-constexpr static const wchar_t *converterClassName = L"ConverterDialog";
+constexpr static const wchar_t *converterClassName = L"CnvDlg";
 
 static void open_converter_dialog(converter_mode_t mode)
 {
