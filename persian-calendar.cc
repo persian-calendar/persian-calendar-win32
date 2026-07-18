@@ -11,6 +11,19 @@
 extern "C" IMAGE_DOS_HEADER __ImageBase;
 #define hInst (reinterpret_cast<HMODULE>(&__ImageBase))
 
+static HFONT get_system_font(LONG size)
+{
+    NONCLIENTMETRICSA ncm;
+    SecureZeroMemory(&ncm, sizeof(ncm));
+    ncm.cbSize = sizeof(NONCLIENTMETRICSA);
+    if (SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
+    {
+        ncm.lfMessageFont.lfHeight = size;
+        return CreateFontIndirectA(&ncm.lfMessageFont);
+    }
+    return reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+}
+
 static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_background)
 {
     const int size = 128; // GetSystemMetrics(SM_CXSMICON); oversized icon looks better
@@ -25,10 +38,7 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
     SetBkMode(memDC, TRANSPARENT);
     SetTextColor(memDC, RGB(255, 255, 255));
 
-    HFONT hFont = CreateFontA(
-        -size + 4, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_OUTLINE_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, VARIABLE_PITCH, "Calibri");
+    HFONT hFont = get_system_font(-size + 12);
     HGDIOBJ oldFont = SelectObject(memDC, hFont);
 
     DrawTextW(memDC, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -356,19 +366,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
         BOOL darkMode = IsDarkModeActive();
 
-        HFONT font;
-        {
-            NONCLIENTMETRICSA ncm;
-            SecureZeroMemory(&ncm, sizeof(ncm));
-            ncm.cbSize = sizeof(NONCLIENTMETRICSA);
-            if (SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
-            {
-                ncm.lfMessageFont.lfHeight = -d(12);
-                font = CreateFontIndirectA(&ncm.lfMessageFont);
-            }
-            else
-                font = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
-        }
+        HFONT font = get_system_font(-d(12));
 
         date_triplet_t date;
         {
@@ -498,7 +496,7 @@ static void update(HWND hwnd, app_state_t *state)
     create_menu(state, state->notify_icon_data->szTip);
 
     HDC hdc = GetDC(hwnd);
-    HICON icon = create_text_icon(hdc, format_number(date.day).value, state->black_background);
+    HICON icon = create_text_icon(hdc, format_number(date.day, state->local_digits).value, state->black_background);
     ReleaseDC(hwnd, hdc);
     if (state->notify_icon_data->hIcon)
         DestroyIcon(state->notify_icon_data->hIcon);
