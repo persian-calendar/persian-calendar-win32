@@ -706,22 +706,23 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
 
 // https://stackoverflow.com/a/10444161
 // This is instead of putting a manifest XML
-static ULONG_PTR EnableVisualStyles()
+static ULONG_PTR enable_visual_styles()
 {
-    TCHAR dir[MAX_PATH];
+    wchar_t dir[MAX_PATH];
     ULONG_PTR ulpActivationCookie = FALSE;
-    ACTCTX actCtx;
+    ACTCTXW actCtx;
     SecureZeroMemory(&actCtx, sizeof(actCtx));
     actCtx.cbSize = sizeof(actCtx);
     actCtx.dwFlags = ACTCTX_FLAG_RESOURCE_NAME_VALID | ACTCTX_FLAG_SET_PROCESS_DEFAULT | ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID;
-    actCtx.lpSource = TEXT("shell32.dll");
+    actCtx.lpSource = L"shell32.dll";
     actCtx.lpAssemblyDirectory = dir;
-    actCtx.lpResourceName = reinterpret_cast<LPCTSTR>(124);
-    UINT cch = GetSystemDirectory(dir, sizeof(dir) / sizeof(*dir));
-    if (cch >= sizeof(dir) / sizeof(*dir))
+    actCtx.lpResourceName = reinterpret_cast<LPCWSTR>(124);
+    constexpr unsigned dir_size = sizeof(dir) / sizeof(*dir);
+    UINT cch = GetSystemDirectoryW(dir, dir_size);
+    if (cch >= dir_size)
         return FALSE; /*shouldn't happen*/
-    dir[cch % (sizeof(dir) / sizeof(*dir))] = TEXT('\0');
-    ActivateActCtx(CreateActCtx(&actCtx), &ulpActivationCookie);
+    dir[cch % dir_size] = L'\0';
+    ActivateActCtx(CreateActCtxW(&actCtx), &ulpActivationCookie);
     return ulpActivationCookie;
 }
 
@@ -732,7 +733,7 @@ void start()
     if (!mutex || GetLastError() == ERROR_ALREADY_EXISTS)
         ExitProcess(EXIT_FAILURE);
 
-    EnableVisualStyles();
+    enable_visual_styles();
 
     // Converter Dialog's class
     {
