@@ -46,7 +46,6 @@ inline unsigned persian_to_days(persian_date_t date) {
   unsigned pd = date.day;
   return 365 * py + py / 33 * 8 + (py % 33 + 3) / 4 + pd + ((pm < 7) ? (pm - 1) * 31 : (pm - 7) * 30 + 186) - 1;
 }
-
 inline gregorian_date_t days_to_gregorian(unsigned days) {
   days -= 355667;
   unsigned gy = days / 146097 * 400;
