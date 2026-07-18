@@ -21,17 +21,12 @@ int main()
         uint32_t gy, gm, gd, py, pm, pd;
         if (sscanf(line, "%d,%d,%d,%d,%d,%d", &gy, &gm, &gd, &py, &pm, &pd) == 6)
         {
-            unsigned days1, days2;
+            if (gregorian_to_days({gy, gm, gd}) != persian_to_days({py, pm, pd}))
             {
-                days1 = gregorian_to_days(gy, gm, gd);
-                days2 = persian_to_days(py, pm, pd);
-                if (days1 != days2)
-                {
-                    printf("Error in %s, days1=%u, days2=%u\n", line, days1, days2);
-                    had_error = true;
-                }
+                printf("Error in %s", line);
+                had_error = true;
             }
-            unsigned days = days1; // or days2, they should be e
+            unsigned days = gregorian_to_days({gy, gm, gd});
             {
                 persian_date_t persian_date = days_to_persian(days);
                 if (persian_date.year != py || persian_date.month != pm || persian_date.day != pd)
@@ -41,7 +36,7 @@ int main()
                 }
             }
             {
-                unsigned days = persian_to_days(py, pm, pd);
+                unsigned days = persian_to_days({py, pm, pd});
                 gregorian_date_t gregorian_date = days_to_gregorian(days);
                 if (gregorian_date.year != gy || gregorian_date.month != gm || gregorian_date.day != gd)
                 {

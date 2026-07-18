@@ -11,11 +11,12 @@ License: GNU/LGPL _ Open Source & Free :: Version: 2.80 : [2020=1399]
 990=30*33 & 12053=(365*33)+(32/4) & 36524=(365*100)+(100/4)-(100/100)
 1461=(365*4)+(4/4) & 146097=(365*400)+(400/4)-(400/100)+(400/400)  */
 
-typedef struct { unsigned year; unsigned month; unsigned day; } persian_date_t;
-inline unsigned gregorian_to_days(unsigned gy, unsigned gm, unsigned gd) {
-  unsigned gy2 = (gm > 2) ? gy + 1 : gy;
+typedef struct date_triplet_t { unsigned year; unsigned month; unsigned day; } persian_date_t, gregorian_date_t;
+
+inline unsigned gregorian_to_days(gregorian_date_t date) {
+  unsigned gy2 = (date.month > 2) ? date.year + 1 : date.year;
   static const unsigned g_d_m[12] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
-  return 355666 + 365 * gy + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400 + gd + g_d_m[(gm - 1) % 12];
+  return 355666 + 365 * date.year + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400 + date.day + g_d_m[(date.month - 1) % 12];
 }
 inline persian_date_t days_to_persian(unsigned days) {
   unsigned year = days / 12053 * 33 - 1595;
@@ -39,9 +40,10 @@ inline persian_date_t days_to_persian(unsigned days) {
   return result;
 }
 
-typedef struct { unsigned year; unsigned month; unsigned day; } gregorian_date_t;
-inline unsigned persian_to_days(unsigned py, unsigned pm, unsigned pd) {
-  py += 1595;
+inline unsigned persian_to_days(persian_date_t date) {
+  unsigned py = date.year + 1595;
+  unsigned pm = date.month;
+  unsigned pd = date.day;
   return 365 * py + py / 33 * 8 + (py % 33 + 3) / 4 + pd + ((pm < 7) ? (pm - 1) * 31 : (pm - 7) * 30 + 186) - 1;
 }
 

@@ -114,7 +114,7 @@ static void create_menu(app_state_t *state, wchar_t *date)
         menu_item.fState = 0;
         menu_item.wID = converter_from_gregorian_id;
         menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل تاریخ از میلادی");
-        InsertMenuItemW(menu, converter_from_persian_id, TRUE, &menu_item);
+        InsertMenuItemW(menu, converter_from_gregorian_id, TRUE, &menu_item);
     }
     InsertMenuA(menu, third_separator_id, MF_SEPARATOR, TRUE, nullptr);
     {
@@ -195,69 +195,40 @@ static formatted_number_t format_number(unsigned number, BOOL local_digits = 1)
 }
 
 static void format_date(
-    BOOL local_digits, converter_mode_t mode, unsigned day, unsigned month, unsigned year, unsigned dayOfWeek, wchar_t *result, int result_size)
+    BOOL local_digits, converter_mode_t mode, date_triplet_t date, unsigned dayOfWeek, wchar_t *result, int result_size)
 {
     wnsprintfW(result, result_size,
                L"%ls، %ls %ls(%ls) %ls",
                weekdays[(dayOfWeek + 3) % 7],
-               format_number(day, local_digits).value,
-               mode == PERSIAN ? persian_months[(month - 1) % 12] : gregorian_months[(month - 1) % 12],
-               format_number(month, local_digits).value,
-               format_number(year, local_digits).value);
+               format_number(date.day, local_digits).value,
+               mode == PERSIAN ? persian_months[(date.month - 1) % 12] : gregorian_months[(date.month - 1) % 12],
+               format_number(date.month, local_digits).value,
+               format_number(date.year, local_digits).value);
 }
 
-static gregorian_date_t today_in_gregorian()
+static unsigned today_in_days()
 {
     SYSTEMTIME st;
     GetLocalTime(&st);
-    gregorian_date_t date;
-    date.day = st.wDay;
-    date.month = st.wMonth;
-    date.year = st.wYear;
-    return date;
+    return gregorian_to_days({static_cast<unsigned>(st.wYear), static_cast<unsigned>(st.wMonth), static_cast<unsigned>(st.wDay)});
+}
+
+static bool date_equal(date_triplet_t x, date_triplet_t y)
+{
+    return x.year == y.year && x.month == y.month && x.day == y.day;
 }
 
 static void do_conversion(HWND hwnd, converter_mode_t mode)
 {
-    unsigned day = static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_day_combo_id, CB_GETCURSEL, 0, 0)) + 1;
-    unsigned month = static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_month_combo_id, CB_GETCURSEL, 0, 0)) + 1;
-    unsigned year = static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_year_combo_id, CB_GETCURSEL, 0, 0)) +
-                    static_cast<unsigned>(GetWindowLongPtr(GetDlgItem(hwnd, dlg_year_combo_id), GWLP_USERDATA));
-    unsigned days = 0, converted_day = 0, converted_month = 0, converted_year = 0;
-    {
-        if (mode == GREGORIAN)
-        {
-            days = gregorian_to_days(year, month, day);
-            persian_date_t date = days_to_persian(days);
-            converted_year = date.year;
-            converted_month = date.month;
-            converted_day = date.day;
-        }
-        else if (mode == PERSIAN)
-        {
-            days = persian_to_days(year, month, day);
-            gregorian_date_t date = days_to_gregorian(days);
-            converted_year = date.year;
-            converted_month = date.month;
-            converted_day = date.day;
-        }
-    }
+    date_triplet_t input_date{
+        static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_year_combo_id, CB_GETCURSEL, 0, 0)) +
+            static_cast<unsigned>(GetWindowLongPtr(GetDlgItem(hwnd, dlg_year_combo_id), GWLP_USERDATA)),
+        static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_month_combo_id, CB_GETCURSEL, 0, 0)) + 1,
+        static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_day_combo_id, CB_GETCURSEL, 0, 0)) + 1};
+    unsigned days = mode == PERSIAN ? persian_to_days(input_date) : gregorian_to_days(input_date);
+    date_triplet_t converted_date = mode == PERSIAN ? days_to_gregorian(days) : days_to_persian(days);
 
-    bool invalid = false;
-    {
-        if (mode == PERSIAN)
-        {
-            persian_date_t date = days_to_persian(days);
-            invalid = date.year != year || date.month != month || date.day != day;
-        }
-        else if (mode == GREGORIAN)
-        {
-            gregorian_date_t date = days_to_gregorian(days);
-            invalid = date.year != year || date.month != month || date.day != day;
-        }
-    }
-
-    if (day == 0 || day > 31 || month == 0 || month > 12 || invalid)
+    if (!date_equal(input_date, mode == PERSIAN ? days_to_persian(days) : days_to_gregorian(days)))
     {
         SetWindowTextW(hwnd, L"روز انتخاب‌شده نامعتبر است");
         // wchar_t result[128];
@@ -268,15 +239,12 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
 
     wchar_t formatted_date[128];
     format_date(TRUE, mode == PERSIAN ? GREGORIAN : PERSIAN,
-                converted_day,
-                converted_month,
-                converted_year,
+                converted_date,
                 days % 7,
                 formatted_date, sizeof(formatted_date) / sizeof(wchar_t));
     wchar_t suffix[128];
     {
-        gregorian_date_t today = today_in_gregorian();
-        unsigned today_days = gregorian_to_days(today.year, today.month, today.day);
+        unsigned today_days = today_in_days();
         if (days < today_days)
             wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز در گذشته",
                        format_number(today_days - days).value);
@@ -370,8 +338,6 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         break;
     case WM_SHOWWINDOW:
     {
-        if (mode == INVALID)
-            return 0;
         UINT dpi = GetSystemDpi();
         auto d = [dpi](int value)
         {
@@ -402,23 +368,15 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         }
         HFONT font = CreateFontIndirectW(&lf);
 
-        unsigned year = 0, month = 0, day = 0;
+        date_triplet_t date;
         {
-            gregorian_date_t today = today_in_gregorian();
+            unsigned today = today_in_days();
             if (mode == GREGORIAN)
-            {
-                year = today.year;
-                month = today.month;
-                day = today.day;
-            }
+                date = days_to_gregorian(today);
             else if (mode == PERSIAN)
-            {
-                unsigned days = gregorian_to_days(today.year, today.month, today.day);
-                persian_date_t date = days_to_persian(days);
-                year = date.year;
-                month = date.month;
-                day = date.day;
-            }
+                date = days_to_persian(today);
+            else
+                return 0;
         }
         {
             HWND hDay = CreateWindowExA(0, "COMBOBOX", nullptr,
@@ -427,7 +385,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                                         reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_day_combo_id)), hInst, nullptr);
             for (unsigned i = 1; i <= 31; ++i)
                 SendMessageW(hDay, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(i).value));
-            SendMessageW(hDay, CB_SETCURSEL, day - 1, 0);
+            SendMessageW(hDay, CB_SETCURSEL, date.day - 1, 0);
             SendMessageW(hDay, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
             if (pAllowDarkModeForWindow && darkMode)
                 pAllowDarkModeForWindow(hDay, true);
@@ -447,7 +405,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                            format_number(i).value);
                 SendMessageW(hMonth, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(buf));
             }
-            SendMessageW(hMonth, CB_SETCURSEL, month - 1, 0);
+            SendMessageW(hMonth, CB_SETCURSEL, date.month - 1, 0);
             SendMessageW(hMonth, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
             if (pAllowDarkModeForWindow && darkMode)
                 pAllowDarkModeForWindow(hMonth, true);
@@ -460,9 +418,9 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                                          d(3 * padding + 2 * combo_width), d(padding), d(combo_width), d(combo_height), hwnd,
                                          reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_year_combo_id)), hInst, nullptr);
             constexpr unsigned combobox_years = 100;
-            SetWindowLongPtr(hYear, GWLP_USERDATA, static_cast<LONG_PTR>(year - combobox_years / 2));
+            SetWindowLongPtr(hYear, GWLP_USERDATA, static_cast<LONG_PTR>(date.year - combobox_years / 2));
             for (unsigned i = 0; i <= combobox_years; ++i)
-                SendMessageW(hYear, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(year + i - combobox_years / 2).value));
+                SendMessageW(hYear, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(date.year + i - combobox_years / 2).value));
             SendMessageW(hYear, CB_SETCURSEL, combobox_years / 2, 0);
             SendMessageW(hYear, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
             if (pAllowDarkModeForWindow && darkMode)
@@ -488,9 +446,9 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     }
     case WM_COMMAND:
     {
-        const WORD id = LOWORD(wparam);
+        // const WORD id = LOWORD(wparam);
         const WORD code = HIWORD(wparam);
-        if ((id == dlg_day_combo_id || id == dlg_month_combo_id || id == dlg_year_combo_id) && code == CBN_SELCHANGE)
+        if (code == CBN_SELCHANGE)
         {
             do_conversion(hwnd, mode);
             return 0;
@@ -528,11 +486,9 @@ static void open_converter_dialog(converter_mode_t mode)
 
 static void update(HWND hwnd, app_state_t *state)
 {
-    gregorian_date_t today = today_in_gregorian();
-    unsigned days = gregorian_to_days(today.year, today.month, today.day);
+    unsigned days = today_in_days();
     persian_date_t date = days_to_persian(days);
-    format_date(state->local_digits, PERSIAN, date.day, date.month, date.year,
-                days % 7,
+    format_date(state->local_digits, PERSIAN, date, days % 7,
                 state->notify_icon_data->szTip,
                 sizeof(state->notify_icon_data->szTip) / sizeof(wchar_t));
 
