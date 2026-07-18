@@ -11,7 +11,7 @@ License: GNU/LGPL _ Open Source & Free :: Version: 2.80 : [2020=1399]
 990=30*33 & 12053=(365*33)+(32/4) & 36524=(365*100)+(100/4)-(100/100)
 1461=(365*4)+(4/4) & 146097=(365*400)+(400/4)-(400/100)+(400/400)  */
 
-typedef struct date_triplet_t { unsigned year; unsigned month; unsigned day; } persian_date_t, gregorian_date_t;
+typedef struct date_triplet_t { unsigned year, month, day; } persian_date_t, gregorian_date_t;
 
 inline unsigned gregorian_to_days(gregorian_date_t date) {
   unsigned gy2 = (date.month > 2) ? date.year + 1 : date.year;
