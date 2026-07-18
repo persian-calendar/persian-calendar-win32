@@ -217,27 +217,12 @@ static gregorian_date_t today_in_gregorian()
     return date;
 }
 
-constexpr unsigned combobox_years = 100;
-
 static void do_conversion(HWND hwnd, converter_mode_t mode)
 {
     unsigned day = static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_day_combo_id, CB_GETCURSEL, 0, 0)) + 1;
     unsigned month = static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_month_combo_id, CB_GETCURSEL, 0, 0)) + 1;
-    unsigned base_year = 0;
-    unsigned today_days;
-    {
-        gregorian_date_t today = today_in_gregorian();
-        today_days = gregorian_to_days(today.year, today.month, today.day);
-        if (mode == GREGORIAN)
-            base_year = today.year;
-        else if (mode == PERSIAN)
-        {
-            persian_date_t date = days_to_persian(today_days);
-            base_year = date.year;
-        }
-    }
-    unsigned year = static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_year_combo_id, CB_GETCURSEL, 0, 0)) + base_year - combobox_years / 2;
-
+    unsigned year = static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_year_combo_id, CB_GETCURSEL, 0, 0)) +
+                    static_cast<unsigned>(GetWindowLongPtr(GetDlgItem(hwnd, dlg_year_combo_id), GWLP_USERDATA));
     unsigned days = 0, converted_day = 0, converted_month = 0, converted_year = 0;
     {
         if (mode == GREGORIAN)
@@ -289,14 +274,18 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
                 days % 7,
                 formatted_date, sizeof(formatted_date) / sizeof(wchar_t));
     wchar_t suffix[128];
-    if (days < today_days)
-        wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز در گذشته",
-                   format_number(today_days - days).value);
-    else if (days > today_days)
-        wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز در آینده",
-                   format_number(days - today_days).value);
-    else
-        wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"امروز");
+    {
+        gregorian_date_t today = today_in_gregorian();
+        unsigned today_days = gregorian_to_days(today.year, today.month, today.day);
+        if (days < today_days)
+            wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز در گذشته",
+                       format_number(today_days - days).value);
+        else if (days > today_days)
+            wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز در آینده",
+                       format_number(days - today_days).value);
+        else
+            wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"امروز");
+    }
     wchar_t result[128];
     wnsprintfW(result, sizeof(result) / sizeof(wchar_t), L"%ls، %ls", formatted_date, suffix);
     SetWindowTextW(hwnd, result);
@@ -467,6 +456,8 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                                          WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
                                          d(3 * padding + 2 * combo_width), d(padding), d(combo_width), d(combo_height), hwnd,
                                          reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_year_combo_id)), hInst, nullptr);
+            constexpr unsigned combobox_years = 100;
+            SetWindowLongPtr(hYear, GWLP_USERDATA, static_cast<LONG_PTR>(year - combobox_years / 2));
             for (unsigned i = 0; i <= combobox_years; ++i)
                 SendMessageW(hYear, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(year + i - combobox_years / 2).value));
             SendMessageW(hYear, CB_SETCURSEL, combobox_years / 2, 0);
