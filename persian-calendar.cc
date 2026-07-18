@@ -243,7 +243,7 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
 
     if (!date_equal(input_date, mode == PERSIAN ? days_to_persian(days) : days_to_gregorian(days)))
     {
-        SetWindowTextW(hwnd, L"روز انتخاب‌شده نامعتبر است");
+        SetWindowTextW(hwnd, L"ورودی نادرست");
         // wchar_t result[128];
         // wsprintfW(result, L"%d %d %d", day, month, year);
         // SetWindowTextW(hwnd, result);
@@ -254,10 +254,10 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
     {
         unsigned today_days = today_in_days();
         if (days < today_days)
-            wsprintfW(suffix, L"، %s روز در گذشته",
+            wsprintfW(suffix, L"، %s روز پیش",
                       format_number(today_days - days).value);
         else if (days > today_days)
-            wsprintfW(suffix, L"، %s روز در آینده",
+            wsprintfW(suffix, L"، %s روز آتی",
                       format_number(days - today_days).value);
         else
             wsprintfW(suffix, L"، امروز");
