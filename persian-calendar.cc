@@ -209,7 +209,7 @@ static void format_date(
     BOOL local_digits, converter_mode_t mode, date_triplet_t date, unsigned dayOfWeek, wchar_t *result, int result_size)
 {
     wnsprintfW(result, result_size,
-               L"%ls، %ls %ls(%ls) %ls",
+               L"%s، %s %s(%s) %s",
                weekdays[(dayOfWeek + 3) % 7],
                format_number(date.day, local_digits).value,
                mode == PERSIAN ? persian_months[(date.month - 1) % 12] : gregorian_months[(date.month - 1) % 12],
@@ -257,16 +257,16 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
     {
         unsigned today_days = today_in_days();
         if (days < today_days)
-            wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز در گذشته",
+            wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%s روز در گذشته",
                        format_number(today_days - days).value);
         else if (days > today_days)
-            wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%ls روز در آینده",
+            wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"%s روز در آینده",
                        format_number(days - today_days).value);
         else
             wnsprintfW(suffix, sizeof(suffix) / sizeof(wchar_t), L"امروز");
     }
     wchar_t result[128];
-    wnsprintfW(result, sizeof(result) / sizeof(wchar_t), L"%ls، %ls", formatted_date, suffix);
+    wnsprintfW(result, sizeof(result) / sizeof(wchar_t), L"%s، %s", formatted_date, suffix);
     SetWindowTextW(hwnd, result);
 }
 
@@ -400,7 +400,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             for (unsigned i = 1; i <= 12; ++i)
             {
                 wchar_t buf[32];
-                wnsprintfW(buf, sizeof(buf) / sizeof(wchar_t), L"%ls (%ls)",
+                wnsprintfW(buf, sizeof(buf) / sizeof(wchar_t), L"%s (%s)",
                            mode == PERSIAN ? persian_months[(i - 1) % 12] : gregorian_months[(i - 1) % 12],
                            format_number(i).value);
                 SendMessageW(hMonth, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(buf));
