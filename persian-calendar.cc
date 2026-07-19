@@ -269,14 +269,6 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
 
 static UINT GetSystemDpi()
 {
-    {
-        using func_t = UINT(WINAPI *)();
-        auto pGetDpiForSystem = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-            GetProcAddress(GetModuleHandleA("user32.dll"), "GetDpiForSystem")));
-        if (pGetDpiForSystem)
-            return pGetDpiForSystem();
-    }
-
     HDC hdc = GetDC(nullptr);
     if (hdc)
     {
@@ -288,13 +280,8 @@ static UINT GetSystemDpi()
     return 96;
 }
 
-static int dp(UINT dpi, int value)
-{
-    return MulDiv(value, static_cast<int>(dpi), 72);
-}
-constexpr int padding = 8;
-constexpr int combo_width = 72;
-constexpr int combo_height = 42;
+constexpr int window_width = 4;
+constexpr int window_height = 1;
 
 static BOOL IsDarkModeActive()
 {
@@ -348,6 +335,25 @@ static void ApplyAeroAndMica(HWND hDlg)
     InvalidateRect(hDlg, nullptr, TRUE);
 }
 
+static void update_layout(HWND hwnd, unsigned width, unsigned height)
+{
+    HWND hDay = GetDlgItem(hwnd, dlg_day_combo_id);
+    HWND hMonth = GetDlgItem(hwnd, dlg_month_combo_id);
+    HWND hYear = GetDlgItem(hwnd, dlg_year_combo_id);
+    int padding_x = static_cast<int>(width) / 25;
+    int padding_y = MulDiv(static_cast<int>(height), 2 * window_width, 25 * window_height);
+    {
+        HFONT hFont = get_system_font(static_cast<int>(height) - 2 * padding_y);
+        SendMessageW(hDay, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
+        SendMessageW(hMonth, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
+        SendMessageW(hYear, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
+    }
+    int combo_width = MulDiv(static_cast<int>(width), 7, 25);
+    MoveWindow(hDay, padding_x, padding_y, combo_width, 5 * padding_y, TRUE);
+    MoveWindow(hMonth, MulDiv(static_cast<int>(width), 9, 25), padding_y, combo_width, 5 * padding_y, TRUE);
+    MoveWindow(hYear, MulDiv(static_cast<int>(width), 17, 25), padding_y, combo_width, 5 * padding_y, TRUE);
+}
+
 static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     converter_mode_t mode = static_cast<converter_mode_t>(
@@ -355,19 +361,33 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     switch (msg)
     {
     case WM_CREATE:
-        // case WM_SETTINGCHANGE:
+    {
         ApplyAeroAndMica(hwnd);
-        break;
+        CreateWindowExA(0, "COMBOBOX", nullptr,
+                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                        0, 0, 0, 0, hwnd,
+                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_day_combo_id)), hInst, nullptr);
+        CreateWindowExA(0, "COMBOBOX", nullptr,
+                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                        0, 0, 0, 0, hwnd,
+                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_month_combo_id)), hInst, nullptr);
+        CreateWindowExA(0, "COMBOBOX", nullptr,
+                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                        0, 0, 0, 0, hwnd,
+                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_year_combo_id)), hInst, nullptr);
+        return 0;
+    }
+    case WM_SIZE:
+    {
+        unsigned newWidth = static_cast<unsigned>(LOWORD(lparam));
+        unsigned newHeight = static_cast<unsigned>(HIWORD(lparam));
+        update_layout(hwnd, newWidth, newHeight);
+        return 0;
+    }
     case WM_SHOWWINDOW:
     {
         if (mode == INVALID)
             return 0;
-
-        UINT dpi = GetSystemDpi();
-        auto d = [dpi](int value)
-        {
-            return dp(dpi, value);
-        };
 
         HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
         using func1_t = HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR);
@@ -380,28 +400,19 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
         BOOL darkMode = IsDarkModeActive();
 
-        HFONT font = get_system_font(-d(12));
-
         date_triplet_t date = mode == PERSIAN ? days_to_persian(today_in_days()) : days_to_gregorian(today_in_days());
         {
-            HWND hDay = CreateWindowExA(0, "COMBOBOX", nullptr,
-                                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-                                        d(padding), d(padding), d(combo_width), d(combo_height), hwnd,
-                                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_day_combo_id)), hInst, nullptr);
+            HWND hDay = GetDlgItem(hwnd, dlg_day_combo_id);
             for (unsigned i = 1; i <= 31; ++i)
                 SendMessageW(hDay, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(i).value));
             SendMessageW(hDay, CB_SETCURSEL, date.day - 1, 0);
-            SendMessageW(hDay, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
             if (pAllowDarkModeForWindow && darkMode)
                 pAllowDarkModeForWindow(hDay, true);
             if (pSetWindowTheme && darkMode)
                 pSetWindowTheme(hDay, L"CFD", nullptr);
         }
         {
-            HWND hMonth = CreateWindowExA(0, "COMBOBOX", nullptr,
-                                          WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-                                          d(2 * padding + combo_width), d(padding), d(combo_width), d(combo_height), hwnd,
-                                          reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_month_combo_id)), hInst, nullptr);
+            HWND hMonth = GetDlgItem(hwnd, dlg_month_combo_id);
             for (unsigned i = 1; i <= 12; ++i)
             {
                 wchar_t buf[32];
@@ -411,23 +422,18 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 SendMessageW(hMonth, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(buf));
             }
             SendMessageW(hMonth, CB_SETCURSEL, date.month - 1, 0);
-            SendMessageW(hMonth, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
             if (pAllowDarkModeForWindow && darkMode)
                 pAllowDarkModeForWindow(hMonth, true);
             if (pSetWindowTheme && darkMode)
                 pSetWindowTheme(hMonth, L"CFD", nullptr);
         }
         {
-            HWND hYear = CreateWindowExA(0, "COMBOBOX", nullptr,
-                                         WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-                                         d(3 * padding + 2 * combo_width), d(padding), d(combo_width), d(combo_height), hwnd,
-                                         reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_year_combo_id)), hInst, nullptr);
+            HWND hYear = GetDlgItem(hwnd, dlg_year_combo_id);
             constexpr unsigned combobox_years = 100;
             SetWindowLongPtr(hYear, GWLP_USERDATA, static_cast<LONG_PTR>(date.year - combobox_years / 2));
             for (unsigned i = 0; i <= combobox_years; ++i)
                 SendMessageW(hYear, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(date.year + i - combobox_years / 2).value));
             SendMessageW(hYear, CB_SETCURSEL, combobox_years / 2, 0);
-            SendMessageW(hYear, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
             if (pAllowDarkModeForWindow && darkMode)
                 pAllowDarkModeForWindow(hYear, true);
             if (pSetWindowTheme && darkMode)
@@ -473,10 +479,10 @@ static void open_converter_dialog(converter_mode_t mode)
         WS_EX_DLGMODALFRAME | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED,
         converterClassName,
         L"",
-        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_SIZEBOX,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        dp(dpi, 4 * padding + padding / 2 + 3 * combo_width),
-        dp(dpi, combo_height + 2 * padding),
+        static_cast<int>(window_width * dpi),
+        static_cast<int>(window_height * dpi),
         nullptr, nullptr, hInst, nullptr);
     SetLayeredWindowAttributes(hwnd, APP_LWA_COLORKEY, 0, LWA_COLORKEY);
     SetWindowLongPtr(hwnd, GWLP_USERDATA, static_cast<LONG_PTR>(mode));
