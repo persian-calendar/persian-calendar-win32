@@ -270,10 +270,23 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
 
 static UINT GetSystemDpi()
 {
-    using func_t = UINT(WINAPI *)();
-    auto pGetDpiForSystem = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-        GetProcAddress(GetModuleHandleA("user32.dll"), "GetDpiForSystem")));
-    return pGetDpiForSystem ? pGetDpiForSystem() : 96;
+    {
+        using func_t = UINT(WINAPI *)();
+        auto pGetDpiForSystem = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+            GetProcAddress(GetModuleHandleA("user32.dll"), "GetDpiForSystem")));
+        if (pGetDpiForSystem)
+            return pGetDpiForSystem();
+    }
+
+    HDC hdc = GetDC(nullptr);
+    if (hdc)
+    {
+        int dpi = GetDeviceCaps(hdc, LOGPIXELSX);
+        ReleaseDC(nullptr, hdc);
+        return static_cast<UINT>(dpi);
+    }
+
+    return 96;
 }
 
 static int dp(UINT dpi, int value)
