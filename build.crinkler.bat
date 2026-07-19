@@ -21,4 +21,4 @@ SET WinKitsLib=%WinKitsRoot%Lib\%WinKitsVer%\um\x86
     /TRANSFORM:CALLS /UNALIGNCODE ^
     /LIBPATH:"%WinKitsLib%" ^
     persian-calendar.obj ^
-    kernel32.lib user32.lib shell32.lib gdi32.lib shlwapi.lib advapi32.lib
+    kernel32.lib user32.lib shell32.lib gdi32.lib advapi32.lib

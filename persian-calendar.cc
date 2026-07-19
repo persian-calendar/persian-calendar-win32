@@ -2,7 +2,6 @@
 #define WINVER 0x0500 // XP support, and maybe 2000? Why not
 #include <windows.h>
 #include <shellapi.h>
-#include <shlwapi.h>
 #include <dwmapi.h>
 
 #include "persian-calendar.h"
@@ -585,7 +584,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
     switch (msg)
     {
     case WM_DESTROY:
-        PostQuitMessage(EXIT_SUCCESS);
+        PostQuitMessage(0);
         return 0;
     case WM_TIMER:
         update(hwnd, state);
@@ -627,7 +626,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
         }
         else if (wparam == exit_id)
         {
-            PostQuitMessage(EXIT_SUCCESS);
+            PostQuitMessage(0);
             return 0;
         }
         break;
@@ -691,7 +690,7 @@ void start()
 {
     HANDLE mutex = CreateMutexA(nullptr, 0, const_cast<char *>(appId));
     if (!mutex || GetLastError() == ERROR_ALREADY_EXISTS)
-        ExitProcess(EXIT_FAILURE);
+        ExitProcess(1);
 
     // Converter Dialog's class
     {
