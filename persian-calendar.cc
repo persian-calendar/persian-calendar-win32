@@ -679,7 +679,6 @@ void start()
         wc.lpfnWndProc = ConverterDlgProc;
         wc.hInstance = hInst;
         wc.lpszClassName = converterClassName;
-        wc.hCursor = LoadCursorA(nullptr, IDC_ARROW);
         RegisterClassExW(&wc);
     }
 
