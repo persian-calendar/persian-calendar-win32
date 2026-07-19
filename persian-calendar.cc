@@ -695,7 +695,8 @@ void start()
     {
         enable_visual_styles();
         enable_hidpi();
-        enable_dark_mode_support();
+        if (IsDarkModeActive())
+            enable_dark_mode_support();
         notify_icon_data.cbSize = sizeof(NOTIFYICONDATAW);
         notify_icon_data.uCallbackMessage = notifyClickId;
         notify_icon_data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
