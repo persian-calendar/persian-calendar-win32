@@ -442,6 +442,12 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         do_conversion(hwnd, mode);
         return 0;
     }
+    case WM_LBUTTONDOWN:
+    {
+        ReleaseCapture();
+        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+        return 0;
+    }
     case WM_ERASEBKGND:
     {
         RECT rc;
