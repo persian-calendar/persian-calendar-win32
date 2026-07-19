@@ -639,11 +639,20 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
 
 static void enable_hidpi()
 {
-    using func_t = BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT);
-    auto pSetProcessDpiAwarenessContext = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-        GetProcAddress(GetModuleHandleA("user32.dll"), "SetProcessDpiAwarenessContext")));
+    HMODULE hUser32 = GetModuleHandleA("user32.dll");
+    using func1_t = BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT);
+    auto pSetProcessDpiAwarenessContext = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
+        GetProcAddress(hUser32, "SetProcessDpiAwarenessContext")));
     if (pSetProcessDpiAwarenessContext)
         pSetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    else
+    {
+        using func2_t = BOOL(WINAPI *)();
+        auto pSetProcessDPIAware = reinterpret_cast<func2_t>(reinterpret_cast<void *>(
+            GetProcAddress(hUser32, "SetProcessDPIAware")));
+        if (pSetProcessDPIAware)
+            pSetProcessDPIAware();
+    }
 }
 
 static void enable_dark_mode_support()
