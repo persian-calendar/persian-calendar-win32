@@ -301,7 +301,8 @@ static BOOL IsDarkModeActive()
 // In remembrance of old era Windows color/chroma keying,
 // * https://devblogs.microsoft.com/oldnewthing/20251014-00/?p=111681
 // * https://learn.microsoft.com/en-us/windows/win32/directshow/overlay-mixer-filter#:~:text=magenta%20for%20older%20256%2Dcolor%20cards
-#define APP_LWA_COLORKEY (RGB(0xFF, 0x00, 0xFF))
+// Derived from the original magenta color to solve click-through issues
+#define APP_LWA_COLORKEY (RGB(0xFE, 0x01, 0xFD))
 
 static void ApplyAeroAndMica(HWND hDlg)
 {
