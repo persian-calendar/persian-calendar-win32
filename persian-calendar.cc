@@ -347,7 +347,12 @@ static void update_layout(HWND hwnd, unsigned width, unsigned height)
         HWND item = GetDlgItem(hwnd, static_cast<int>(dlg_day_combo_id + i));
         SendMessageW(item, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
         MoveWindow(item, MulDiv(static_cast<int>(width), static_cast<int>(1 + 8 * i), 25),
-                   padding_y, combo_width, 5 * padding_y, TRUE);
+                   padding_y, combo_width,
+                   // The height parameter here is only used for the dropdown size of the ComboBox,
+                   // so making it larger ensures the dropdown is sufficiently tall.
+                   // Different versions of Windows seem to ignore it and only Wine considers it
+                   static_cast<int>(5 * height),
+                   TRUE);
     }
 }
 
