@@ -360,13 +360,31 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     case WM_CREATE:
     {
         ApplyAeroAndMica(hwnd);
+
+        HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
+        using func1_t = HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR);
+        auto pSetWindowTheme = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
+            GetProcAddress(hUxtheme, "SetWindowTheme")));
+
+        using func2_t = bool(WINAPI *)(HWND hWnd, BOOL allow);
+        auto pAllowDarkModeForWindow = reinterpret_cast<func2_t>(
+            reinterpret_cast<void *>(GetProcAddress(hUxtheme, MAKEINTRESOURCEA(133))));
+
+        BOOL darkMode = IsDarkModeActive();
+
         static_assert(dlg_day_combo_id + 1 == dlg_month_combo_id && dlg_month_combo_id + 1 == dlg_year_combo_id,
                       "ComboBox IDs must follow each other for the loop below to work correctly");
         for (unsigned id = dlg_day_combo_id; id <= dlg_year_combo_id; ++id)
-            CreateWindowExA(0, "COMBOBOX", nullptr,
-                            WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-                            0, 0, 0, 0, hwnd,
-                            reinterpret_cast<HMENU>(static_cast<uintptr_t>(id)), hInst, nullptr);
+        {
+            HWND item = CreateWindowExA(0, "COMBOBOX", nullptr,
+                                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                                        0, 0, 0, 0, hwnd,
+                                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(id)), hInst, nullptr);
+            if (pAllowDarkModeForWindow && darkMode)
+                pAllowDarkModeForWindow(item, true);
+            if (pSetWindowTheme && darkMode)
+                pSetWindowTheme(item, L"CFD", nullptr);
+        }
         return 0;
     }
     case WM_SIZE:
@@ -381,27 +399,12 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         if (mode == INVALID)
             return 0;
 
-        HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
-        using func1_t = HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR);
-        auto pSetWindowTheme = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
-            GetProcAddress(hUxtheme, "SetWindowTheme")));
-
-        using func2_t = bool(WINAPI *)(HWND hWnd, BOOL allow);
-        auto pAllowDarkModeForWindow = reinterpret_cast<func2_t>(
-            reinterpret_cast<void *>(GetProcAddress(hUxtheme, MAKEINTRESOURCEA(133))));
-
-        BOOL darkMode = IsDarkModeActive();
-
         date_triplet_t date = mode == PERSIAN ? days_to_persian(today_in_days()) : days_to_gregorian(today_in_days());
         {
             HWND hDay = GetDlgItem(hwnd, dlg_day_combo_id);
             for (unsigned i = 1; i <= 31; ++i)
                 SendMessageW(hDay, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(i).value));
             SendMessageW(hDay, CB_SETCURSEL, date.day - 1, 0);
-            if (pAllowDarkModeForWindow && darkMode)
-                pAllowDarkModeForWindow(hDay, true);
-            if (pSetWindowTheme && darkMode)
-                pSetWindowTheme(hDay, L"CFD", nullptr);
         }
         {
             HWND hMonth = GetDlgItem(hwnd, dlg_month_combo_id);
@@ -414,22 +417,15 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 SendMessageW(hMonth, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(buf));
             }
             SendMessageW(hMonth, CB_SETCURSEL, date.month - 1, 0);
-            if (pAllowDarkModeForWindow && darkMode)
-                pAllowDarkModeForWindow(hMonth, true);
-            if (pSetWindowTheme && darkMode)
-                pSetWindowTheme(hMonth, L"CFD", nullptr);
         }
         {
             HWND hYear = GetDlgItem(hwnd, dlg_year_combo_id);
             constexpr unsigned combobox_years = 100;
-            SetWindowLongPtr(hYear, GWLP_USERDATA, static_cast<LONG_PTR>(date.year - combobox_years / 2));
+            const unsigned base_year = date.year - combobox_years / 2;
+            SetWindowLongPtr(hYear, GWLP_USERDATA, static_cast<LONG_PTR>(base_year));
             for (unsigned i = 0; i <= combobox_years; ++i)
-                SendMessageW(hYear, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(date.year + i - combobox_years / 2).value));
+                SendMessageW(hYear, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(base_year + i).value));
             SendMessageW(hYear, CB_SETCURSEL, combobox_years / 2, 0);
-            if (pAllowDarkModeForWindow && darkMode)
-                pAllowDarkModeForWindow(hYear, true);
-            if (pSetWindowTheme && darkMode)
-                pSetWindowTheme(hYear, L"CFD", nullptr);
         }
         do_conversion(hwnd, mode);
         return 0;
