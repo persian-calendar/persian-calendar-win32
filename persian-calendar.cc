@@ -414,12 +414,12 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         }
         {
             HWND hMonth = GetDlgItem(hwnd, dlg_month_combo_id);
-            for (unsigned i = 1; i <= 12; ++i)
+            for (unsigned i = 0; i < 12; ++i)
             {
                 wchar_t buf[32];
                 wsprintfW(buf, L"%s (%s)",
-                          mode == PERSIAN ? persian_months[(i - 1) % 12] : gregorian_months[(i - 1) % 12],
-                          format_number(i).value);
+                          mode == PERSIAN ? persian_months[i % 12] : gregorian_months[i % 12],
+                          format_number(i + 1).value);
                 SendMessageW(hMonth, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(buf));
             }
             SendMessageW(hMonth, CB_SETCURSEL, date.month - 1, 0);
