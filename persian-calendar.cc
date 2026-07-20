@@ -270,14 +270,10 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
 static UINT GetSystemDpi()
 {
     HDC hdc = GetDC(nullptr);
-    if (hdc)
-    {
-        int dpi = GetDeviceCaps(hdc, LOGPIXELSX);
-        ReleaseDC(nullptr, hdc);
-        return static_cast<UINT>(dpi);
-    }
-
-    return 96;
+    if (!hdc) return 96;
+    int dpi = GetDeviceCaps(hdc, LOGPIXELSX);
+    ReleaseDC(nullptr, hdc);
+    return static_cast<UINT>(dpi);
 }
 
 constexpr int window_width = 4;
