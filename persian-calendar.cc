@@ -363,18 +363,13 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     case WM_CREATE:
     {
         ApplyAeroAndMica(hwnd);
-        CreateWindowExA(0, "COMBOBOX", nullptr,
-                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-                        0, 0, 0, 0, hwnd,
-                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_day_combo_id)), hInst, nullptr);
-        CreateWindowExA(0, "COMBOBOX", nullptr,
-                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-                        0, 0, 0, 0, hwnd,
-                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_month_combo_id)), hInst, nullptr);
-        CreateWindowExA(0, "COMBOBOX", nullptr,
-                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-                        0, 0, 0, 0, hwnd,
-                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_year_combo_id)), hInst, nullptr);
+        static_assert(dlg_day_combo_id + 1 == dlg_month_combo_id && dlg_month_combo_id + 1 == dlg_year_combo_id,
+                      "ComboBox IDs must follow each other for the loop below to work correctly");
+        for (unsigned id = dlg_day_combo_id; id <= dlg_year_combo_id; ++id)
+            CreateWindowExA(0, "COMBOBOX", nullptr,
+                            WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                            0, 0, 0, 0, hwnd,
+                            reinterpret_cast<HMENU>(static_cast<uintptr_t>(id)), hInst, nullptr);
         return 0;
     }
     case WM_SIZE:
