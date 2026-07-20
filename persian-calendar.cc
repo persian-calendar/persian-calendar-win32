@@ -358,7 +358,7 @@ static void update_layout(HWND hwnd, unsigned width, unsigned height)
 
 static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
-    // Don't use it during WM_CREATE as its set after the CreateWindowExW
+    // Don't use it during WM_CREATE as it's set after the CreateWindowExW
     converter_mode_t mode = static_cast<converter_mode_t>(
         GetWindowLongPtrA(hwnd, GWLP_USERDATA));
     switch (msg)
