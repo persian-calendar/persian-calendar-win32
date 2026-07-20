@@ -337,21 +337,18 @@ static void ApplyAeroAndMica(HWND hDlg)
 
 static void update_layout(HWND hwnd, unsigned width, unsigned height)
 {
-    HWND hDay = GetDlgItem(hwnd, dlg_day_combo_id);
-    HWND hMonth = GetDlgItem(hwnd, dlg_month_combo_id);
-    HWND hYear = GetDlgItem(hwnd, dlg_year_combo_id);
-    int padding_x = static_cast<int>(width) / 25;
     int padding_y = MulDiv(static_cast<int>(height), 2 * window_width, 25 * window_height);
-    {
-        HFONT hFont = get_system_font(static_cast<int>(height) - 2 * padding_y);
-        SendMessageW(hDay, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
-        SendMessageW(hMonth, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
-        SendMessageW(hYear, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
-    }
+    HFONT hFont = get_system_font(static_cast<int>(height) - 2 * padding_y);
+    static_assert(dlg_day_combo_id + 1 == dlg_month_combo_id && dlg_month_combo_id + 1 == dlg_year_combo_id,
+                  "ComboBox IDs must follow each other for the loop below to work correctly");
     int combo_width = MulDiv(static_cast<int>(width), 7, 25);
-    MoveWindow(hDay, padding_x, padding_y, combo_width, 5 * padding_y, TRUE);
-    MoveWindow(hMonth, MulDiv(static_cast<int>(width), 9, 25), padding_y, combo_width, 5 * padding_y, TRUE);
-    MoveWindow(hYear, MulDiv(static_cast<int>(width), 17, 25), padding_y, combo_width, 5 * padding_y, TRUE);
+    for (unsigned i = 0; i < 3; ++i)
+    {
+        HWND item = GetDlgItem(hwnd, static_cast<int>(dlg_day_combo_id + i));
+        SendMessageW(item, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
+        MoveWindow(item, MulDiv(static_cast<int>(width), static_cast<int>(1 + 8 * i), 25),
+                   padding_y, combo_width, 5 * padding_y, TRUE);
+    }
 }
 
 static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
