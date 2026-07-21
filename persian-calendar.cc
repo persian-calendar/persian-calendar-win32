@@ -330,10 +330,9 @@ static DWORD get_build_number()
     using func_t = LONG(WINAPI *)(PRTL_OSVERSIONINFOW);
     auto pRtlGetVersion = reinterpret_cast<func_t>(reinterpret_cast<void *>(
         GetProcAddress(GetModuleHandleA("ntdll.dll"), "RtlGetVersion")));
-    if (pRtlGetVersion != nullptr)
+    if (pRtlGetVersion)
     {
         RTL_OSVERSIONINFOW rovi;
-        SecureZeroMemory(&rovi, sizeof(rovi));
         rovi.dwOSVersionInfoSize = sizeof(rovi);
         if (pRtlGetVersion(&rovi) == 0)
             return rovi.dwBuildNumber;
