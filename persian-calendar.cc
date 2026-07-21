@@ -267,10 +267,11 @@ static void do_conversion(HWND hwnd, converter_mode_t mode)
     SetWindowTextW(hwnd, result);
 }
 
-static UINT GetSystemDpi()
+static UINT get_system_dpi()
 {
     HDC hdc = GetDC(nullptr);
-    if (!hdc) return 96;
+    if (!hdc)
+        return 96;
     int dpi = GetDeviceCaps(hdc, LOGPIXELSX);
     ReleaseDC(nullptr, hdc);
     return static_cast<UINT>(dpi);
@@ -279,7 +280,7 @@ static UINT GetSystemDpi()
 constexpr int window_width = 4;
 constexpr int window_height = 1;
 
-static BOOL IsDarkModeActive()
+static BOOL is_dark_mode_active()
 {
     DWORD value = 1;
     DWORD size = sizeof(value);
@@ -300,7 +301,7 @@ static BOOL IsDarkModeActive()
 // Derived from the original magenta color to solve click-through issues
 #define APP_LWA_COLORKEY (RGB(0xFE, 0x01, 0xFD))
 
-static void ApplyAeroAndMica(HWND hDlg)
+static void apply_aero_and_mica(HWND hDlg)
 {
     HMODULE hDwm = GetModuleHandleA("dwmapi.dll");
     if (!hDwm)
@@ -321,7 +322,7 @@ static void ApplyAeroAndMica(HWND hDlg)
             GetProcAddress(hDwm, "DwmSetWindowAttribute")));
         if (pDwmSetWindowAttribute)
         {
-            BOOL darkMode = IsDarkModeActive();
+            BOOL darkMode = is_dark_mode_active();
             if (darkMode)
                 pDwmSetWindowAttribute(hDlg, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
             int backdropType = DWMSBT_MAINWINDOW;
@@ -356,6 +357,22 @@ static void update_layout(HWND hwnd, unsigned width, unsigned height)
     }
 }
 
+static DWORD get_build_number()
+{
+    using func_t = LONG(WINAPI *)(PRTL_OSVERSIONINFOW);
+    auto pRtlGetVersion = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+        GetProcAddress(GetModuleHandleA("ntdll.dll"), "RtlGetVersion")));
+    if (pRtlGetVersion != nullptr)
+    {
+        RTL_OSVERSIONINFOW rovi;
+        SecureZeroMemory(&rovi, sizeof(rovi));
+        rovi.dwOSVersionInfoSize = sizeof(rovi);
+        if (pRtlGetVersion(&rovi) == 0)
+            return rovi.dwBuildNumber;
+    }
+    return 0;
+}
+
 static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     // Don't use it during WM_CREATE as it's set after the CreateWindowExW
@@ -365,7 +382,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     {
     case WM_CREATE:
     {
-        ApplyAeroAndMica(hwnd);
+        apply_aero_and_mica(hwnd);
 
         HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
         using func1_t = HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR);
@@ -376,7 +393,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         auto pAllowDarkModeForWindow = reinterpret_cast<func2_t>(
             reinterpret_cast<void *>(GetProcAddress(hUxtheme, MAKEINTRESOURCEA(133))));
 
-        BOOL darkMode = IsDarkModeActive();
+        BOOL darkMode = is_dark_mode_active();
 
         static_assert(dlg_day_combo_id + 1 == dlg_month_combo_id && dlg_month_combo_id + 1 == dlg_year_combo_id,
                       "ComboBox IDs must follow each other for the loop below to work correctly");
@@ -446,9 +463,8 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     {
         RECT rc;
         GetClientRect(hwnd, &rc);
-        HMODULE hDwm = GetModuleHandleA("dwmapi.dll");
-        // Quick XP detection via dwmapi absence, use button face color instead of transparent color key
-        HBRUSH brush = CreateSolidBrush(hDwm ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
+        bool has_aero = get_build_number() >= 4015; // https://betawiki.net/wiki/Windows_Aero
+        HBRUSH brush = CreateSolidBrush(has_aero ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
         FillRect(reinterpret_cast<HDC>(wparam), &rc, brush);
         DeleteObject(brush);
         return 1;
@@ -474,7 +490,7 @@ constexpr static const wchar_t *converterClassName = L"CnvDlg";
 
 static void open_converter_dialog(converter_mode_t mode)
 {
-    UINT dpi = GetSystemDpi();
+    UINT dpi = get_system_dpi();
     HWND hwnd = CreateWindowExW(
         WS_EX_DLGMODALFRAME | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED,
         converterClassName,
@@ -662,6 +678,8 @@ static void enable_hidpi()
 
 static void enable_dark_mode_support()
 {
+    if (get_build_number() < 17763) // https://betawiki.net/wiki/Windows_10_October_2018_Update
+        return;
     using func_t = INT(WINAPI *)(INT); // undocumented SetPreferredAppMode's signature
     auto pSetPreferredAppMode = reinterpret_cast<func_t>(reinterpret_cast<void *>(
         GetProcAddress(GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(135))));
@@ -722,8 +740,7 @@ void start()
     {
         enable_visual_styles();
         enable_hidpi();
-        if (IsDarkModeActive())
-            enable_dark_mode_support();
+        enable_dark_mode_support();
         notify_icon_data.cbSize = sizeof(NOTIFYICONDATAW);
         notify_icon_data.uCallbackMessage = notifyClickId;
         notify_icon_data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
