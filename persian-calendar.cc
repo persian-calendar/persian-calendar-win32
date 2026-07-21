@@ -301,38 +301,6 @@ static BOOL is_dark_mode_active()
 // Derived from the original magenta color to solve click-through issues
 #define APP_LWA_COLORKEY (RGB(0xFE, 0x01, 0xFD))
 
-static void apply_aero_and_mica(HWND hDlg)
-{
-    HMODULE hDwm = GetModuleHandleA("dwmapi.dll");
-    if (!hDwm)
-        return;
-
-    {
-        using func_t = HRESULT(WINAPI *)(HWND, MARGINS *);
-        auto pDwmExtendFrameIntoClientArea = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-            GetProcAddress(hDwm, "DwmExtendFrameIntoClientArea")));
-        MARGINS margins = {-1, -1, -1, -1};
-        if (pDwmExtendFrameIntoClientArea)
-            pDwmExtendFrameIntoClientArea(hDlg, &margins);
-    }
-
-    {
-        using func_t = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
-        auto pDwmSetWindowAttribute = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-            GetProcAddress(hDwm, "DwmSetWindowAttribute")));
-        if (pDwmSetWindowAttribute)
-        {
-            BOOL darkMode = is_dark_mode_active();
-            if (darkMode)
-                pDwmSetWindowAttribute(hDlg, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
-            int backdropType = DWMSBT_MAINWINDOW;
-            pDwmSetWindowAttribute(hDlg, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
-        }
-    }
-
-    InvalidateRect(hDlg, nullptr, TRUE);
-}
-
 static void update_layout(HWND hwnd, unsigned width, unsigned height)
 {
     bool isLandscape = width > height;
@@ -382,7 +350,19 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     {
     case WM_CREATE:
     {
-        apply_aero_and_mica(hwnd);
+        {
+            using func_t = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+            auto pDwmSetWindowAttribute = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+                GetProcAddress(GetModuleHandleA("dwmapi.dll"), "DwmSetWindowAttribute")));
+            if (pDwmSetWindowAttribute)
+            {
+                BOOL darkMode = is_dark_mode_active();
+                if (darkMode)
+                    pDwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
+                int backdropType = DWMSBT_MAINWINDOW;
+                pDwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
+            }
+        }
 
         HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
         using func1_t = HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR);
