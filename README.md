@@ -6,9 +6,9 @@ It looks something like this
 
 <img width="383" height="274" alt="image" src="https://github.com/user-attachments/assets/a9fcef64-7496-442f-a97c-b7f2c3c4a4a3" />
 <img width="645" height="277" alt="image" src="https://github.com/user-attachments/assets/8a8a690a-e9cf-4f00-8a42-f474136c51b0" />
-<img width="881" height="319" alt="image" src="https://github.com/user-attachments/assets/3efd2d00-9fe0-4892-966d-9c4b9a7a7d87" />
+<img width="1226" height="468" alt="image" src="https://github.com/user-attachments/assets/a816afc4-af87-4be3-955a-3b1f73ea314e" />
 
-and it has a support from Windows XP to Windows 11's HiDPI and dark mode for the tray menu. 
+and it has a support from Windows XP to Windows 11's HiDPI and dark mode. 
 
 Installation
 ------------
