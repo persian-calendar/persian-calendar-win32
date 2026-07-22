@@ -347,6 +347,44 @@ static DWORD get_build_number()
     return 0;
 }
 
+static void update_window_visual_styles(HWND hwnd)
+{
+    BOOL darkMode = is_dark_mode_active();
+
+    {
+        HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
+        using func_t = HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR);
+        auto pSetWindowTheme = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+            GetProcAddress(hUxtheme, "SetWindowTheme")));
+        static_assert(dlg_day_combo_id + 1 == dlg_month_combo_id && dlg_month_combo_id + 1 == dlg_year_combo_id,
+                      "ComboBox IDs must follow each other for the loop below to work correctly");
+        if (pSetWindowTheme)
+            for (unsigned id = dlg_day_combo_id; id <= dlg_year_combo_id; ++id)
+                pSetWindowTheme(GetDlgItem(hwnd, static_cast<int>(id)), darkMode ? L"DarkMode_CFD" : L"Explorer", nullptr);
+    }
+
+    HMODULE hDwmapi = GetModuleHandleA("dwmapi.dll");
+    {
+        using func_t = HRESULT(WINAPI *)(HWND, MARGINS *);
+        auto pDwmExtendFrameIntoClientArea = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+            GetProcAddress(hDwmapi, "DwmExtendFrameIntoClientArea")));
+        MARGINS margins = {-1, -1, -1, -1};
+        if (pDwmExtendFrameIntoClientArea)
+            pDwmExtendFrameIntoClientArea(hwnd, &margins);
+    }
+    {
+        using func_t = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+        auto pDwmSetWindowAttribute = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+            GetProcAddress(hDwmapi, "DwmSetWindowAttribute")));
+        if (pDwmSetWindowAttribute)
+        {
+            pDwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
+            int backdropType = DWMSBT_MAINWINDOW;
+            pDwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
+        }
+    }
+}
+
 static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     // Don't use it during WM_CREATE as it's set after the CreateWindowExW
@@ -355,55 +393,18 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     switch (msg)
     {
     case WM_CREATE:
-    {
-        HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
-        using func1_t = HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR);
-        auto pSetWindowTheme = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
-            GetProcAddress(hUxtheme, "SetWindowTheme")));
-
-        using func2_t = bool(WINAPI *)(HWND hWnd, BOOL allow);
-        auto pAllowDarkModeForWindow = reinterpret_cast<func2_t>(
-            reinterpret_cast<void *>(GetProcAddress(hUxtheme, MAKEINTRESOURCEA(133))));
-
-        BOOL darkMode = is_dark_mode_active();
-
         static_assert(dlg_day_combo_id + 1 == dlg_month_combo_id && dlg_month_combo_id + 1 == dlg_year_combo_id,
                       "ComboBox IDs must follow each other for the loop below to work correctly");
         for (unsigned id = dlg_day_combo_id; id <= dlg_year_combo_id; ++id)
-        {
-            HWND item = CreateWindowExW(0, L"COMBOBOX", nullptr,
-                                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-                                        0, 0, 0, 0, hwnd,
-                                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(id)), hInst, nullptr);
-            if (pAllowDarkModeForWindow && darkMode)
-                pAllowDarkModeForWindow(item, true);
-            if (pSetWindowTheme && darkMode)
-                pSetWindowTheme(item, L"CFD", nullptr);
-        }
-
-        HMODULE hDwmapi = GetModuleHandleA("dwmapi.dll");
-        {
-            using func_t = HRESULT(WINAPI *)(HWND, MARGINS *);
-            auto pDwmExtendFrameIntoClientArea = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-                GetProcAddress(hDwmapi, "DwmExtendFrameIntoClientArea")));
-            MARGINS margins = {-1, -1, -1, -1};
-            if (pDwmExtendFrameIntoClientArea)
-                pDwmExtendFrameIntoClientArea(hwnd, &margins);
-        }
-        {
-            using func_t = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
-            auto pDwmSetWindowAttribute = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-                GetProcAddress(hDwmapi, "DwmSetWindowAttribute")));
-            if (pDwmSetWindowAttribute)
-            {
-                if (darkMode)
-                    pDwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
-                int backdropType = DWMSBT_MAINWINDOW;
-                pDwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
-            }
-        }
+            CreateWindowExW(0, L"COMBOBOX", nullptr,
+                            WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                            0, 0, 0, 0, hwnd,
+                            reinterpret_cast<HMENU>(static_cast<uintptr_t>(id)), hInst, nullptr);
+        [[fallthrough]];
+    case WM_SETTINGCHANGE:
+        update_window_visual_styles(hwnd);
         return 0;
-    }
+
     case WM_SIZE:
     {
         unsigned newWidth = static_cast<unsigned>(LOWORD(lparam));
