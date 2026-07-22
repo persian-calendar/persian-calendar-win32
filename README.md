@@ -4,8 +4,9 @@ A simple and small (9kb) way to display Persian calendar as a tray icon in your 
 
 It looks something like this
 
-<img width="360" height="321" alt="image" src="https://github.com/user-attachments/assets/b5a576e4-698d-45ec-913e-504c989c56c0" />
-<img width="528" height="130" alt="image" src="https://github.com/user-attachments/assets/b7ba8877-14ba-46ce-b703-3d92037f9e29" />
+<img width="383" height="274" alt="image" src="https://github.com/user-attachments/assets/a9fcef64-7496-442f-a97c-b7f2c3c4a4a3" />
+<img width="645" height="277" alt="image" src="https://github.com/user-attachments/assets/8a8a690a-e9cf-4f00-8a42-f474136c51b0" />
+<img width="881" height="319" alt="image" src="https://github.com/user-attachments/assets/3efd2d00-9fe0-4892-966d-9c4b9a7a7d87" />
 
 and it has a support from Windows XP to Windows 11's HiDPI and dark mode for the tray menu. 
 
