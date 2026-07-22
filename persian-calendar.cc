@@ -356,20 +356,6 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     {
     case WM_CREATE:
     {
-        {
-            using func_t = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
-            auto pDwmSetWindowAttribute = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-                GetProcAddress(GetModuleHandleA("dwmapi.dll"), "DwmSetWindowAttribute")));
-            if (pDwmSetWindowAttribute)
-            {
-                BOOL darkMode = is_dark_mode_active();
-                if (darkMode)
-                    pDwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
-                int backdropType = DWMSBT_MAINWINDOW;
-                pDwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
-            }
-        }
-
         HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
         using func1_t = HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR);
         auto pSetWindowTheme = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
@@ -393,6 +379,28 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                 pAllowDarkModeForWindow(item, true);
             if (pSetWindowTheme && darkMode)
                 pSetWindowTheme(item, L"CFD", nullptr);
+        }
+
+        HMODULE hDwmapi = GetModuleHandleA("dwmapi.dll");
+        {
+            using func_t = HRESULT(WINAPI *)(HWND, MARGINS *);
+            auto pDwmExtendFrameIntoClientArea = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+                GetProcAddress(hDwmapi, "DwmExtendFrameIntoClientArea")));
+            MARGINS margins = {-1, -1, -1, -1};
+            if (pDwmExtendFrameIntoClientArea)
+                pDwmExtendFrameIntoClientArea(hwnd, &margins);
+        }
+        {
+            using func_t = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+            auto pDwmSetWindowAttribute = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+                GetProcAddress(hDwmapi, "DwmSetWindowAttribute")));
+            if (pDwmSetWindowAttribute)
+            {
+                if (darkMode)
+                    pDwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
+                int backdropType = DWMSBT_MAINWINDOW;
+                pDwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
+            }
         }
         return 0;
     }
