@@ -10,10 +10,16 @@
 extern "C" IMAGE_DOS_HEADER __ImageBase;
 #define hInst (reinterpret_cast<HMODULE>(&__ImageBase))
 
+template <typename T>
+void zero_memory(T &ptr, size_t size = sizeof(T))
+{
+    SecureZeroMemory(&ptr, size);
+}
+
 static HFONT get_system_font(LONG size)
 {
     NONCLIENTMETRICSA ncm;
-    SecureZeroMemory(&ncm, sizeof(ncm));
+    zero_memory(ncm);
     ncm.cbSize = sizeof(NONCLIENTMETRICSA);
     if (SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
     {
@@ -31,7 +37,7 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
 
     HDC memDC = CreateCompatibleDC(hdc);
     HGDIOBJ oldBmp = SelectObject(memDC, hbmColor);
-    RECT rc = {0, 0, size, size};
+    RECT rc{0, 0, size, size};
 
     FillRect(memDC, &rc, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
     SetBkMode(memDC, TRANSPARENT);
@@ -54,7 +60,8 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
     SelectObject(memDC, oldBmp);
     DeleteDC(memDC);
 
-    ICONINFO iconInfo = {};
+    ICONINFO iconInfo;
+    zero_memory(iconInfo);
     iconInfo.fIcon = TRUE;
     iconInfo.hbmColor = hbmColor;
     iconInfo.hbmMask = hbmMask;
@@ -91,7 +98,7 @@ static void create_menu(app_state_t *state, wchar_t *date)
 {
     HMENU menu = CreatePopupMenu();
     MENUITEMINFOW menu_item;
-    SecureZeroMemory(&menu_item, sizeof(MENUITEMINFOW));
+    zero_memory(menu_item);
     menu_item.cbSize = sizeof(MENUITEMINFOW);
     menu_item.fMask = MIIM_ID | MIIM_TYPE | MIIM_STATE | MIIM_DATA;
     {
@@ -673,7 +680,7 @@ static ULONG_PTR enable_visual_styles()
     char dir[MAX_PATH];
     ULONG_PTR ulpActivationCookie = FALSE;
     ACTCTXA actCtx;
-    SecureZeroMemory(&actCtx, sizeof(actCtx));
+    zero_memory(actCtx);
     actCtx.cbSize = sizeof(actCtx);
     actCtx.dwFlags = ACTCTX_FLAG_RESOURCE_NAME_VALID | ACTCTX_FLAG_SET_PROCESS_DEFAULT | ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID;
     actCtx.lpSource = "shell32.dll";
@@ -698,7 +705,7 @@ void start()
     // Converter Dialog's class
     {
         WNDCLASSEXW wc;
-        SecureZeroMemory(&wc, sizeof(WNDCLASSEXW));
+        zero_memory(wc);
         wc.cbSize = sizeof(WNDCLASSEXW);
         wc.lpfnWndProc = ConverterDlgProc;
         wc.hInstance = hInst;
@@ -714,7 +721,7 @@ void start()
 
     // Initiation
     NOTIFYICONDATAW notify_icon_data;
-    SecureZeroMemory(&notify_icon_data, sizeof(NOTIFYICONDATAW));
+    zero_memory(notify_icon_data);
     app_state_t state(&notify_icon_data);
     {
         enable_visual_styles();
