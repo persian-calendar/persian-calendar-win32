@@ -90,10 +90,9 @@ constexpr unsigned first_separator_id = 1001;
 constexpr unsigned local_digits_id = 1002;
 constexpr unsigned black_background_id = 1003;
 constexpr unsigned second_separator_id = 1004;
-constexpr unsigned converter_from_persian_id = 1005;
-constexpr unsigned converter_from_gregorian_id = 1006;
-constexpr unsigned third_separator_id = 1007;
-constexpr unsigned exit_id = 1008;
+constexpr unsigned date_converter_id = 1005;
+constexpr unsigned third_separator_id = 1006;
+constexpr unsigned exit_id = 1007;
 static void create_menu(app_state_t *state, wchar_t *date)
 {
     HMENU menu = CreatePopupMenu();
@@ -123,15 +122,9 @@ static void create_menu(app_state_t *state, wchar_t *date)
     InsertMenuA(menu, second_separator_id, MF_SEPARATOR, TRUE, nullptr);
     {
         menu_item.fState = 0;
-        menu_item.wID = converter_from_persian_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل از شمسی");
-        InsertMenuItemW(menu, converter_from_persian_id, TRUE, &menu_item);
-    }
-    {
-        menu_item.fState = 0;
-        menu_item.wID = converter_from_gregorian_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل از میلادی");
-        InsertMenuItemW(menu, converter_from_gregorian_id, TRUE, &menu_item);
+        menu_item.wID = date_converter_id;
+        menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل تاریخ");
+        InsertMenuItemW(menu, date_converter_id, TRUE, &menu_item);
     }
     InsertMenuA(menu, third_separator_id, MF_SEPARATOR, TRUE, nullptr);
     {
@@ -169,8 +162,7 @@ const static wchar_t *weekdays[] = {
     L"پنجشنبه",
     L"جمعه",
 };
-
-static const wchar_t *gregorian_months[] = {
+const static wchar_t *gregorian_months[] = {
     L"ژانویه",
     L"فوریه",
     L"مارس",
@@ -185,16 +177,12 @@ static const wchar_t *gregorian_months[] = {
     L"دسامبر",
 };
 
-constexpr unsigned dlg_day_combo_id = 2001;
-constexpr unsigned dlg_month_combo_id = 2002;
-constexpr unsigned dlg_year_combo_id = 2003;
-
-enum converter_mode_t
-{
-    INVALID,
-    PERSIAN,
-    GREGORIAN
-};
+constexpr unsigned dlg_persian_day_combo_id = 2001;
+constexpr unsigned dlg_persian_month_combo_id = 2002;
+constexpr unsigned dlg_persian_year_combo_id = 2003;
+constexpr unsigned dlg_gregorian_day_combo_id = 2004;
+constexpr unsigned dlg_gregorian_month_combo_id = 2005;
+constexpr unsigned dlg_gregorian_year_combo_id = 2006;
 
 struct formatted_number_t
 {
@@ -211,20 +199,6 @@ static formatted_number_t format_number(unsigned number, bool local_digits = tru
     return result;
 }
 
-static void format_date(
-    BOOL local_digits, converter_mode_t mode, date_triplet_t date, unsigned dayOfWeek,
-    wchar_t *result, const wchar_t *suffix = L"")
-{
-    wsprintfW(result,
-              L"%s، %s %s(%s) %s%s",
-              weekdays[(dayOfWeek + 3) % 7],
-              format_number(date.day, local_digits).value,
-              mode == PERSIAN ? persian_months[(date.month - 1) % 12] : gregorian_months[(date.month - 1) % 12],
-              format_number(date.month, local_digits).value,
-              format_number(date.year, local_digits).value,
-              suffix);
-}
-
 static unsigned today_in_days()
 {
     SYSTEMTIME st;
@@ -232,46 +206,65 @@ static unsigned today_in_days()
     return gregorian_to_days({static_cast<unsigned>(st.wYear), static_cast<unsigned>(st.wMonth), static_cast<unsigned>(st.wDay)});
 }
 
-static bool date_equal(date_triplet_t x, date_triplet_t y)
+enum class update_source_t
 {
-    return x.year == y.year && x.month == y.month && x.day == y.day;
-}
+    INIT,
+    PERSIAN,
+    GREGORIAN
+};
 
-static void do_conversion(HWND hwnd, converter_mode_t mode)
+static void update_values(HWND hwnd, update_source_t source)
 {
-    date_triplet_t input_date{
-        static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_year_combo_id, CB_GETCURSEL, 0, 0)) +
-            static_cast<unsigned>(GetWindowLongPtr(GetDlgItem(hwnd, dlg_year_combo_id), GWLP_USERDATA)),
-        static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_month_combo_id, CB_GETCURSEL, 0, 0)) + 1,
-        static_cast<unsigned>(SendDlgItemMessageW(hwnd, dlg_day_combo_id, CB_GETCURSEL, 0, 0)) + 1};
-    unsigned days = mode == PERSIAN ? persian_to_days(input_date) : gregorian_to_days(input_date);
-    date_triplet_t converted_date = mode == PERSIAN ? days_to_gregorian(days) : days_to_persian(days);
+    HWND hDayPersian = GetDlgItem(hwnd, dlg_persian_day_combo_id);
+    HWND hMonthPersian = GetDlgItem(hwnd, dlg_persian_month_combo_id);
+    HWND hYearPersian = GetDlgItem(hwnd, dlg_persian_year_combo_id);
+    HWND hDayGregorian = GetDlgItem(hwnd, dlg_gregorian_day_combo_id);
+    HWND hMonthGregorian = GetDlgItem(hwnd, dlg_gregorian_month_combo_id);
+    HWND hYearGregorian = GetDlgItem(hwnd, dlg_gregorian_year_combo_id);
 
-    if (!date_equal(input_date, mode == PERSIAN ? days_to_persian(days) : days_to_gregorian(days)))
+    unsigned persianBaseYear = static_cast<unsigned>(GetWindowLongPtr(hYearPersian, GWLP_USERDATA));
+    unsigned gregorianBaseYear = static_cast<unsigned>(GetWindowLongPtr(hYearGregorian, GWLP_USERDATA));
+
+    unsigned days;
+    if (source == update_source_t::INIT)
+        days = today_in_days();
+    else
     {
-        SetWindowTextW(hwnd, L"ورودی نادرست");
-        // wchar_t result[128];
-        // wsprintfW(result, L"%d %d %d", day, month, year);
-        // SetWindowTextW(hwnd, result);
-        return;
+        bool is_persian = source == update_source_t::PERSIAN;
+        HWND sourceYear = is_persian ? hYearPersian : hYearGregorian;
+        unsigned baseYear = is_persian ? persianBaseYear : gregorianBaseYear;
+        date_triplet_t input_date{
+            static_cast<unsigned>(SendMessageW(sourceYear, CB_GETCURSEL, 0, 0)) + baseYear,
+            static_cast<unsigned>(SendMessageW(is_persian ? hMonthPersian : hMonthGregorian, CB_GETCURSEL, 0, 0)) + 1,
+            static_cast<unsigned>(SendMessageW(is_persian ? hDayPersian : hDayGregorian, CB_GETCURSEL, 0, 0)) + 1};
+        days = is_persian ? persian_to_days(input_date) : gregorian_to_days(input_date);
     }
 
-    wchar_t suffix[128];
     {
-        unsigned today_days = today_in_days();
+        persian_date_t date = days_to_persian(days);
+        SendMessageW(hDayPersian, CB_SETCURSEL, date.day - 1, 0);
+        SendMessageW(hMonthPersian, CB_SETCURSEL, date.month - 1, 0);
+        SendMessageW(hYearPersian, CB_SETCURSEL, date.year - persianBaseYear, 0);
+    }
+    {
+        gregorian_date_t date = days_to_gregorian(days);
+        SendMessageW(hDayGregorian, CB_SETCURSEL, date.day - 1, 0);
+        SendMessageW(hMonthGregorian, CB_SETCURSEL, date.month - 1, 0);
+        SendMessageW(hYearGregorian, CB_SETCURSEL, date.year - gregorianBaseYear, 0);
+    }
+
+    unsigned today_days = today_in_days();
+    if (days == today_days)
+        SetWindowTextW(hwnd, L"امروز");
+    else
+    {
+        wchar_t result[128];
         if (days < today_days)
-            wsprintfW(suffix, L"، %s روز پیش", format_number(today_days - days).value);
+            wsprintfW(result, L"\u200F%s روز پیش", format_number(today_days - days).value);
         else if (days > today_days)
-            wsprintfW(suffix, L"، %s روز آتی", format_number(days - today_days).value);
-        else
-            wsprintfW(suffix, L"، امروز");
+            wsprintfW(result, L"\u200F%s روز آتی", format_number(days - today_days).value);
+        SetWindowTextW(hwnd, result);
     }
-    wchar_t result[128];
-    format_date(TRUE, mode == PERSIAN ? GREGORIAN : PERSIAN,
-                converted_date,
-                days % 7,
-                result, suffix);
-    SetWindowTextW(hwnd, result);
 }
 
 static UINT get_system_dpi()
@@ -284,8 +277,8 @@ static UINT get_system_dpi()
     return static_cast<UINT>(dpi);
 }
 
-constexpr int window_width = 4;
-constexpr int window_height = 1;
+constexpr int window_width = 5;
+constexpr int window_height = 2;
 
 static BOOL is_dark_mode_active()
 {
@@ -310,19 +303,16 @@ static BOOL is_dark_mode_active()
 
 static void update_layout(HWND hwnd, unsigned width, unsigned height)
 {
-    bool isLandscape = width > height;
-    int padding_y = MulDiv(static_cast<int>(height), 2 * window_width, 25 * window_height);
-    HFONT hFont = get_system_font((static_cast<int>(height) - 2 * padding_y) / (isLandscape ? 1 : 2));
-    static_assert(dlg_day_combo_id + 1 == dlg_month_combo_id && dlg_month_combo_id + 1 == dlg_year_combo_id,
-                  "ComboBox IDs must follow each other for the loop below to work correctly");
-    for (unsigned i = 0; i < 3; ++i)
+    HFONT hFont = get_system_font(MulDiv(static_cast<int>(height), 8, 25));
+    for (unsigned i = 0; i < 6; ++i)
     {
-        HWND item = GetDlgItem(hwnd, static_cast<int>(dlg_day_combo_id + i));
+        HWND item = GetDlgItem(hwnd, static_cast<int>(dlg_persian_day_combo_id + i));
         SendMessageW(item, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
+        int row = i % 3;
         MoveWindow(item,
-                   MulDiv(static_cast<int>(width), static_cast<int>(isLandscape ? (i == 0 ? 1 : (i == 1 ? 7 : 18)) : 1), 25),
-                   isLandscape ? padding_y : MulDiv(static_cast<int>(height), static_cast<int>(1 + 3 * i), 10),
-                   MulDiv(static_cast<int>(width), isLandscape ? (i == 0 ? 5 : (i == 1 ? 10 : 6)) : 23, 25),
+                   MulDiv(static_cast<int>(width), static_cast<int>(row == 0 ? 1 : (row == 1 ? 7 : 18)), 25),
+                   MulDiv(static_cast<int>(height), static_cast<int>(i < 3 ? 2 : 14), 25),
+                   MulDiv(static_cast<int>(width), row == 0 ? 5 : (row == 1 ? 10 : 6), 25),
                    // The height parameter here is only used for the dropdown size of the ComboBox,
                    // so making it larger ensures the dropdown is sufficiently tall.
                    // Different versions of Windows seem to ignore it and only Wine considers it
@@ -355,14 +345,12 @@ static void update_window_visual_styles(HWND hwnd)
         using func_t = HRESULT(WINAPI *)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList);
         auto pSetWindowTheme = reinterpret_cast<func_t>(reinterpret_cast<void *>(
             GetProcAddress(hUxtheme, "SetWindowTheme")));
-        static_assert(dlg_day_combo_id + 1 == dlg_month_combo_id && dlg_month_combo_id + 1 == dlg_year_combo_id,
-                      "ComboBox IDs must follow each other for the loop below to work correctly");
         if (pSetWindowTheme)
-            for (unsigned id = dlg_day_combo_id; id <= dlg_year_combo_id; ++id)
+            for (unsigned id = dlg_persian_day_combo_id; id <= dlg_gregorian_year_combo_id; ++id)
                 pSetWindowTheme(GetDlgItem(hwnd, static_cast<int>(id)), darkMode ? L"DarkMode_CFD" : L"Explorer", nullptr);
     }
 
-    HMODULE hDwmapi = GetModuleHandleA("dwmapi.dll");
+    HMODULE hDwmapi = LoadLibraryA("dwmapi.dll");
     {
         using func_t = HRESULT(WINAPI *)(HWND hWnd, const MARGINS *pMarInset);
         auto pDwmExtendFrameIntoClientArea = reinterpret_cast<func_t>(reinterpret_cast<void *>(
@@ -382,23 +370,55 @@ static void update_window_visual_styles(HWND hwnd)
             pDwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
         }
     }
+    if (hDwmapi)
+        FreeLibrary(hDwmapi);
 }
 
 static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
-    // Don't use it during WM_CREATE as it's set after the CreateWindowExW
-    converter_mode_t mode = static_cast<converter_mode_t>(
-        GetWindowLongPtrA(hwnd, GWLP_USERDATA));
     switch (msg)
     {
     case WM_CREATE:
-        static_assert(dlg_day_combo_id + 1 == dlg_month_combo_id && dlg_month_combo_id + 1 == dlg_year_combo_id,
-                      "ComboBox IDs must follow each other for the loop below to work correctly");
-        for (unsigned id = dlg_day_combo_id; id <= dlg_year_combo_id; ++id)
-            CreateWindowExW(0, L"COMBOBOX", nullptr,
-                            WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-                            0, 0, 0, 0, hwnd,
-                            reinterpret_cast<HMENU>(static_cast<uintptr_t>(id)), hInst, nullptr);
+    {
+        unsigned days = today_in_days();
+        persian_date_t persian_date = days_to_persian(days);
+        gregorian_date_t gregorian_date = days_to_gregorian(days);
+
+        for (unsigned i = 0; i < 6; ++i)
+        {
+            HWND item = CreateWindowExW(0, L"COMBOBOX", nullptr,
+                                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                                        0, 0, 0, 0, hwnd,
+                                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_persian_day_combo_id + i)), hInst, nullptr);
+            bool is_persian = i < 3;
+            unsigned row = i % 3;
+            if (row == 0)
+            {
+                for (unsigned j = 1; j <= 31; ++j)
+                    SendMessageW(item, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(j).value));
+            }
+            else if (row == 1)
+            {
+                for (unsigned j = 0; j < 12; ++j)
+                {
+                    wchar_t buf[32];
+                    wsprintfW(buf, L"%s (%s)",
+                              is_persian ? persian_months[j % 12] : gregorian_months[j % 12],
+                              format_number(j + 1).value);
+                    SendMessageW(item, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(buf));
+                }
+            }
+            else
+            {
+                constexpr unsigned combobox_years = 200;
+                unsigned base_year = (is_persian ? persian_date.year : gregorian_date.year) - combobox_years / 2;
+                SetWindowLongPtr(item, GWLP_USERDATA, static_cast<LONG_PTR>(base_year));
+                for (unsigned j = 0; j <= combobox_years; ++j)
+                    SendMessageW(item, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(base_year + j).value));
+            }
+        }
+        update_values(hwnd, update_source_t::INIT);
+    }
         [[fallthrough]];
     case WM_SETTINGCHANGE:
         update_window_visual_styles(hwnd);
@@ -409,42 +429,6 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         unsigned newWidth = static_cast<unsigned>(LOWORD(lparam));
         unsigned newHeight = static_cast<unsigned>(HIWORD(lparam));
         update_layout(hwnd, newWidth, newHeight);
-        return 0;
-    }
-    case WM_SHOWWINDOW:
-    {
-        if (mode == INVALID)
-            return 0;
-
-        date_triplet_t date = mode == PERSIAN ? days_to_persian(today_in_days()) : days_to_gregorian(today_in_days());
-        {
-            HWND hDay = GetDlgItem(hwnd, dlg_day_combo_id);
-            for (unsigned i = 1; i <= 31; ++i)
-                SendMessageW(hDay, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(i).value));
-            SendMessageW(hDay, CB_SETCURSEL, date.day - 1, 0);
-        }
-        {
-            HWND hMonth = GetDlgItem(hwnd, dlg_month_combo_id);
-            for (unsigned i = 0; i < 12; ++i)
-            {
-                wchar_t buf[32];
-                wsprintfW(buf, L"%s (%s)",
-                          mode == PERSIAN ? persian_months[i % 12] : gregorian_months[i % 12],
-                          format_number(i + 1).value);
-                SendMessageW(hMonth, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(buf));
-            }
-            SendMessageW(hMonth, CB_SETCURSEL, date.month - 1, 0);
-        }
-        {
-            HWND hYear = GetDlgItem(hwnd, dlg_year_combo_id);
-            constexpr unsigned combobox_years = 100;
-            const unsigned base_year = date.year - combobox_years / 2;
-            SetWindowLongPtr(hYear, GWLP_USERDATA, static_cast<LONG_PTR>(base_year));
-            for (unsigned i = 0; i <= combobox_years; ++i)
-                SendMessageW(hYear, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(base_year + i).value));
-            SendMessageW(hYear, CB_SETCURSEL, combobox_years / 2, 0);
-        }
-        do_conversion(hwnd, mode);
         return 0;
     }
     case WM_LBUTTONDOWN:
@@ -465,11 +449,11 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     }
     case WM_COMMAND:
     {
-        // const WORD id = LOWORD(wparam);
+        const WORD id = LOWORD(wparam);
         const WORD code = HIWORD(wparam);
         if (code == CBN_SELCHANGE)
         {
-            do_conversion(hwnd, mode);
+            update_values(hwnd, id < dlg_gregorian_day_combo_id ? update_source_t::PERSIAN : update_source_t::GREGORIAN);
             return 0;
         }
         break;
@@ -482,7 +466,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
 constexpr static const wchar_t *converterClassName = L"CnvDlg";
 
-static void open_converter_dialog(converter_mode_t mode)
+static void open_converter_dialog()
 {
     UINT dpi = get_system_dpi();
     HWND hwnd = CreateWindowExW(
@@ -495,17 +479,21 @@ static void open_converter_dialog(converter_mode_t mode)
         static_cast<int>(window_height * dpi),
         nullptr, nullptr, hInst, nullptr);
     SetLayeredWindowAttributes(hwnd, APP_LWA_COLORKEY, 0, LWA_COLORKEY);
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, static_cast<LONG_PTR>(mode));
-    if (hwnd)
-        ShowWindow(hwnd, SW_SHOW);
+    ShowWindow(hwnd, SW_SHOW);
+    SetForegroundWindow(hwnd);
 }
 
 static void update(HWND hwnd, app_state_t *state)
 {
     unsigned days = today_in_days();
     persian_date_t date = days_to_persian(days);
-    format_date(state->local_digits, PERSIAN, date, days % 7,
-                state->notify_icon_data->szTip);
+    wsprintfW(state->notify_icon_data->szTip,
+              L"%s، %s %s(%s) %s",
+              weekdays[(days % 7 + 3) % 7],
+              format_number(date.day, state->local_digits).value,
+              persian_months[(date.month - 1) % 12],
+              format_number(date.month, state->local_digits).value,
+              format_number(date.year, state->local_digits).value);
 
     // szTip allocated string is both used for the tooltip and first item of the menu
     create_menu(state, state->notify_icon_data->szTip);
@@ -606,7 +594,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
         update(hwnd, state);
         return 0;
     case notifyClickId:
-        if (lparam == WM_LBUTTONUP || lparam == WM_RBUTTONUP)
+        if (lparam == WM_RBUTTONUP)
         {
             POINT p;
             GetCursorPos(&p);
@@ -614,6 +602,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
             TrackPopupMenu(state->menu, TPM_RIGHTALIGN | TPM_RIGHTBUTTON | TPM_LAYOUTRTL,
                            p.x, p.y, 0, hwnd, nullptr);
         }
+        else if (lparam == WM_LBUTTONUP)
+            open_converter_dialog();
         return 0;
     case WM_COMMAND:
         if (wparam == local_digits_id)
@@ -630,14 +620,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
             Registry().set_black_background(state->black_background);
             return 0;
         }
-        else if (wparam == converter_from_persian_id)
+        else if (wparam == date_converter_id)
         {
-            open_converter_dialog(PERSIAN);
-            return 0;
-        }
-        else if (wparam == converter_from_gregorian_id)
-        {
-            open_converter_dialog(GREGORIAN);
+            open_converter_dialog();
             return 0;
         }
         else if (wparam == exit_id)
@@ -764,8 +749,7 @@ void start()
         SetTimer(hwnd, 1 /*timer id*/, 60000, nullptr);
     }
 
-    // open_converter_dialog(PERSIAN);
-    // open_converter_dialog(GREGORIAN);
+    // open_converter_dialog();
 
     // Main loop
     MSG msg;
