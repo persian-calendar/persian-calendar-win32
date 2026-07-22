@@ -686,6 +686,17 @@ static void enable_dark_mode_support()
 // This is instead of putting a manifest XML
 static void enable_visual_styles()
 {
+    // CreateActCtxA and ActivateActCtx aren't available in Windowws 2000, so
+    HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
+    using func1_t = HANDLE(WINAPI *)(PCACTCTXA pActCtx);
+    auto pCreateActCtxA = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
+        GetProcAddress(hKernel32, "CreateActCtxA")));
+    using func2_t = BOOL(WINAPI *)(HANDLE hActCtx, ULONG_PTR *lpCookie);
+    auto pActivateActCtx = reinterpret_cast<func2_t>(reinterpret_cast<void *>(
+        GetProcAddress(hKernel32, "ActivateActCtx")));
+    if (!pCreateActCtxA || !pActivateActCtx)
+        return;
+
     char dir[MAX_PATH];
     GetSystemDirectoryA(dir, MAX_PATH);
     ACTCTXA actCtx;
@@ -695,7 +706,7 @@ static void enable_visual_styles()
     actCtx.lpSource = "shell32.dll";
     actCtx.lpAssemblyDirectory = dir;
     actCtx.lpResourceName = MAKEINTRESOURCEA(124);
-    ActivateActCtx(CreateActCtxA(&actCtx), nullptr);
+    pActivateActCtx(pCreateActCtxA(&actCtx), nullptr);
 }
 
 extern "C" [[noreturn]] void start();
