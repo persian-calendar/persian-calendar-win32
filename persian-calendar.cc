@@ -334,7 +334,7 @@ static void update_layout(HWND hwnd, unsigned width, unsigned height)
 
 static DWORD get_build_number()
 {
-    using func_t = LONG(WINAPI *)(PRTL_OSVERSIONINFOW);
+    using func_t = LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation);
     auto pRtlGetVersion = reinterpret_cast<func_t>(reinterpret_cast<void *>(
         GetProcAddress(GetModuleHandleA("ntdll.dll"), "RtlGetVersion")));
     if (pRtlGetVersion)
@@ -353,7 +353,7 @@ static void update_window_visual_styles(HWND hwnd)
 
     {
         HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
-        using func_t = HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR);
+        using func_t = HRESULT(WINAPI *)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList);
         auto pSetWindowTheme = reinterpret_cast<func_t>(reinterpret_cast<void *>(
             GetProcAddress(hUxtheme, "SetWindowTheme")));
         static_assert(dlg_day_combo_id + 1 == dlg_month_combo_id && dlg_month_combo_id + 1 == dlg_year_combo_id,
@@ -365,7 +365,7 @@ static void update_window_visual_styles(HWND hwnd)
 
     HMODULE hDwmapi = GetModuleHandleA("dwmapi.dll");
     {
-        using func_t = HRESULT(WINAPI *)(HWND, MARGINS *);
+        using func_t = HRESULT(WINAPI *)(HWND hWnd, const MARGINS *pMarInset);
         auto pDwmExtendFrameIntoClientArea = reinterpret_cast<func_t>(reinterpret_cast<void *>(
             GetProcAddress(hDwmapi, "DwmExtendFrameIntoClientArea")));
         MARGINS margins = {-1, -1, -1, -1};
@@ -373,7 +373,7 @@ static void update_window_visual_styles(HWND hwnd)
             pDwmExtendFrameIntoClientArea(hwnd, &margins);
     }
     {
-        using func_t = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+        using func_t = HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute);
         auto pDwmSetWindowAttribute = reinterpret_cast<func_t>(reinterpret_cast<void *>(
             GetProcAddress(hDwmapi, "DwmSetWindowAttribute")));
         if (pDwmSetWindowAttribute)
@@ -656,7 +656,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
 static void enable_hidpi()
 {
     HMODULE hUser32 = GetModuleHandleA("user32.dll");
-    using func1_t = BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT);
+    using func1_t = BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT value);
     auto pSetProcessDpiAwarenessContext = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
         GetProcAddress(hUser32, "SetProcessDpiAwarenessContext")));
     if (pSetProcessDpiAwarenessContext)
@@ -675,11 +675,19 @@ static void enable_dark_mode_support()
 {
     if (get_build_number() < 17763) // https://betawiki.net/wiki/Windows_10_October_2018_Update
         return;
-    using func_t = INT(WINAPI *)(INT); // undocumented SetPreferredAppMode's signature
+    enum class PreferredAppMode : INT
+    {
+        Default,
+        AllowDark,
+        ForceDark,
+        ForceLight,
+        Max
+    };
+    using func_t = INT(WINAPI *)(PreferredAppMode value); // undocumented SetPreferredAppMode's signature
     auto pSetPreferredAppMode = reinterpret_cast<func_t>(reinterpret_cast<void *>(
         GetProcAddress(GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(135))));
     if (pSetPreferredAppMode)
-        pSetPreferredAppMode(/*Allow dark*/ 1);
+        pSetPreferredAppMode(PreferredAppMode::AllowDark);
 }
 
 // https://stackoverflow.com/a/10444161
@@ -691,7 +699,7 @@ static void enable_visual_styles()
     using func1_t = HANDLE(WINAPI *)(PCACTCTXA pActCtx);
     auto pCreateActCtxA = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
         GetProcAddress(hKernel32, "CreateActCtxA")));
-    using func2_t = BOOL(WINAPI *)(HANDLE hActCtx, ULONG_PTR *lpCookie);
+    using func2_t = BOOL(WINAPI *)(HANDLE hActCtx, ULONG_PTR * lpCookie);
     auto pActivateActCtx = reinterpret_cast<func2_t>(reinterpret_cast<void *>(
         GetProcAddress(hKernel32, "ActivateActCtx")));
     if (!pCreateActCtxA || !pActivateActCtx)
