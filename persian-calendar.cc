@@ -685,9 +685,7 @@ static void enable_visual_styles()
     actCtx.lpSource = "shell32.dll";
     actCtx.lpAssemblyDirectory = dir;
     actCtx.lpResourceName = MAKEINTRESOURCEA(124);
-    constexpr unsigned dir_size = sizeof(dir) / sizeof(*dir);
-    UINT cch = GetSystemDirectoryA(dir, dir_size);
-    dir[cch % dir_size] = '\0';
+    GetSystemDirectoryA(dir, MAX_PATH);
     ActivateActCtx(CreateActCtxA(&actCtx), nullptr);
 }
 
