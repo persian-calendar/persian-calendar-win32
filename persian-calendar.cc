@@ -342,12 +342,28 @@ static void update_window_visual_styles(HWND hwnd)
 
     {
         HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
-        using func_t = HRESULT(WINAPI *)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList);
-        auto pSetWindowTheme = reinterpret_cast<func_t>(reinterpret_cast<void *>(
+        using func1_t = HRESULT(WINAPI *)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList);
+        auto pSetWindowTheme = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
             GetProcAddress(hUxtheme, "SetWindowTheme")));
+
+        HMODULE hUser32 = GetModuleHandleA("user32.dll");
+        using func2_t = BOOL(WINAPI *)(HWND hwndCombo, PCOMBOBOXINFO pcbi);
+        auto pGetComboBoxInfo = reinterpret_cast<func2_t>(reinterpret_cast<void *>(
+            GetProcAddress(hUser32, "GetComboBoxInfo")));
+
         if (pSetWindowTheme)
             for (unsigned id = dlg_persian_day_combo_id; id <= dlg_gregorian_year_combo_id; ++id)
-                pSetWindowTheme(GetDlgItem(hwnd, static_cast<int>(id)), darkMode ? L"DarkMode_CFD" : L"Explorer", nullptr);
+            {
+                HWND item = GetDlgItem(hwnd, static_cast<int>(id));
+                pSetWindowTheme(item, darkMode ? L"DarkMode_CFD" : L"Explorer", nullptr);
+                if (pGetComboBoxInfo)
+                {
+                    COMBOBOXINFO cbi;
+                    cbi.cbSize = sizeof(cbi);
+                    if (pGetComboBoxInfo(item, &cbi))
+                        pSetWindowTheme(cbi.hwndList, darkMode ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+                }
+            }
     }
 
     HMODULE hDwmapi = LoadLibraryA("dwmapi.dll");
