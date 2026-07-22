@@ -725,16 +725,19 @@ void start()
 
     // Initiation
     NOTIFYICONDATAW notify_icon_data;
-    zero_memory(notify_icon_data);
-    app_state_t state(&notify_icon_data);
     {
+        zero_memory(notify_icon_data);
         notify_icon_data.cbSize = sizeof(NOTIFYICONDATAW);
         notify_icon_data.uCallbackMessage = notifyClickId;
         notify_icon_data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+        notify_icon_data.hWnd = hwnd;
+        Shell_NotifyIconW(NIM_ADD, &notify_icon_data);
+    }
+
+    app_state_t state(&notify_icon_data);
+    {
         SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
         Registry().fill_app_state(&state);
-        state.notify_icon_data->hWnd = hwnd;
-        Shell_NotifyIconW(NIM_ADD, state.notify_icon_data);
         update(hwnd, &state);
         SetTimer(hwnd, 1 /*timer id*/, 60000, nullptr);
     }
@@ -752,8 +755,8 @@ void start()
 
     // Finalize
     {
-        Shell_NotifyIconW(NIM_DELETE, state.notify_icon_data);
-        DestroyIcon(state.notify_icon_data->hIcon);
+        Shell_NotifyIconW(NIM_DELETE, &notify_icon_data);
+        DestroyIcon(notify_icon_data.hIcon);
     }
 
     ExitProcess(msg.wParam);
