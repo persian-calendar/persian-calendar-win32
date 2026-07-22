@@ -11,7 +11,7 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 #define hInst (reinterpret_cast<HMODULE>(&__ImageBase))
 
 template <typename T>
-void zero_memory(T &&ptr, size_t size = sizeof(T))
+void zero_memory(T &ptr, size_t size = sizeof(T))
 {
     SecureZeroMemory(&ptr, size);
 }
@@ -315,15 +315,14 @@ static void update_layout(HWND hwnd, unsigned width, unsigned height)
     HFONT hFont = get_system_font((static_cast<int>(height) - 2 * padding_y) / (isLandscape ? 1 : 2));
     static_assert(dlg_day_combo_id + 1 == dlg_month_combo_id && dlg_month_combo_id + 1 == dlg_year_combo_id,
                   "ComboBox IDs must follow each other for the loop below to work correctly");
-    int combo_width = MulDiv(static_cast<int>(width), isLandscape ? 7 : 23, 25);
     for (unsigned i = 0; i < 3; ++i)
     {
         HWND item = GetDlgItem(hwnd, static_cast<int>(dlg_day_combo_id + i));
         SendMessageW(item, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
         MoveWindow(item,
-                   MulDiv(static_cast<int>(width), static_cast<int>(1 + 8 * (isLandscape ? i : 0)), 25),
+                   MulDiv(static_cast<int>(width), static_cast<int>(isLandscape ? (i == 0 ? 1 : (i == 1 ? 7 : 18)) : 1), 25),
                    isLandscape ? padding_y : MulDiv(static_cast<int>(height), static_cast<int>(1 + 3 * i), 10),
-                   combo_width,
+                   MulDiv(static_cast<int>(width), isLandscape ? (i == 0 ? 5 : (i == 1 ? 10 : 6)) : 23, 25),
                    // The height parameter here is only used for the dropdown size of the ComboBox,
                    // so making it larger ensures the dropdown is sufficiently tall.
                    // Different versions of Windows seem to ignore it and only Wine considers it
