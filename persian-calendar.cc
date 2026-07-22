@@ -254,17 +254,15 @@ static void update_values(HWND hwnd, update_source_t source)
     }
 
     unsigned today_days = today_in_days();
+    const wchar_t *weekday = weekdays[(days + 3) % 7];
+    wchar_t result[128];
     if (days == today_days)
-        SetWindowTextW(hwnd, L"امروز");
-    else
-    {
-        wchar_t result[128];
-        if (days < today_days)
-            wsprintfW(result, L"\u200F%s روز پیش", format_number(today_days - days).value);
-        else if (days > today_days)
-            wsprintfW(result, L"\u200F%s روز آتی", format_number(days - today_days).value);
-        SetWindowTextW(hwnd, result);
-    }
+        wsprintfW(result, L"%s، امروز", weekday);
+    else if (days < today_days)
+        wsprintfW(result, L"%s، %s روز پیش", weekday, format_number(today_days - days).value);
+    else if (days > today_days)
+        wsprintfW(result, L"%s، %s روز آتی", weekday, format_number(days - today_days).value);
+    SetWindowTextW(hwnd, result);
 }
 
 static UINT get_system_dpi()
@@ -514,7 +512,7 @@ static void update(HWND hwnd, app_state_t *state)
     persian_date_t date = days_to_persian(days);
     wsprintfW(state->notify_icon_data->szTip,
               L"%s، %s %s(%s) %s",
-              weekdays[(days % 7 + 3) % 7],
+              weekdays[(days + 3) % 7],
               format_number(date.day, state->local_digits).value,
               persian_months[(date.month - 1) % 12],
               format_number(date.month, state->local_digits).value,
