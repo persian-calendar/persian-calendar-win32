@@ -592,7 +592,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
     switch (msg)
     {
     case WM_DESTROY:
-        PostQuitMessage(0);
+        PostQuitMessage(ERROR_SUCCESS);
         return 0;
     case WM_TIMER:
         update(hwnd, state);
@@ -634,7 +634,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
         }
         else if (wparam == exit_id)
         {
-            PostQuitMessage(0);
+            PostQuitMessage(ERROR_SUCCESS);
             return 0;
         }
         break;
