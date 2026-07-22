@@ -678,6 +678,7 @@ static void enable_dark_mode_support()
 static void enable_visual_styles()
 {
     char dir[MAX_PATH];
+    GetSystemDirectoryA(dir, MAX_PATH);
     ACTCTXA actCtx;
     zero_memory(actCtx);
     actCtx.cbSize = sizeof(actCtx);
@@ -685,7 +686,6 @@ static void enable_visual_styles()
     actCtx.lpSource = "shell32.dll";
     actCtx.lpAssemblyDirectory = dir;
     actCtx.lpResourceName = MAKEINTRESOURCEA(124);
-    GetSystemDirectoryA(dir, MAX_PATH);
     ActivateActCtx(CreateActCtxA(&actCtx), nullptr);
 }
 
