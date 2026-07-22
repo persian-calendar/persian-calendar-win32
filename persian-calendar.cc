@@ -440,6 +440,15 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         update_window_visual_styles(hwnd);
         return 0;
 
+    case WM_CTLCOLORLISTBOX:
+    {
+        HDC hdc = reinterpret_cast<HDC>(wparam);
+        bool darkMode = is_dark_mode_active();
+        SetTextColor(hdc, darkMode ? RGB(240, 240, 240) : RGB(0, 0, 0));
+        SetBkColor(hdc, darkMode ? RGB(32, 32, 32) : RGB(255, 255, 255));
+        return reinterpret_cast<INT_PTR>(GetStockObject(darkMode ? DKGRAY_BRUSH : WHITE_BRUSH));
+    }
+
     case WM_SIZE:
     {
         unsigned newWidth = static_cast<unsigned>(LOWORD(lparam));
