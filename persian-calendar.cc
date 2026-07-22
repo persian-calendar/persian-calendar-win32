@@ -719,14 +719,15 @@ void start()
     HWND hwnd = CreateWindowExW(0, L"STATIC", nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
     SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc));
 
+    enable_visual_styles();
+    enable_hidpi();
+    enable_dark_mode_support();
+
     // Initiation
     NOTIFYICONDATAW notify_icon_data;
     zero_memory(notify_icon_data);
     app_state_t state(&notify_icon_data);
     {
-        enable_visual_styles();
-        enable_hidpi();
-        enable_dark_mode_support();
         notify_icon_data.cbSize = sizeof(NOTIFYICONDATAW);
         notify_icon_data.uCallbackMessage = notifyClickId;
         notify_icon_data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
