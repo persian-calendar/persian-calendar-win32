@@ -188,7 +188,7 @@ struct formatted_number_t
 {
     wchar_t value[8];
 };
-static formatted_number_t format_number(unsigned number, bool local_digits = true)
+static formatted_number_t format_number(unsigned number, BOOL local_digits = true)
 {
     formatted_number_t result;
     constexpr unsigned size = sizeof(result.value) / sizeof(wchar_t);
@@ -510,13 +510,14 @@ static void update(HWND hwnd, app_state_t *state)
 {
     unsigned days = today_in_days();
     persian_date_t date = days_to_persian(days);
+    BOOL local_digits = state->local_digits;
     wsprintfW(state->notify_icon_data->szTip,
               L"%s، %s %s(%s) %s",
               weekdays[(days + 3) % 7],
-              format_number(date.day, state->local_digits).value,
+              format_number(date.day, local_digits).value,
               persian_months[(date.month - 1) % 12],
-              format_number(date.month, state->local_digits).value,
-              format_number(date.year, state->local_digits).value);
+              format_number(date.month, local_digits).value,
+              format_number(date.year, local_digits).value);
 
     // szTip allocated string is both used for the tooltip and first item of the menu
     create_menu(state, state->notify_icon_data->szTip);
