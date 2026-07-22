@@ -714,7 +714,8 @@ static void enable_visual_styles()
     actCtx.lpSource = "shell32.dll";
     actCtx.lpAssemblyDirectory = dir;
     actCtx.lpResourceName = MAKEINTRESOURCEA(124);
-    pActivateActCtx(pCreateActCtxA(&actCtx), nullptr);
+    ULONG_PTR ulpActivationCookie = FALSE;
+    pActivateActCtx(pCreateActCtxA(&actCtx), &ulpActivationCookie);
 }
 
 extern "C" [[noreturn]] void start();
