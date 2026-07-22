@@ -11,7 +11,7 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 #define hInst (reinterpret_cast<HMODULE>(&__ImageBase))
 
 template <typename T>
-void zero_memory(T &ptr, size_t size = sizeof(T))
+void zero_memory(T &&ptr, size_t size = sizeof(T))
 {
     SecureZeroMemory(&ptr, size);
 }
@@ -385,7 +385,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                       "ComboBox IDs must follow each other for the loop below to work correctly");
         for (unsigned id = dlg_day_combo_id; id <= dlg_year_combo_id; ++id)
         {
-            HWND item = CreateWindowExA(0, "COMBOBOX", nullptr,
+            HWND item = CreateWindowExW(0, L"COMBOBOX", nullptr,
                                         WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
                                         0, 0, 0, 0, hwnd,
                                         reinterpret_cast<HMENU>(static_cast<uintptr_t>(id)), hInst, nullptr);
@@ -716,7 +716,7 @@ void start()
     // Passing "STATIC" as a class name and overriding its Window procedure is a hack to avoid
     // registering a window class, which would require more code. The created window is never shown, so it doesn't
     // matter that it's a "STATIC" control.
-    HWND hwnd = CreateWindowExA(0, "STATIC", nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
+    HWND hwnd = CreateWindowExW(0, L"STATIC", nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
     SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc));
 
     // Initiation
