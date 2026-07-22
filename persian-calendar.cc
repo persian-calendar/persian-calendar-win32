@@ -675,10 +675,9 @@ static void enable_dark_mode_support()
 
 // https://stackoverflow.com/a/10444161
 // This is instead of putting a manifest XML
-static ULONG_PTR enable_visual_styles()
+static void enable_visual_styles()
 {
     char dir[MAX_PATH];
-    ULONG_PTR ulpActivationCookie = FALSE;
     ACTCTXA actCtx;
     zero_memory(actCtx);
     actCtx.cbSize = sizeof(actCtx);
@@ -688,11 +687,8 @@ static ULONG_PTR enable_visual_styles()
     actCtx.lpResourceName = MAKEINTRESOURCEA(124);
     constexpr unsigned dir_size = sizeof(dir) / sizeof(*dir);
     UINT cch = GetSystemDirectoryA(dir, dir_size);
-    if (cch >= dir_size)
-        return FALSE; /*shouldn't happen*/
     dir[cch % dir_size] = '\0';
-    ActivateActCtx(CreateActCtxA(&actCtx), &ulpActivationCookie);
-    return ulpActivationCookie;
+    ActivateActCtx(CreateActCtxA(&actCtx), nullptr);
 }
 
 extern "C" [[noreturn]] void start();
