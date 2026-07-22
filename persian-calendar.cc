@@ -511,7 +511,8 @@ static void update(HWND hwnd, app_state_t *state)
     unsigned days = today_in_days();
     persian_date_t date = days_to_persian(days);
     BOOL local_digits = state->local_digits;
-    wsprintfW(state->notify_icon_data->szTip,
+    NOTIFYICONDATAW *nid = state->notify_icon_data;
+    wsprintfW(nid->szTip,
               L"%s، %s %s(%s) %s",
               weekdays[(days + 3) % 7],
               format_number(date.day, local_digits).value,
@@ -520,15 +521,15 @@ static void update(HWND hwnd, app_state_t *state)
               format_number(date.year, local_digits).value);
 
     // szTip allocated string is both used for the tooltip and first item of the menu
-    create_menu(state, state->notify_icon_data->szTip);
+    create_menu(state, nid->szTip);
 
     HDC hdc = GetDC(hwnd);
-    HICON icon = create_text_icon(hdc, format_number(date.day, state->local_digits).value, state->black_background);
+    HICON icon = create_text_icon(hdc, format_number(date.day, local_digits).value, state->black_background);
     ReleaseDC(hwnd, hdc);
-    if (state->notify_icon_data->hIcon)
-        DestroyIcon(state->notify_icon_data->hIcon);
-    state->notify_icon_data->hIcon = icon;
-    Shell_NotifyIconW(NIM_MODIFY, state->notify_icon_data);
+    if (nid->hIcon)
+        DestroyIcon(nid->hIcon);
+    nid->hIcon = icon;
+    Shell_NotifyIconW(NIM_MODIFY, nid);
 }
 
 #define appId "PersianCalendarWin32"
