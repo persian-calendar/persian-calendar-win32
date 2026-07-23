@@ -275,7 +275,7 @@ static UINT get_system_dpi()
     return static_cast<UINT>(dpi);
 }
 
-constexpr int window_width = 5;
+constexpr int window_width = 6;
 constexpr int window_height = 2;
 
 static BOOL is_dark_mode_active()
@@ -308,9 +308,9 @@ static void update_layout(HWND hwnd, unsigned width, unsigned height)
         SendMessageW(item, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
         int row = i % 3;
         MoveWindow(item,
-                   MulDiv(static_cast<int>(width), static_cast<int>(row == 0 ? 1 : (row == 1 ? 7 : 18)), 25),
+                   MulDiv(static_cast<int>(width), static_cast<int>(row == 0 ? 1 : (row == 1 ? 6 : 19)), 25),
                    MulDiv(static_cast<int>(height), static_cast<int>(i < 3 ? 2 : 14), 25),
-                   MulDiv(static_cast<int>(width), row == 0 ? 5 : (row == 1 ? 10 : 6), 25),
+                   MulDiv(static_cast<int>(width), row == 0 ? 4 : (row == 1 ? 12 : 5), 25),
                    // The height parameter here is only used for the dropdown size of the ComboBox,
                    // so making it larger ensures the dropdown is sufficiently tall.
                    // Different versions of Windows seem to ignore it and only Wine considers it
