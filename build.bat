@@ -7,4 +7,4 @@ REM https://github.com/llvm/llvm-project/releases Install from the Windows insta
     -fno-exceptions -fno-rtti -Oz -lkernel32 -luser32 -lshell32 -lgdi32 -ladvapi32 ^
     -nostdlib -nodefaultlibs -nostartfiles -fuse-ld=lld-link -m32 ^
     -Wl,/entry:start -Wl,/subsystem:windows ^
-    -Wl,/fixed -Wl,/merge:.rdata=.text
+    -Wl,/fixed -Wl,/merge:.rdata=.text -flto

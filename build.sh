@@ -6,5 +6,5 @@ clang --target=i686-w64-mingw32 --sysroot=$(brew --prefix mingw-w64)/toolchain-i
     -fno-exceptions -fno-rtti -Oz -lkernel32 -luser32 -lshell32 -lgdi32 -ladvapi32 \
     -nostdlib -nodefaultlibs -nostartfiles -fuse-ld=lld \
     -Wl,-e,start -Wl,-subsystem,windows \
-    -Wl,--disable-reloc-section -Wl,--build-id=none \
+    -Wl,--disable-reloc-section -Wl,--build-id=none -flto \
     && ./postlink.py && wine persian-calendar.exe
