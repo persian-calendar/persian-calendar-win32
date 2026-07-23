@@ -1,4 +1,5 @@
 #define WIN32_LEAN_AND_MEAN
+#define UNICODE
 #define WINVER 0x0500 // XP support, and maybe 2000? Why not
 #include <windows.h>
 #include <shellapi.h>
