@@ -19,7 +19,6 @@ void zero_memory(T &ptr, size_t size = sizeof(T))
 static HFONT get_system_font(LONG size)
 {
     NONCLIENTMETRICSA ncm;
-    zero_memory(ncm);
     ncm.cbSize = sizeof(NONCLIENTMETRICSA);
     if (SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
     {
@@ -407,12 +406,9 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             bool is_persian = i < 3;
             unsigned row = i % 3;
             if (row == 0)
-            {
                 for (unsigned j = 1; j <= 31; ++j)
                     SendMessageW(item, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(j).value));
-            }
             else if (row == 1)
-            {
                 for (unsigned j = 0; j < 12; ++j)
                 {
                     wchar_t buf[32];
@@ -421,7 +417,6 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
                               format_number(j + 1).value);
                     SendMessageW(item, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(buf));
                 }
-            }
             else
             {
                 constexpr unsigned combobox_years = 200;
@@ -511,8 +506,8 @@ static void update(HWND hwnd, app_state_t *state)
     unsigned days = today_in_days();
     persian_date_t date = days_to_persian(days);
     BOOL local_digits = state->local_digits;
-    NOTIFYICONDATAW *nid = state->notify_icon_data;
-    wsprintfW(nid->szTip,
+    NOTIFYICONDATAW &nid = *state->notify_icon_data;
+    wsprintfW(nid.szTip,
               L"%s، %s %s(%s) %s",
               weekdays[(days + 3) % 7],
               format_number(date.day, local_digits).value,
@@ -521,15 +516,15 @@ static void update(HWND hwnd, app_state_t *state)
               format_number(date.year, local_digits).value);
 
     // szTip allocated string is both used for the tooltip and first item of the menu
-    create_menu(state, nid->szTip);
+    create_menu(state, nid.szTip);
 
     HDC hdc = GetDC(hwnd);
     HICON icon = create_text_icon(hdc, format_number(date.day, local_digits).value, state->black_background);
     ReleaseDC(hwnd, hdc);
-    if (nid->hIcon)
-        DestroyIcon(nid->hIcon);
-    nid->hIcon = icon;
-    Shell_NotifyIconW(NIM_MODIFY, nid);
+    if (nid.hIcon)
+        DestroyIcon(nid.hIcon);
+    nid.hIcon = icon;
+    Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
 
 #define appId "PersianCalendarWin32"
@@ -659,7 +654,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
     default:
         break;
     }
-    return DefWindowProcA(hwnd, msg, wparam, lparam);
+    return DefWindowProcW(hwnd, msg, wparam, lparam);
 }
 
 static void enable_hidpi()
