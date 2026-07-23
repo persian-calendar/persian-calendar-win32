@@ -18,12 +18,12 @@ void zero_memory(T &ptr, size_t size = sizeof(T))
 
 static HFONT get_system_font(LONG size)
 {
-    NONCLIENTMETRICSA ncm;
-    ncm.cbSize = sizeof(NONCLIENTMETRICSA);
-    if (SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
+    NONCLIENTMETRICSW ncm;
+    ncm.cbSize = sizeof(NONCLIENTMETRICSW);
+    if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
     {
         ncm.lfMessageFont.lfHeight = size;
-        return CreateFontIndirectA(&ncm.lfMessageFont);
+        return CreateFontIndirectW(&ncm.lfMessageFont);
     }
     return reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
 }
@@ -105,7 +105,7 @@ static void create_menu(app_state_t *state, wchar_t *date)
         menu_item.dwTypeData = date;
         InsertMenuItemW(menu, date_id, TRUE, &menu_item);
     }
-    InsertMenuA(menu, first_separator_id, MF_SEPARATOR, TRUE, nullptr);
+    InsertMenuW(menu, first_separator_id, MF_SEPARATOR, TRUE, nullptr);
     {
         menu_item.fState = state->local_digits ? MFS_CHECKED : 0;
         menu_item.wID = local_digits_id;
@@ -118,14 +118,14 @@ static void create_menu(app_state_t *state, wchar_t *date)
         menu_item.dwTypeData = const_cast<wchar_t *>(L"پیش‌زمینهٔ سیاه آیکون");
         InsertMenuItemW(menu, black_background_id, TRUE, &menu_item);
     }
-    InsertMenuA(menu, second_separator_id, MF_SEPARATOR, TRUE, nullptr);
+    InsertMenuW(menu, second_separator_id, MF_SEPARATOR, TRUE, nullptr);
     {
         menu_item.fState = 0;
         menu_item.wID = date_converter_id;
         menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل تاریخ");
         InsertMenuItemW(menu, date_converter_id, TRUE, &menu_item);
     }
-    InsertMenuA(menu, third_separator_id, MF_SEPARATOR, TRUE, nullptr);
+    InsertMenuW(menu, third_separator_id, MF_SEPARATOR, TRUE, nullptr);
     {
         menu_item.fState = 0;
         menu_item.wID = exit_id;
@@ -221,8 +221,8 @@ static void update_values(HWND hwnd, update_source_t source)
     HWND hMonthGregorian = GetDlgItem(hwnd, dlg_gregorian_month_combo_id);
     HWND hYearGregorian = GetDlgItem(hwnd, dlg_gregorian_year_combo_id);
 
-    unsigned persianBaseYear = static_cast<unsigned>(GetWindowLongPtr(hYearPersian, GWLP_USERDATA));
-    unsigned gregorianBaseYear = static_cast<unsigned>(GetWindowLongPtr(hYearGregorian, GWLP_USERDATA));
+    unsigned persianBaseYear = static_cast<unsigned>(GetWindowLongPtrW(hYearPersian, GWLP_USERDATA));
+    unsigned gregorianBaseYear = static_cast<unsigned>(GetWindowLongPtrW(hYearGregorian, GWLP_USERDATA));
 
     unsigned days;
     if (source == update_source_t::INIT)
@@ -286,7 +286,7 @@ static BOOL is_dark_mode_active()
                       "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
                       0, KEY_READ, &key) == ERROR_SUCCESS)
     {
-        RegQueryValueExA(key, "AppsUseLightTheme", nullptr, nullptr, reinterpret_cast<LPBYTE>(&value), &size);
+        RegQueryValueExW(key, L"AppsUseLightTheme", nullptr, nullptr, reinterpret_cast<LPBYTE>(&value), &size);
         RegCloseKey(key);
     }
     return value == 0;
@@ -420,7 +420,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             {
                 constexpr unsigned combobox_years = 200;
                 unsigned base_year = (is_persian ? persian_date.year : gregorian_date.year) - combobox_years / 2;
-                SetWindowLongPtr(item, GWLP_USERDATA, static_cast<LONG_PTR>(base_year));
+                SetWindowLongPtrW(item, GWLP_USERDATA, static_cast<LONG_PTR>(base_year));
                 for (unsigned j = 0; j <= combobox_years; ++j)
                     SendMessageW(item, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(base_year + j).value));
             }
@@ -526,16 +526,16 @@ static void update(HWND hwnd, app_state_t *state)
     Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
 
-#define appId "PersianCalendarWin32"
+#define appId L"PersianCalendarWin32"
 struct Registry
 {
     Registry(const Registry &) = delete;
     void operator=(const Registry &) = delete;
     Registry() : key(nullptr)
     {
-        LONG status = RegCreateKeyExA(
+        LONG status = RegCreateKeyExW(
             HKEY_CURRENT_USER,
-            "Software\\" appId,
+            L"Software\\" appId,
             0,
             nullptr,
             REG_OPTION_NON_VOLATILE,
@@ -555,10 +555,10 @@ struct Registry
         DWORD size = sizeof(DWORD);
         DWORD type = 0;
 
-        if (RegQueryValueExA(key, local_digits_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
+        if (RegQueryValueExW(key, local_digits_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
             state->local_digits = !!value;
 
-        if (RegQueryValueExA(key, black_background_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
+        if (RegQueryValueExW(key, black_background_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
             state->black_background = !!value;
     }
 
@@ -581,12 +581,12 @@ struct Registry
 private:
     HKEY key;
 
-    void set_bool(char *name, bool value) const
+    void set_bool(const wchar_t *name, bool value) const
     {
         if (!key)
             return;
         DWORD dword = value ? 1 : 0;
-        RegSetValueExA(
+        RegSetValueExW(
             key,
             name,
             0,
@@ -595,15 +595,15 @@ private:
             sizeof(DWORD));
     }
 
-    constexpr static char *local_digits_key = const_cast<char *>("LocalDigits");
-    constexpr static char *black_background_key = const_cast<char *>("BlackBackground");
+    constexpr static const wchar_t *local_digits_key = L"LocalDigits";
+    constexpr static const wchar_t *black_background_key = L"BlackBackground";
 };
 
 const unsigned notifyClickId = WM_USER + 1;
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     app_state_t *state = reinterpret_cast<app_state_t *>(
-        GetWindowLongPtrA(hwnd, GWLP_USERDATA));
+        GetWindowLongPtrW(hwnd, GWLP_USERDATA));
     switch (msg)
     {
     case WM_DESTROY:
@@ -717,7 +717,7 @@ static void enable_visual_styles()
 extern "C" [[noreturn]] void start();
 void start()
 {
-    HANDLE mutex = CreateMutexA(nullptr, 0, const_cast<char *>(appId));
+    HANDLE mutex = CreateMutexW(nullptr, 0, appId);
     if (!mutex || GetLastError() == ERROR_ALREADY_EXISTS)
         ExitProcess(1);
 
@@ -729,14 +729,15 @@ void start()
         wc.lpfnWndProc = ConverterDlgProc;
         wc.hInstance = hInst;
         wc.lpszClassName = converterClassName;
-        RegisterClassExW(&wc);
+        if (!RegisterClassExW(&wc))
+            ExitProcess(1);
     }
 
     // Passing "STATIC" as a class name and overriding its Window procedure is a hack to avoid
     // registering a window class, which would require more code. The created window is never shown, so it doesn't
     // matter that it's a "STATIC" control.
     HWND hwnd = CreateWindowExW(0, L"STATIC", nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
-    SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc));
+    SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc));
 
     enable_visual_styles();
     enable_hidpi();
@@ -755,7 +756,7 @@ void start()
 
     app_state_t state(&notify_icon_data);
     {
-        SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
         Registry().fill_app_state(&state);
         update(hwnd, &state);
         SetTimer(hwnd, 1 /*timer id*/, 60000, nullptr);
@@ -765,10 +766,10 @@ void start()
 
     // Main loop
     MSG msg;
-    while (GetMessageA(&msg, nullptr, 0, 0) > 0)
+    while (GetMessageW(&msg, nullptr, 0, 0) > 0)
     {
         TranslateMessage(&msg);
-        DispatchMessageA(&msg);
+        DispatchMessageW(&msg);
     }
 
     // Finalize
