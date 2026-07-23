@@ -318,11 +318,16 @@ static void update_layout(HWND hwnd, unsigned width, unsigned height)
     }
 }
 
+template <typename T>
+auto get_proc(HMODULE hModule, const char *procName)
+{
+    return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(hModule, procName)));
+}
+
 static DWORD get_build_number()
 {
-    using func_t = LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation);
-    auto pRtlGetVersion = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-        GetProcAddress(GetModuleHandleA("ntdll.dll"), "RtlGetVersion")));
+    auto pRtlGetVersion = get_proc<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>(
+        GetModuleHandleA("ntdll.dll"), "RtlGetVersion");
     if (pRtlGetVersion)
     {
         RTL_OSVERSIONINFOW rovi;
@@ -338,16 +343,10 @@ static void update_window_visual_styles(HWND hwnd)
     BOOL darkMode = is_dark_mode_active();
 
     {
-        HMODULE hUxtheme = GetModuleHandleA("uxtheme.dll");
-        using func1_t = HRESULT(WINAPI *)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList);
-        auto pSetWindowTheme = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
-            GetProcAddress(hUxtheme, "SetWindowTheme")));
-
-        HMODULE hUser32 = GetModuleHandleA("user32.dll");
-        using func2_t = BOOL(WINAPI *)(HWND hwndCombo, PCOMBOBOXINFO pcbi);
-        auto pGetComboBoxInfo = reinterpret_cast<func2_t>(reinterpret_cast<void *>(
-            GetProcAddress(hUser32, "GetComboBoxInfo")));
-
+        auto pSetWindowTheme = get_proc<HRESULT(WINAPI *)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList)>(
+            GetModuleHandleA("uxtheme.dll"), "SetWindowTheme");
+        auto pGetComboBoxInfo = get_proc<BOOL(WINAPI *)(HWND hwndCombo, PCOMBOBOXINFO pcbi)>(
+            GetModuleHandleA("user32.dll"), "GetComboBoxInfo");
         if (pSetWindowTheme)
             for (unsigned id = dlg_persian_day_combo_id; id <= dlg_gregorian_year_combo_id; ++id)
             {
@@ -365,17 +364,17 @@ static void update_window_visual_styles(HWND hwnd)
 
     HMODULE hDwmapi = LoadLibraryA("dwmapi.dll");
     {
-        using func_t = HRESULT(WINAPI *)(HWND hWnd, const MARGINS *pMarInset);
-        auto pDwmExtendFrameIntoClientArea = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-            GetProcAddress(hDwmapi, "DwmExtendFrameIntoClientArea")));
-        MARGINS margins = {-1, -1, -1, -1};
+        auto pDwmExtendFrameIntoClientArea = get_proc<HRESULT(WINAPI *)(HWND, const MARGINS *)>(
+            hDwmapi, "DwmExtendFrameIntoClientArea");
         if (pDwmExtendFrameIntoClientArea)
+        {
+            MARGINS margins = {-1, -1, -1, -1};
             pDwmExtendFrameIntoClientArea(hwnd, &margins);
+        }
     }
     {
-        using func_t = HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute);
-        auto pDwmSetWindowAttribute = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-            GetProcAddress(hDwmapi, "DwmSetWindowAttribute")));
+        auto pDwmSetWindowAttribute = get_proc<HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
+            hDwmapi, "DwmSetWindowAttribute");
         if (pDwmSetWindowAttribute)
         {
             pDwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
@@ -660,16 +659,13 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
 static void enable_hidpi()
 {
     HMODULE hUser32 = GetModuleHandleA("user32.dll");
-    using func1_t = BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT value);
-    auto pSetProcessDpiAwarenessContext = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
-        GetProcAddress(hUser32, "SetProcessDpiAwarenessContext")));
+    auto pSetProcessDpiAwarenessContext = get_proc<BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT value)>(
+        hUser32, "SetProcessDpiAwarenessContext");
     if (pSetProcessDpiAwarenessContext)
         pSetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     else
     {
-        using func2_t = BOOL(WINAPI *)();
-        auto pSetProcessDPIAware = reinterpret_cast<func2_t>(reinterpret_cast<void *>(
-            GetProcAddress(hUser32, "SetProcessDPIAware")));
+        auto pSetProcessDPIAware = get_proc<BOOL(WINAPI *)()>(hUser32, "SetProcessDPIAware");
         if (pSetProcessDPIAware)
             pSetProcessDPIAware();
     }
@@ -687,9 +683,8 @@ static void enable_dark_mode_support()
         ForceLight,
         Max
     };
-    using func_t = INT(WINAPI *)(PreferredAppMode value); // undocumented SetPreferredAppMode's signature
-    auto pSetPreferredAppMode = reinterpret_cast<func_t>(reinterpret_cast<void *>(
-        GetProcAddress(GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(135))));
+    auto pSetPreferredAppMode = get_proc<INT(WINAPI *)(PreferredAppMode value)>(
+        GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(135)); // undocumented SetPreferredAppMode
     if (pSetPreferredAppMode)
         pSetPreferredAppMode(PreferredAppMode::AllowDark);
 }
@@ -700,12 +695,9 @@ static void enable_visual_styles()
 {
     // CreateActCtxA and ActivateActCtx aren't available in Windowws 2000, so
     HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
-    using func1_t = HANDLE(WINAPI *)(PCACTCTXA pActCtx);
-    auto pCreateActCtxA = reinterpret_cast<func1_t>(reinterpret_cast<void *>(
-        GetProcAddress(hKernel32, "CreateActCtxA")));
-    using func2_t = BOOL(WINAPI *)(HANDLE hActCtx, ULONG_PTR * lpCookie);
-    auto pActivateActCtx = reinterpret_cast<func2_t>(reinterpret_cast<void *>(
-        GetProcAddress(hKernel32, "ActivateActCtx")));
+    auto pCreateActCtxA = get_proc<HANDLE(WINAPI *)(PCACTCTXA pActCtx)>(hKernel32, "CreateActCtxA");
+    auto pActivateActCtx = get_proc<BOOL(WINAPI *)(HANDLE hActCtx, ULONG_PTR * lpCookie)>(
+        hKernel32, "ActivateActCtx");
     if (!pCreateActCtxA || !pActivateActCtx)
         return;
 
