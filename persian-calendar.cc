@@ -733,11 +733,18 @@ void start()
             ExitProcess(1);
     }
 
-    // Passing "STATIC" as a class name and overriding its Window procedure is a hack to avoid
-    // registering a window class, which would require more code. The created window is never shown, so it doesn't
-    // matter that it's a "STATIC" control.
-    HWND hwnd = CreateWindowExW(0, L"STATIC", nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
-    SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc));
+    // Tray Menu's class
+    {
+        WNDCLASSEXW wc;
+        zero_memory(wc);
+        wc.cbSize = sizeof(WNDCLASSEXW);
+        wc.hInstance = hInst;
+        wc.lpfnWndProc = WndProc;
+        wc.lpszClassName = appId;
+        if (!RegisterClassExW(&wc))
+            ExitProcess(1);
+    }
+    HWND hwnd = CreateWindowExW(0, appId, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
 
     enable_visual_styles();
     enable_hidpi();
