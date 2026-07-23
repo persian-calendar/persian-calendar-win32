@@ -278,19 +278,34 @@ static UINT get_system_dpi()
 constexpr int window_width = 6;
 constexpr int window_height = 2;
 
-static BOOL is_dark_mode_active()
+template <typename T>
+auto get_proc(HMODULE hModule, const char *procName)
 {
-    DWORD value = 1;
-    DWORD size = sizeof(value);
-    HKEY key;
-    if (RegOpenKeyExA(HKEY_CURRENT_USER,
-                      "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-                      0, KEY_READ, &key) == ERROR_SUCCESS)
+    return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(hModule, procName)));
+}
+
+static DWORD get_build_number()
+{
+    auto pRtlGetVersion = get_proc<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>(
+        GetModuleHandleA("ntdll.dll"), "RtlGetVersion");
+    if (pRtlGetVersion)
     {
-        RegQueryValueExW(key, L"AppsUseLightTheme", nullptr, nullptr, reinterpret_cast<LPBYTE>(&value), &size);
-        RegCloseKey(key);
+        RTL_OSVERSIONINFOW rovi;
+        rovi.dwOSVersionInfoSize = sizeof(rovi);
+        if (pRtlGetVersion(&rovi) == 0)
+            return rovi.dwBuildNumber;
     }
-    return value == 0;
+    return 0;
+}
+
+static bool is_dark_mode_active()
+{
+    // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
+    if (get_build_number() < 17763)
+        return false;
+    auto pShouldAppsUseDarkMode = get_proc<bool (WINAPI *)()>(
+        GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(132)); // undocumented ShouldAppsUseDarkMode
+    return pShouldAppsUseDarkMode && pShouldAppsUseDarkMode();
 }
 
 // In remembrance of old era Windows color/chroma keying,
@@ -317,26 +332,6 @@ static void update_layout(HWND hwnd, unsigned width, unsigned height)
                    static_cast<int>(5 * height),
                    TRUE);
     }
-}
-
-template <typename T>
-auto get_proc(HMODULE hModule, const char *procName)
-{
-    return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(hModule, procName)));
-}
-
-static DWORD get_build_number()
-{
-    auto pRtlGetVersion = get_proc<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>(
-        GetModuleHandleA("ntdll.dll"), "RtlGetVersion");
-    if (pRtlGetVersion)
-    {
-        RTL_OSVERSIONINFOW rovi;
-        rovi.dwOSVersionInfoSize = sizeof(rovi);
-        if (pRtlGetVersion(&rovi) == 0)
-            return rovi.dwBuildNumber;
-    }
-    return 0;
 }
 
 static void update_window_visual_styles(HWND hwnd)
@@ -449,12 +444,14 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         update_layout(hwnd, newWidth, newHeight);
         return 0;
     }
+
     case WM_LBUTTONDOWN:
     {
         ReleaseCapture();
         SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
         return 0;
     }
+
     case WM_ERASEBKGND:
     {
         RECT rc;
@@ -465,6 +462,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         DeleteObject(brush);
         return 1;
     }
+
     case WM_COMMAND:
     {
         const WORD id = LOWORD(wparam);
@@ -476,6 +474,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         }
         break;
     }
+
     default:
         break;
     }
@@ -610,9 +609,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
     case WM_DESTROY:
         PostQuitMessage(ERROR_SUCCESS);
         return 0;
+
     case WM_TIMER:
         update(hwnd, state);
         return 0;
+
     case notifyClickId:
         if (lparam == WM_RBUTTONUP)
         {
@@ -625,6 +626,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
         else if (lparam == WM_LBUTTONUP)
             open_converter_dialog();
         return 0;
+
     case WM_COMMAND:
         if (wparam == local_digits_id)
         {
@@ -651,6 +653,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
             return 0;
         }
         break;
+
     default:
         break;
     }
@@ -674,20 +677,30 @@ static void enable_hidpi()
 
 static void enable_dark_mode_support()
 {
-    if (get_build_number() < 17763) // https://betawiki.net/wiki/Windows_10_October_2018_Update
-        return;
-    enum class PreferredAppMode : INT
+    // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
+    HMODULE hUxTheme = GetModuleHandleA("uxtheme.dll");
+    if (get_build_number() < 18362)
     {
-        Default,
-        AllowDark,
-        ForceDark,
-        ForceLight,
-        Max
-    };
-    auto pSetPreferredAppMode = get_proc<INT(WINAPI *)(PreferredAppMode value)>(
-        GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(135)); // undocumented SetPreferredAppMode
-    if (pSetPreferredAppMode)
-        pSetPreferredAppMode(PreferredAppMode::AllowDark);
+        auto pAllowDarkModeForApp = get_proc<bool (WINAPI *)(bool allow)>(
+            hUxTheme, MAKEINTRESOURCEA(135)); // undocumented AllowDarkModeForApp
+        if (pAllowDarkModeForApp)
+            pAllowDarkModeForApp(true);
+    }
+    else
+    {
+        enum class PreferredAppMode : INT
+        {
+            Default,
+            AllowDark,
+            ForceDark,
+            ForceLight,
+            Max
+        };
+        auto pSetPreferredAppMode = get_proc<INT(WINAPI *)(PreferredAppMode value)>(
+            hUxTheme, MAKEINTRESOURCEA(135)); // undocumented SetPreferredAppMode
+        if (pSetPreferredAppMode)
+            pSetPreferredAppMode(PreferredAppMode::AllowDark);
+    }
 }
 
 // https://stackoverflow.com/a/10444161
