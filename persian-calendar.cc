@@ -684,7 +684,10 @@ static void enable_dark_mode_support()
 {
     // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
     HMODULE hUxTheme = GetModuleHandleA("uxtheme.dll");
-    if (get_build_number() < 18362)
+    DWORD build_number = get_build_number();
+    if (build_number < 17763)
+        return;
+    else if (build_number < 18362)
     {
         auto pAllowDarkModeForApp = get_proc<bool (WINAPI *)(bool allow)>(
             hUxTheme, MAKEINTRESOURCEA(135)); // undocumented AllowDarkModeForApp
