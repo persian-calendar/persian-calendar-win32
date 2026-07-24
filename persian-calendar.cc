@@ -399,7 +399,7 @@ static void update_window_visual_styles(HWND hwnd)
         FreeLibrary(hDwmapi);
 }
 
-static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch (msg)
     {
@@ -447,7 +447,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
     case WM_NCLBUTTONDOWN:
     {
-        if (wparam == HTHELP)
+        if (wParam == HTHELP)
         {
             update_values(hwnd, update_source_t::INIT);
             return 0;
@@ -457,7 +457,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
     case WM_CTLCOLORLISTBOX:
     {
-        HDC hdc = reinterpret_cast<HDC>(wparam);
+        HDC hdc = reinterpret_cast<HDC>(wParam);
         bool darkMode = is_dark_mode_active();
         SetTextColor(hdc, darkMode ? RGB(240, 240, 240) : RGB(0, 0, 0));
         SetBkColor(hdc, darkMode ? RGB(32, 32, 32) : RGB(255, 255, 255));
@@ -466,8 +466,8 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
     case WM_SIZE:
     {
-        unsigned newWidth = static_cast<unsigned>(LOWORD(lparam));
-        unsigned newHeight = static_cast<unsigned>(HIWORD(lparam));
+        unsigned newWidth = static_cast<unsigned>(LOWORD(lParam));
+        unsigned newHeight = static_cast<unsigned>(HIWORD(lParam));
         update_layout(hwnd, newWidth, newHeight);
         return 0;
     }
@@ -485,15 +485,15 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
         GetClientRect(hwnd, &rc);
         bool has_aero = get_build_number() >= 4015; // https://betawiki.net/wiki/Windows_Aero
         HBRUSH brush = CreateSolidBrush(has_aero ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
-        FillRect(reinterpret_cast<HDC>(wparam), &rc, brush);
+        FillRect(reinterpret_cast<HDC>(wParam), &rc, brush);
         DeleteObject(brush);
         return 1;
     }
 
     case WM_COMMAND:
     {
-        const WORD id = LOWORD(wparam);
-        const WORD code = HIWORD(wparam);
+        const WORD id = LOWORD(wParam);
+        const WORD code = HIWORD(wParam);
         if (code == CBN_SELCHANGE)
         {
             update_values(hwnd, id < dlg_gregorian_day_combo_id ? update_source_t::PERSIAN : update_source_t::GREGORIAN);
@@ -505,7 +505,7 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     default:
         break;
     }
-    return DefWindowProcW(hwnd, msg, wparam, lparam);
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
 constexpr static const wchar_t *converterClassName = L"CnvDlg";
@@ -627,7 +627,7 @@ private:
 };
 
 const unsigned notifyClickId = WM_USER + 1;
-static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     app_state_t *state = reinterpret_cast<app_state_t *>(
         GetWindowLongPtrW(hwnd, GWLP_USERDATA));
@@ -642,7 +642,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
         return 0;
 
     case notifyClickId:
-        if (lparam == WM_RBUTTONUP)
+        if (lParam == WM_RBUTTONUP)
         {
             POINT p;
             GetCursorPos(&p);
@@ -650,31 +650,31 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
             TrackPopupMenu(state->menu, TPM_RIGHTALIGN | TPM_RIGHTBUTTON | TPM_LAYOUTRTL,
                            p.x, p.y, 0, hwnd, nullptr);
         }
-        else if (lparam == WM_LBUTTONUP)
+        else if (lParam == WM_LBUTTONUP)
             open_converter_dialog();
         return 0;
 
     case WM_COMMAND:
-        if (wparam == local_digits_id)
+        if (wParam == local_digits_id)
         {
             state->local_digits = !state->local_digits;
             update(hwnd, state);
             Registry().set_local_digits(state->local_digits);
             return 0;
         }
-        else if (wparam == black_background_id)
+        else if (wParam == black_background_id)
         {
             state->black_background = !state->black_background;
             update(hwnd, state);
             Registry().set_black_background(state->black_background);
             return 0;
         }
-        else if (wparam == date_converter_id)
+        else if (wParam == date_converter_id)
         {
             open_converter_dialog();
             return 0;
         }
-        else if (wparam == exit_id)
+        else if (wParam == exit_id)
         {
             PostQuitMessage(ERROR_SUCCESS);
             return 0;
@@ -684,7 +684,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
     default:
         break;
     }
-    return DefWindowProcW(hwnd, msg, wparam, lparam);
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
 static void enable_hidpi()
@@ -771,10 +771,10 @@ void start()
         wc.hInstance = hInst;
         wc.cbSize = sizeof(WNDCLASSEXW);
         // Tray Menu's class
-        wc.lpfnWndProc = WndProc;
+        wc.lpfnWndProc = tray_window_procedure;
         wc.lpszClassName = appId;
         // Converter Dialog's class
-        wc.lpfnWndProc = ConverterDlgProc;
+        wc.lpfnWndProc = converter_window_procedure;
         wc.lpszClassName = converterClassName;
         RegisterClassExW(&wc);
         RegisterClassExW(&wc);
