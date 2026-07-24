@@ -391,7 +391,7 @@ static void update_window_visual_styles(HWND hwnd)
         if (pDwmSetWindowAttribute)
         {
             pDwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
-            int backdropType = DWMSBT_MAINWINDOW;
+            int backdropType = DWMSBT_TRANSIENTWINDOW; // instead of Mica's DWMSBT_MAINWINDOW
             pDwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
         }
     }
