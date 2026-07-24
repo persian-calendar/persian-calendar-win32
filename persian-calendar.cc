@@ -773,10 +773,10 @@ void start()
         // Tray Menu's class
         wc.lpfnWndProc = tray_window_procedure;
         wc.lpszClassName = appId;
+        RegisterClassExW(&wc);
         // Converter Dialog's class
         wc.lpfnWndProc = converter_window_procedure;
         wc.lpszClassName = converterClassName;
-        RegisterClassExW(&wc);
         RegisterClassExW(&wc);
     }
     HWND hwnd = CreateWindowExW(0, appId, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
