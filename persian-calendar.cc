@@ -214,12 +214,12 @@ static unsigned today_in_days()
 
 static void enable_help_button(HWND hWnd, bool enable)
 {
-    LONG_PTR exStyle = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
+    LONG_PTR exStyle = GetWindowLongPtrW(hWnd, GWL_EXSTYLE);
     if (enable)
         exStyle |= WS_EX_CONTEXTHELP;
     else
         exStyle &= ~WS_EX_CONTEXTHELP;
-    SetWindowLongPtr(hWnd, GWL_EXSTYLE, exStyle);
+    SetWindowLongPtrW(hWnd, GWL_EXSTYLE, exStyle);
 }
 
 enum class update_source_t
