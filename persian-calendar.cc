@@ -185,7 +185,8 @@ constexpr unsigned dlg_gregorian_month_combo_id = 2005;
 constexpr unsigned dlg_gregorian_year_combo_id = 2006;
 
 template <typename T, size_t N>
-constexpr size_t array_length(T (&)[N]) {
+constexpr size_t array_length(T (&)[N])
+{
     return N;
 }
 
@@ -209,6 +210,16 @@ static unsigned today_in_days()
     SYSTEMTIME st;
     GetLocalTime(&st);
     return gregorian_to_days({static_cast<unsigned>(st.wYear), static_cast<unsigned>(st.wMonth), static_cast<unsigned>(st.wDay)});
+}
+
+static void enable_help_button(HWND hWnd, bool enable)
+{
+    LONG_PTR exStyle = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
+    if (enable)
+        exStyle |= WS_EX_CONTEXTHELP;
+    else
+        exStyle &= ~WS_EX_CONTEXTHELP;
+    SetWindowLongPtr(hWnd, GWL_EXSTYLE, exStyle);
 }
 
 enum class update_source_t
@@ -261,6 +272,7 @@ static void update_values(HWND hwnd, update_source_t source)
     unsigned today_days = today_in_days();
     const wchar_t *weekday = weekdays[(days + 3) % 7];
     wchar_t result[128];
+    enable_help_button(hwnd, days != today_days);
     if (days == today_days)
         wsprintfW(result, L"%s، امروز", weekday);
     else if (days < today_days)
@@ -308,7 +320,7 @@ static bool is_dark_mode_active()
     // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
     if (get_build_number() < 17763)
         return false;
-    auto pShouldAppsUseDarkMode = get_proc<bool (WINAPI *)()>(
+    auto pShouldAppsUseDarkMode = get_proc<bool(WINAPI *)()>(
         GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(132)); // undocumented ShouldAppsUseDarkMode
     return pShouldAppsUseDarkMode && pShouldAppsUseDarkMode();
 }
@@ -432,6 +444,16 @@ static LRESULT CALLBACK ConverterDlgProc(HWND hwnd, UINT msg, WPARAM wparam, LPA
     case WM_SETTINGCHANGE:
         update_window_visual_styles(hwnd);
         return 0;
+
+    case WM_NCLBUTTONDOWN:
+    {
+        if (wparam == HTHELP)
+        {
+            update_values(hwnd, update_source_t::INIT);
+            return 0;
+        }
+        break;
+    }
 
     case WM_CTLCOLORLISTBOX:
     {
@@ -689,7 +711,7 @@ static void enable_dark_mode_support()
         return;
     else if (build_number < 18362)
     {
-        auto pAllowDarkModeForApp = get_proc<bool (WINAPI *)(bool allow)>(
+        auto pAllowDarkModeForApp = get_proc<bool(WINAPI *)(bool allow)>(
             hUxTheme, MAKEINTRESOURCEA(135)); // undocumented AllowDarkModeForApp
         if (pAllowDarkModeForApp)
             pAllowDarkModeForApp(true);
