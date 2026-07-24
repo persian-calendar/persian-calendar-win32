@@ -184,6 +184,11 @@ constexpr unsigned dlg_gregorian_day_combo_id = 2004;
 constexpr unsigned dlg_gregorian_month_combo_id = 2005;
 constexpr unsigned dlg_gregorian_year_combo_id = 2006;
 
+template <typename T, size_t N>
+constexpr size_t array_length(T (&)[N]) {
+    return N;
+}
+
 struct formatted_number_t
 {
     wchar_t value[8];
@@ -191,7 +196,7 @@ struct formatted_number_t
 static formatted_number_t format_number(unsigned number, BOOL local_digits = true)
 {
     formatted_number_t result;
-    constexpr unsigned size = sizeof(result.value) / sizeof(wchar_t);
+    constexpr unsigned size = array_length(result.value);
     wsprintfW(result.value, L"%d", number);
     if (local_digits)
         for (unsigned i = 0; i < size && result.value[i % size]; ++i)
