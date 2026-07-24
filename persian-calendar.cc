@@ -411,10 +411,11 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
 
         for (unsigned i = 0; i < 6; ++i)
         {
-            HWND item = CreateWindowExW(0, L"COMBOBOX", nullptr,
-                                        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-                                        0, 0, 0, 0, hwnd,
-                                        reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_persian_day_combo_id + i)), hInst, nullptr);
+            HWND item = CreateWindowExW(
+                0, L"COMBOBOX", nullptr,
+                WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                0, 0, 0, 0, hwnd,
+                reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_persian_day_combo_id + i)), hInst, nullptr);
             bool is_persian = i < 3;
             unsigned row = i % 3;
             if (row == 0)
