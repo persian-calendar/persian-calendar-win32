@@ -765,28 +765,19 @@ void start()
     if (!mutex || GetLastError() == ERROR_ALREADY_EXISTS)
         ExitProcess(1);
 
-    // Converter Dialog's class
     {
         WNDCLASSEXW wc;
         zero_memory(wc);
-        wc.cbSize = sizeof(WNDCLASSEXW);
-        wc.lpfnWndProc = ConverterDlgProc;
         wc.hInstance = hInst;
-        wc.lpszClassName = converterClassName;
-        if (!RegisterClassExW(&wc))
-            ExitProcess(1);
-    }
-
-    // Tray Menu's class
-    {
-        WNDCLASSEXW wc;
-        zero_memory(wc);
         wc.cbSize = sizeof(WNDCLASSEXW);
-        wc.hInstance = hInst;
+        // Tray Menu's class
         wc.lpfnWndProc = WndProc;
         wc.lpszClassName = appId;
-        if (!RegisterClassExW(&wc))
-            ExitProcess(1);
+        // Converter Dialog's class
+        wc.lpfnWndProc = ConverterDlgProc;
+        wc.lpszClassName = converterClassName;
+        RegisterClassExW(&wc);
+        RegisterClassExW(&wc);
     }
     HWND hwnd = CreateWindowExW(0, appId, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
 
