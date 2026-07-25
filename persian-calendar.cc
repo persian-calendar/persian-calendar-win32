@@ -292,8 +292,10 @@ static UINT get_system_dpi()
     return static_cast<UINT>(dpi);
 }
 
+#define CALTABLE 0
+
 constexpr int window_width = 6;
-constexpr int window_height = 2;
+constexpr int window_height = CALTABLE ? 6 : 2;
 
 template <typename T>
 auto get_proc(HMODULE hModule, const char *procName)
@@ -333,6 +335,8 @@ static bool is_dark_mode_active()
 
 static void update_layout(HWND hwnd, unsigned width, unsigned height)
 {
+    if (CALTABLE)
+        height = height / 3;
     HFONT hFont = get_system_font(MulDiv(static_cast<int>(height), 8, 25));
     for (unsigned i = 0; i < 6; ++i)
     {
@@ -399,6 +403,11 @@ static void update_window_visual_styles(HWND hwnd)
         FreeLibrary(hDwmapi);
 }
 
+static unsigned get_month_days(unsigned year, unsigned month)
+{
+    return persian_to_days({month == 12 ? year + 1 : year, month == 12 ? 1 : month + 1, 1}) - persian_to_days({year, month, 1});
+}
+
 static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch (msg)
@@ -446,6 +455,84 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         update_window_visual_styles(hwnd);
         return 0;
 
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+
+        {
+            HBRUSH brush = reinterpret_cast<HBRUSH>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+            if (!brush)
+            {
+                bool has_aero = get_build_number() >= 4015; // https://betawiki.net/wiki/Windows_Aero
+                brush = CreateSolidBrush(has_aero ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
+                SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(brush));
+            }
+            FillRect(hdc, &ps.rcPaint, brush);
+        }
+
+        if (CALTABLE)
+        {
+            unsigned year, month;
+            {
+                HWND hYearPersian = GetDlgItem(hwnd, dlg_persian_year_combo_id);
+                HWND hMonthPersian = GetDlgItem(hwnd, dlg_persian_month_combo_id);
+                unsigned persianBaseYear = static_cast<unsigned>(GetWindowLongPtrW(hYearPersian, GWLP_USERDATA));
+                year = static_cast<unsigned>(SendMessageW(hYearPersian, CB_GETCURSEL, 0, 0)) + persianBaseYear;
+                month = static_cast<unsigned>(SendMessageW(hMonthPersian, CB_GETCURSEL, 0, 0)) + 1;
+            }
+            unsigned month_days = get_month_days(year, month);
+
+            const unsigned size = static_cast<unsigned>(ps.rcPaint.bottom / (3 * 7));
+
+            HWND hDayPersian = GetDlgItem(hwnd, dlg_persian_day_combo_id);
+            HFONT hFont = reinterpret_cast<HFONT>(GetWindowLongPtrW(hDayPersian, GWLP_USERDATA));
+            if (!hFont)
+            {
+                hFont = get_system_font(static_cast<long>(size));
+                SetWindowLongPtrW(hDayPersian, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(hFont));
+            }
+
+            HGDIOBJ oldFont = SelectObject(hdc, hFont);
+            SetBkMode(hdc, TRANSPARENT);
+            SetBkColor(hdc, APP_LWA_COLORKEY);
+            SetTextColor(hdc, RGB(255, 255, 255));
+            unsigned table_top = static_cast<unsigned>(ps.rcPaint.bottom / 3);
+            for (unsigned i = 0; i < 7; ++i)
+            {
+                RECT rc{
+                    static_cast<long>(size * i),
+                    static_cast<long>(table_top),
+                    static_cast<long>(size * (i + 1)),
+                    static_cast<long>(table_top + size)};
+                DrawTextW(hdc, weekdays[i % 7], 1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            }
+            table_top += size;
+            unsigned week_start = (persian_to_days({year, month, 1}) + 3) % 7;
+            for (unsigned i = week_start; i < month_days + week_start; ++i)
+            {
+                RECT rc{
+                    static_cast<long>(size * (i % 7)),
+                    static_cast<long>(table_top + size * (i / 7)),
+                    static_cast<long>(size * (i % 7 + 1)),
+                    static_cast<long>(table_top + size * (i / 7 + 1))};
+                DrawTextW(hdc, format_number(i + 1 - week_start).value, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            }
+            SelectObject(hdc, oldFont);
+        }
+
+        EndPaint(hwnd, &ps);
+        break;
+    }
+
+    case WM_DESTROY:
+    {
+        DeleteObject(reinterpret_cast<HFONT>(GetWindowLongPtrW(hwnd, GWLP_USERDATA)));
+        if (CALTABLE)
+            DeleteObject(reinterpret_cast<HBRUSH>(GetWindowLongPtrW(GetDlgItem(hwnd, dlg_persian_day_combo_id), GWLP_USERDATA)));
+        break;
+    }
+
     case WM_NCLBUTTONDOWN:
     {
         if (wParam == HTHELP)
@@ -480,17 +567,6 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         return 0;
     }
 
-    case WM_ERASEBKGND:
-    {
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        bool has_aero = get_build_number() >= 4015; // https://betawiki.net/wiki/Windows_Aero
-        HBRUSH brush = CreateSolidBrush(has_aero ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
-        FillRect(reinterpret_cast<HDC>(wParam), &rc, brush);
-        DeleteObject(brush);
-        return 1;
-    }
-
     case WM_COMMAND:
     {
         const WORD id = LOWORD(wParam);
@@ -498,6 +574,8 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         if (code == CBN_SELCHANGE)
         {
             update_values(hwnd, id < dlg_gregorian_day_combo_id ? update_source_t::PERSIAN : update_source_t::GREGORIAN);
+            if (CALTABLE)
+                InvalidateRect(hwnd, nullptr, TRUE);
             return 0;
         }
         break;
@@ -771,6 +849,7 @@ void start()
         zero_memory(wc);
         wc.hInstance = hInst;
         wc.cbSize = sizeof(WNDCLASSEXW);
+        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
         // Tray Menu's class
         wc.lpfnWndProc = tray_window_procedure;
         wc.lpszClassName = appId;
