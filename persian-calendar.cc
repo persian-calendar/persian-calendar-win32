@@ -727,16 +727,18 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
     case WM_COMMAND:
         if (wParam == local_digits_id)
         {
-            state->local_digits = !state->local_digits;
+            bool newValue = !state->local_digits;
+            state->local_digits = newValue;
             update(hwnd, state);
-            Registry().set_local_digits(state->local_digits);
+            Registry().set_local_digits(newValue);
             return 0;
         }
         else if (wParam == black_background_id)
         {
-            state->black_background = !state->black_background;
+            bool newValue = !state->black_background;
+            state->black_background = newValue;
             update(hwnd, state);
-            Registry().set_black_background(state->black_background);
+            Registry().set_black_background(newValue);
             return 0;
         }
         else if (wParam == date_converter_id)
