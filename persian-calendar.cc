@@ -233,8 +233,9 @@ struct combo_triplet_t
 {
 private:
     HWND day, month, year;
-public:
     unsigned base_year;
+
+public:
     combo_triplet_t(
         HWND hwnd, bool is_persian) : day(GetDlgItem(hwnd, is_persian ? dlg_persian_day_combo_id : dlg_gregorian_day_combo_id)),
                                       month(GetDlgItem(hwnd, is_persian ? dlg_persian_month_combo_id : dlg_gregorian_month_combo_id)),
