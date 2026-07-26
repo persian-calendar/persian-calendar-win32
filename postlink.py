@@ -7,7 +7,7 @@ with open('persian-calendar.exe', 'rb') as f:
 pe = pefile.PE(data=pe_data)
 pe.FILE_HEADER.TimeDateStamp = 0
 opt = pe.OPTIONAL_HEADER
-# 4.0 is Windows NT4, the actual support is from Windows XP
+# 4.0 is Windows NT4, the actual support is from Windows XP though 2000 is also tested to work
 opt.MajorOperatingSystemVersion = 4
 opt.MinorOperatingSystemVersion = 0
 opt.MajorSubsystemVersion = 4
