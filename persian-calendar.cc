@@ -229,45 +229,47 @@ enum class update_source_t
     GREGORIAN
 };
 
+struct combo_triplet_t
+{
+private:
+    HWND day, month, year;
+public:
+    unsigned base_year;
+    combo_triplet_t(
+        HWND hwnd, bool is_persian) : day(GetDlgItem(hwnd, is_persian ? dlg_persian_day_combo_id : dlg_gregorian_day_combo_id)),
+                                      month(GetDlgItem(hwnd, is_persian ? dlg_persian_month_combo_id : dlg_gregorian_month_combo_id)),
+                                      year(GetDlgItem(hwnd, is_persian ? dlg_persian_year_combo_id : dlg_gregorian_year_combo_id)),
+                                      base_year(static_cast<unsigned>(GetWindowLongPtrW(year, GWLP_USERDATA))) {}
+
+    date_triplet_t to_date_triplet() const
+    {
+        return {
+            static_cast<unsigned>(SendMessageW(year, CB_GETCURSEL, 0, 0)) + base_year,
+            static_cast<unsigned>(SendMessageW(month, CB_GETCURSEL, 0, 0)) + 1,
+            static_cast<unsigned>(SendMessageW(day, CB_GETCURSEL, 0, 0)) + 1};
+    }
+
+    void set_from_date_triplet(const date_triplet_t &date)
+    {
+        SendMessageW(year, CB_SETCURSEL, date.year - base_year, 0);
+        SendMessageW(month, CB_SETCURSEL, date.month - 1, 0);
+        SendMessageW(day, CB_SETCURSEL, date.day - 1, 0);
+    }
+};
+
 static void update_values(HWND hwnd, update_source_t source)
 {
-    HWND hDayPersian = GetDlgItem(hwnd, dlg_persian_day_combo_id);
-    HWND hMonthPersian = GetDlgItem(hwnd, dlg_persian_month_combo_id);
-    HWND hYearPersian = GetDlgItem(hwnd, dlg_persian_year_combo_id);
-    HWND hDayGregorian = GetDlgItem(hwnd, dlg_gregorian_day_combo_id);
-    HWND hMonthGregorian = GetDlgItem(hwnd, dlg_gregorian_month_combo_id);
-    HWND hYearGregorian = GetDlgItem(hwnd, dlg_gregorian_year_combo_id);
-
-    unsigned persianBaseYear = static_cast<unsigned>(GetWindowLongPtrW(hYearPersian, GWLP_USERDATA));
-    unsigned gregorianBaseYear = static_cast<unsigned>(GetWindowLongPtrW(hYearGregorian, GWLP_USERDATA));
+    combo_triplet_t persian_combo(hwnd, true);
+    combo_triplet_t gregorian_combo(hwnd, false);
 
     unsigned days;
     if (source == update_source_t::INIT)
         days = today_in_days();
     else
-    {
-        bool is_persian = source == update_source_t::PERSIAN;
-        HWND sourceYear = is_persian ? hYearPersian : hYearGregorian;
-        unsigned baseYear = is_persian ? persianBaseYear : gregorianBaseYear;
-        date_triplet_t input_date{
-            static_cast<unsigned>(SendMessageW(sourceYear, CB_GETCURSEL, 0, 0)) + baseYear,
-            static_cast<unsigned>(SendMessageW(is_persian ? hMonthPersian : hMonthGregorian, CB_GETCURSEL, 0, 0)) + 1,
-            static_cast<unsigned>(SendMessageW(is_persian ? hDayPersian : hDayGregorian, CB_GETCURSEL, 0, 0)) + 1};
-        days = is_persian ? persian_to_days(input_date) : gregorian_to_days(input_date);
-    }
+        days = source == update_source_t::PERSIAN ? persian_to_days(persian_combo.to_date_triplet()) : gregorian_to_days(gregorian_combo.to_date_triplet());
 
-    {
-        persian_date_t date = days_to_persian(days);
-        SendMessageW(hDayPersian, CB_SETCURSEL, date.day - 1, 0);
-        SendMessageW(hMonthPersian, CB_SETCURSEL, date.month - 1, 0);
-        SendMessageW(hYearPersian, CB_SETCURSEL, date.year - persianBaseYear, 0);
-    }
-    {
-        gregorian_date_t date = days_to_gregorian(days);
-        SendMessageW(hDayGregorian, CB_SETCURSEL, date.day - 1, 0);
-        SendMessageW(hMonthGregorian, CB_SETCURSEL, date.month - 1, 0);
-        SendMessageW(hYearGregorian, CB_SETCURSEL, date.year - gregorianBaseYear, 0);
-    }
+    persian_combo.set_from_date_triplet(days_to_persian(days));
+    gregorian_combo.set_from_date_triplet(days_to_gregorian(days));
 
     unsigned today_days = today_in_days();
     const wchar_t *weekday = weekdays[(days + 3) % 7];
@@ -292,10 +294,9 @@ static UINT get_system_dpi()
     return static_cast<UINT>(dpi);
 }
 
-#define CALTABLE 0
-
 constexpr int window_width = 6;
-constexpr int window_height = CALTABLE ? 6 : 2;
+constexpr int window_height = 4;
+constexpr int table_height_ratio = 2;
 
 template <typename T>
 auto get_proc(HMODULE hModule, const char *procName)
@@ -335,9 +336,7 @@ static bool is_dark_mode_active()
 
 static void update_layout(HWND hwnd, unsigned width, unsigned height)
 {
-    if (CALTABLE)
-        height = height / 3;
-    HFONT hFont = get_system_font(MulDiv(static_cast<int>(height), 8, 25));
+    HFONT hFont = get_system_font(MulDiv(static_cast<int>(height), 8, 25 * table_height_ratio));
     for (unsigned i = 0; i < 6; ++i)
     {
         HWND item = GetDlgItem(hwnd, static_cast<int>(dlg_persian_day_combo_id + i));
@@ -345,7 +344,7 @@ static void update_layout(HWND hwnd, unsigned width, unsigned height)
         int row = i % 3;
         MoveWindow(item,
                    MulDiv(static_cast<int>(width), static_cast<int>(row == 0 ? 1 : (row == 1 ? 6 : 19)), 25),
-                   MulDiv(static_cast<int>(height), static_cast<int>(i < 3 ? 2 : 14), 25),
+                   MulDiv(static_cast<int>(height), static_cast<int>(i < 3 ? 2 : 14), 25 * table_height_ratio),
                    MulDiv(static_cast<int>(width), row == 0 ? 4 : (row == 1 ? 12 : 5), 25),
                    // The height parameter here is only used for the dropdown size of the ComboBox,
                    // so making it larger ensures the dropdown is sufficiently tall.
@@ -453,6 +452,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         [[fallthrough]];
     case WM_SETTINGCHANGE:
         update_window_visual_styles(hwnd);
+        InvalidateRect(hwnd, nullptr, FALSE);
         return 0;
 
     case WM_PAINT:
@@ -461,75 +461,64 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         HDC hdc = BeginPaint(hwnd, &ps);
 
         {
-            HBRUSH brush = reinterpret_cast<HBRUSH>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
-            if (!brush)
-            {
-                bool has_aero = get_build_number() >= 4015; // https://betawiki.net/wiki/Windows_Aero
-                brush = CreateSolidBrush(has_aero ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
-                SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(brush));
-            }
+            bool has_aero = get_build_number() >= 4015; // https://betawiki.net/wiki/Windows_Aero
+            HBRUSH brush = CreateSolidBrush(has_aero ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(brush));
             FillRect(hdc, &ps.rcPaint, brush);
+            DeleteObject(brush);
         }
 
-        if (CALTABLE)
         {
-            unsigned year, month;
-            {
-                HWND hYearPersian = GetDlgItem(hwnd, dlg_persian_year_combo_id);
-                HWND hMonthPersian = GetDlgItem(hwnd, dlg_persian_month_combo_id);
-                unsigned persianBaseYear = static_cast<unsigned>(GetWindowLongPtrW(hYearPersian, GWLP_USERDATA));
-                year = static_cast<unsigned>(SendMessageW(hYearPersian, CB_GETCURSEL, 0, 0)) + persianBaseYear;
-                month = static_cast<unsigned>(SendMessageW(hMonthPersian, CB_GETCURSEL, 0, 0)) + 1;
-            }
-            unsigned month_days = get_month_days(year, month);
+            date_triplet_t date = combo_triplet_t(hwnd, true).to_date_triplet();
+            unsigned month_days = get_month_days(date.year, date.month);
 
-            const unsigned size = static_cast<unsigned>(ps.rcPaint.bottom / (3 * 7));
+            const unsigned cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 16);
 
-            HWND hDayPersian = GetDlgItem(hwnd, dlg_persian_day_combo_id);
-            HFONT hFont = reinterpret_cast<HFONT>(GetWindowLongPtrW(hDayPersian, GWLP_USERDATA));
-            if (!hFont)
+            bool is_dark_mode = is_dark_mode_active();
+            unsigned table_top = static_cast<unsigned>(ps.rcPaint.bottom / table_height_ratio);
+            unsigned table_start = static_cast<unsigned>((ps.rcPaint.right - ps.rcPaint.left - static_cast<int>(cell_size) * 7) / 2);
             {
-                hFont = get_system_font(static_cast<long>(size));
-                SetWindowLongPtrW(hDayPersian, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(hFont));
+                RECT table_rc{
+                    static_cast<long>(table_start),
+                    static_cast<long>(table_top),
+                    static_cast<long>(table_start + 7 * cell_size),
+                    static_cast<long>(7 * cell_size + table_top)};
+                FillRect(hdc, &table_rc, GetSysColorBrush(is_dark_mode ? COLOR_WINDOWFRAME : COLOR_BTNFACE));
             }
 
+            HFONT hFont = get_system_font(static_cast<long>(cell_size));
             HGDIOBJ oldFont = SelectObject(hdc, hFont);
             SetBkMode(hdc, TRANSPARENT);
-            SetBkColor(hdc, APP_LWA_COLORKEY);
-            SetTextColor(hdc, RGB(255, 255, 255));
-            unsigned table_top = static_cast<unsigned>(ps.rcPaint.bottom / 3);
+            SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
             for (unsigned i = 0; i < 7; ++i)
             {
-                RECT rc{
-                    static_cast<long>(size * i),
+                RECT cell_rc{
+                    static_cast<long>(table_start + cell_size * i),
                     static_cast<long>(table_top),
-                    static_cast<long>(size * (i + 1)),
-                    static_cast<long>(table_top + size)};
-                DrawTextW(hdc, weekdays[i % 7], 1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+                    static_cast<long>(table_start + cell_size * (i + 1)),
+                    static_cast<long>(table_top + cell_size)};
+                DrawTextW(hdc, weekdays[i % 7], 1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             }
-            table_top += size;
-            unsigned week_start = (persian_to_days({year, month, 1}) + 3) % 7;
+            table_top += cell_size;
+            unsigned week_start = (persian_to_days({date.year, date.month, 1}) + 3) % 7;
             for (unsigned i = week_start; i < month_days + week_start; ++i)
             {
-                RECT rc{
-                    static_cast<long>(size * (i % 7)),
-                    static_cast<long>(table_top + size * (i / 7)),
-                    static_cast<long>(size * (i % 7 + 1)),
-                    static_cast<long>(table_top + size * (i / 7 + 1))};
-                DrawTextW(hdc, format_number(i + 1 - week_start).value, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+                if (date.day == i + 1 - week_start)
+                    SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
+                else
+                    SetTextColor(hdc, is_dark_mode ? RGB(180, 180, 180) : RGB(150, 150, 150));
+                RECT cell_rc{
+                    static_cast<long>(table_start + cell_size * (i % 7)),
+                    static_cast<long>(table_top + cell_size * (i / 7)),
+                    static_cast<long>(table_start + cell_size * (i % 7 + 1)),
+                    static_cast<long>(table_top + cell_size * (i / 7 + 1))};
+                DrawTextW(hdc, format_number(i + 1 - week_start).value, -1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             }
             SelectObject(hdc, oldFont);
+            DeleteObject(hFont);
         }
 
         EndPaint(hwnd, &ps);
-        break;
-    }
-
-    case WM_DESTROY:
-    {
-        DeleteObject(reinterpret_cast<HFONT>(GetWindowLongPtrW(hwnd, GWLP_USERDATA)));
-        if (CALTABLE)
-            DeleteObject(reinterpret_cast<HBRUSH>(GetWindowLongPtrW(GetDlgItem(hwnd, dlg_persian_day_combo_id), GWLP_USERDATA)));
         break;
     }
 
@@ -538,6 +527,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         if (wParam == HTHELP)
         {
             update_values(hwnd, update_source_t::INIT);
+            InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         }
         break;
@@ -557,6 +547,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         unsigned newWidth = static_cast<unsigned>(LOWORD(lParam));
         unsigned newHeight = static_cast<unsigned>(HIWORD(lParam));
         update_layout(hwnd, newWidth, newHeight);
+        InvalidateRect(hwnd, nullptr, FALSE);
         return 0;
     }
 
@@ -574,8 +565,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         if (code == CBN_SELCHANGE)
         {
             update_values(hwnd, id < dlg_gregorian_day_combo_id ? update_source_t::PERSIAN : update_source_t::GREGORIAN);
-            if (CALTABLE)
-                InvalidateRect(hwnd, nullptr, TRUE);
+            InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         }
         break;
@@ -884,7 +874,7 @@ void start()
         SetTimer(hwnd, 1 /*timer id*/, 60000, nullptr);
     }
 
-    // open_converter_dialog();
+    open_converter_dialog();
 
     // Main loop
     MSG msg;
