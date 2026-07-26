@@ -842,7 +842,8 @@ void start()
         zero_memory(wc);
         wc.hInstance = hInst;
         wc.cbSize = sizeof(WNDCLASSEXW);
-        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+        wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+        wc.hIcon = LoadIconW(nullptr, IDI_ASTERISK);
         // Tray Menu's class
         wc.lpfnWndProc = tray_window_procedure;
         wc.lpszClassName = appId;
