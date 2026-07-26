@@ -267,7 +267,9 @@ static void update_values(HWND hwnd, update_source_t source)
     if (source == update_source_t::INIT)
         days = today_in_days();
     else
-        days = source == update_source_t::PERSIAN ? persian_to_days(persian_combo.to_date_triplet()) : gregorian_to_days(gregorian_combo.to_date_triplet());
+        days = source == update_source_t::PERSIAN
+                   ? persian_to_days(persian_combo.to_date_triplet())
+                   : gregorian_to_days(gregorian_combo.to_date_triplet());
 
     persian_combo.set_from_date_triplet(days_to_persian(days));
     gregorian_combo.set_from_date_triplet(days_to_gregorian(days));
