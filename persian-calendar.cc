@@ -466,7 +466,6 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         {
             bool has_aero = get_build_number() >= 4015; // https://betawiki.net/wiki/Windows_Aero
             HBRUSH brush = CreateSolidBrush(has_aero ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
-            SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(brush));
             FillRect(hdc, &ps.rcPaint, brush);
             DeleteObject(brush);
         }
@@ -587,8 +586,7 @@ static void open_converter_dialog()
     UINT dpi = get_system_dpi();
     HWND hwnd = CreateWindowExW(
         WS_EX_DLGMODALFRAME | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED,
-        converterClassName,
-        L"",
+        converterClassName, L"",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_SIZEBOX,
         CW_USEDEFAULT, CW_USEDEFAULT,
         static_cast<int>(window_width * dpi),
