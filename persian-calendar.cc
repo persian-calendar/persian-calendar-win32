@@ -879,7 +879,7 @@ void start()
         SetTimer(hwnd, 1 /*timer id*/, 60000, nullptr);
     }
 
-    // open_converter_dialog(hwnd);
+    // open_converter_dialog(hwnd); // for debugging
 
     // Main loop
     MSG msg;
