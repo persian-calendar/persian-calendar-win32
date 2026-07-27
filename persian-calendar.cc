@@ -229,20 +229,20 @@ enum class update_source_t
     GREGORIAN
 };
 
-struct combo_triplet_t
+struct date_combo_controller_t
 {
 private:
     HWND hDay, hMonth, hYear;
     unsigned base_year;
 
 public:
-    combo_triplet_t(
+    date_combo_controller_t(
         HWND hwnd, bool is_persian) : hDay(GetDlgItem(hwnd, is_persian ? dlg_persian_day_combo_id : dlg_gregorian_day_combo_id)),
                                       hMonth(GetDlgItem(hwnd, is_persian ? dlg_persian_month_combo_id : dlg_gregorian_month_combo_id)),
                                       hYear(GetDlgItem(hwnd, is_persian ? dlg_persian_year_combo_id : dlg_gregorian_year_combo_id)),
                                       base_year(static_cast<unsigned>(GetWindowLongPtrW(hYear, GWLP_USERDATA))) {}
 
-    date_triplet_t to_date_triplet() const
+    date_t to_date() const
     {
         return {
             static_cast<unsigned>(SendMessageW(hYear, CB_GETCURSEL, 0, 0)) + base_year,
@@ -250,7 +250,7 @@ public:
             static_cast<unsigned>(SendMessageW(hDay, CB_GETCURSEL, 0, 0)) + 1};
     }
 
-    void set_from_date_triplet(const date_triplet_t &date)
+    void set_from_date_triplet(const date_t &date)
     {
         SendMessageW(hYear, CB_SETCURSEL, date.year - base_year, 0);
         SendMessageW(hMonth, CB_SETCURSEL, date.month - 1, 0);
@@ -260,16 +260,16 @@ public:
 
 static void update_values(HWND hwnd, update_source_t source)
 {
-    combo_triplet_t persian_combo(hwnd, true);
-    combo_triplet_t gregorian_combo(hwnd, false);
+    date_combo_controller_t persian_combo(hwnd, true);
+    date_combo_controller_t gregorian_combo(hwnd, false);
 
     unsigned days;
     if (source == update_source_t::INIT)
         days = today_in_days();
     else
         days = source == update_source_t::PERSIAN
-                   ? persian_to_days(persian_combo.to_date_triplet())
-                   : gregorian_to_days(gregorian_combo.to_date_triplet());
+                   ? persian_to_days(persian_combo.to_date())
+                   : gregorian_to_days(gregorian_combo.to_date());
 
     persian_combo.set_from_date_triplet(days_to_persian(days));
     gregorian_combo.set_from_date_triplet(days_to_gregorian(days));
@@ -471,7 +471,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         }
 
         {
-            date_triplet_t date = combo_triplet_t(hwnd, true).to_date_triplet();
+            persian_date_t date = date_combo_controller_t(hwnd, true).to_date();
             unsigned month_days = get_month_days(date.year, date.month);
 
             const unsigned cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 16);
@@ -524,6 +524,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         break;
     }
 
+    // Handle help button
     case WM_NCLBUTTONDOWN:
     {
         if (wParam == HTHELP)
@@ -553,6 +554,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         return 0;
     }
 
+    // Make whole window movable
     case WM_LBUTTONDOWN:
     {
         ReleaseCapture();
