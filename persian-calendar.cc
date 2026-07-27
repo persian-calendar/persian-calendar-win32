@@ -88,8 +88,6 @@ static UINT get_system_dpi()
     return static_cast<UINT>(dpi);
 }
 
-struct Registry;
-
 struct app_state_t
 {
     NOTIFYICONDATAW *notify_icon_data;
