@@ -583,17 +583,17 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
 
 constexpr static const wchar_t *converterClassName = L"CnvDlg";
 
-static void open_converter_dialog()
+static void open_converter_dialog(HWND parent)
 {
     UINT dpi = get_system_dpi();
     HWND hwnd = CreateWindowExW(
-        WS_EX_DLGMODALFRAME | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED,
+        WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED,
         converterClassName, L"",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_SIZEBOX,
         CW_USEDEFAULT, CW_USEDEFAULT,
         static_cast<int>(window_width * dpi),
         static_cast<int>(window_height * dpi),
-        nullptr, nullptr, hInst, nullptr);
+        parent, nullptr, hInst, nullptr);
     SetLayeredWindowAttributes(hwnd, APP_LWA_COLORKEY, 0, LWA_COLORKEY);
     ShowWindow(hwnd, SW_SHOW);
     SetForegroundWindow(hwnd);
@@ -723,7 +723,7 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
                            p.x, p.y, 0, hwnd, nullptr);
         }
         else if (lParam == WM_LBUTTONUP)
-            open_converter_dialog();
+            open_converter_dialog(hwnd);
         return 0;
 
     case WM_COMMAND:
@@ -745,7 +745,7 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         }
         else if (wParam == date_converter_id)
         {
-            open_converter_dialog();
+            open_converter_dialog(hwnd);
             return 0;
         }
         else if (wParam == exit_id)
@@ -845,7 +845,6 @@ void start()
         wc.hInstance = hInst;
         wc.cbSize = sizeof(WNDCLASSEXW);
         wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-        wc.hIcon = LoadIconW(nullptr, IDI_ASTERISK);
         // Tray Menu's class
         wc.lpfnWndProc = tray_window_procedure;
         wc.lpszClassName = appId;
@@ -880,7 +879,7 @@ void start()
         SetTimer(hwnd, 1 /*timer id*/, 60000, nullptr);
     }
 
-    // open_converter_dialog();
+    // open_converter_dialog(hwnd);
 
     // Main loop
     MSG msg;
