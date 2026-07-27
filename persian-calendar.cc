@@ -73,26 +73,50 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
     return hIcon;
 }
 
+constexpr static const int mainTimerId = 1;
+constexpr static const int widgetTimerId = 2;
+constexpr static const wchar_t *widgetClassName = L"WgtDlg";
+constexpr static const wchar_t *converterClassName = L"CnvDlg";
+
+static UINT get_system_dpi()
+{
+    HDC hdc = GetDC(nullptr);
+    if (!hdc)
+        return 96;
+    int dpi = GetDeviceCaps(hdc, LOGPIXELSX);
+    ReleaseDC(nullptr, hdc);
+    return static_cast<UINT>(dpi);
+}
+
+struct Registry;
+
 struct app_state_t
 {
     NOTIFYICONDATAW *notify_icon_data;
     BOOL local_digits;
     BOOL black_background;
     HMENU menu;
+    BOOL show_widget;
+    HWND widget_hwnd;
 
-    app_state_t(NOTIFYICONDATAW *notify_icon_data_) : notify_icon_data(notify_icon_data_), local_digits(true), black_background(true), menu(nullptr)
+    app_state_t(NOTIFYICONDATAW *notify_icon_data_) : notify_icon_data(notify_icon_data_), local_digits(true),
+                                                      black_background(true), menu(nullptr),
+                                                      show_widget(false), widget_hwnd(nullptr)
     {
     }
 };
+
+constexpr bool HAS_WIDGET = 0;
 
 constexpr unsigned date_id = 1000;
 constexpr unsigned first_separator_id = 1001;
 constexpr unsigned local_digits_id = 1002;
 constexpr unsigned black_background_id = 1003;
-constexpr unsigned second_separator_id = 1004;
-constexpr unsigned date_converter_id = 1005;
-constexpr unsigned third_separator_id = 1006;
-constexpr unsigned exit_id = 1007;
+constexpr unsigned show_widget_id = 1004;
+constexpr unsigned second_separator_id = 1005;
+constexpr unsigned date_converter_id = 1006;
+constexpr unsigned third_separator_id = 1007;
+constexpr unsigned exit_id = 1008;
 static void create_menu(app_state_t *state, wchar_t *date)
 {
     HMENU menu = CreatePopupMenu();
@@ -118,6 +142,13 @@ static void create_menu(app_state_t *state, wchar_t *date)
         menu_item.wID = black_background_id;
         menu_item.dwTypeData = const_cast<wchar_t *>(L"پیش‌زمینهٔ سیاه آیکون");
         InsertMenuItemW(menu, black_background_id, TRUE, &menu_item);
+    }
+    if (HAS_WIDGET)
+    {
+        menu_item.fState = state->show_widget ? MFS_CHECKED : 0;
+        menu_item.wID = show_widget_id;
+        menu_item.dwTypeData = const_cast<wchar_t *>(L"نمایش ویجت");
+        InsertMenuItemW(menu, show_widget_id, TRUE, &menu_item);
     }
     InsertMenuW(menu, second_separator_id, MF_SEPARATOR, TRUE, nullptr);
     {
@@ -287,16 +318,6 @@ static void update_values(HWND hwnd, update_source_t source)
     SetWindowTextW(hwnd, result);
 }
 
-static UINT get_system_dpi()
-{
-    HDC hdc = GetDC(nullptr);
-    if (!hdc)
-        return 96;
-    int dpi = GetDeviceCaps(hdc, LOGPIXELSX);
-    ReleaseDC(nullptr, hdc);
-    return static_cast<UINT>(dpi);
-}
-
 constexpr int window_width = 6;
 constexpr int window_height = 4;
 constexpr int table_height_ratio = 2;
@@ -405,9 +426,236 @@ static void update_window_visual_styles(HWND hwnd)
         FreeLibrary(hDwmapi);
 }
 
+#define appId L"PersianCalendarWin32"
+struct Registry
+{
+    Registry(const Registry &) = delete;
+    void operator=(const Registry &) = delete;
+    Registry() : key(nullptr)
+    {
+        LONG status = RegCreateKeyExW(
+            HKEY_CURRENT_USER,
+            L"Software\\" appId,
+            0,
+            nullptr,
+            REG_OPTION_NON_VOLATILE,
+            KEY_WRITE | KEY_READ,
+            nullptr,
+            &key,
+            nullptr);
+        if (status != ERROR_SUCCESS)
+            key = nullptr;
+    }
+
+    void fill_app_state(app_state_t *state) const
+    {
+        if (!key)
+            return;
+        DWORD value = 0;
+        DWORD size = sizeof(DWORD);
+        DWORD type = 0;
+
+        if (RegQueryValueExW(key, local_digits_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
+            state->local_digits = !!value;
+
+        if (RegQueryValueExW(key, black_background_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
+            state->black_background = !!value;
+
+        if (RegQueryValueExW(key, show_widget_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
+            state->show_widget = !!value;
+    }
+
+    void set_local_digits(bool value) const
+    {
+        set_value(local_digits_key, value);
+    }
+
+    void set_black_background(bool value) const
+    {
+        set_value(black_background_key, value);
+    }
+
+    void set_show_widget(bool value) const
+    {
+        set_value(show_widget_key, value);
+    }
+
+    void set_widget_position(int left, int top) const
+    {
+        set_value(widget_position_left_key, static_cast<DWORD>(left));
+        set_value(widget_position_top_key, static_cast<DWORD>(top));
+    }
+
+    void get_widget_position(int &left, int &top) const
+    {
+        if (!key)
+            return;
+        DWORD value = 0;
+        DWORD size = sizeof(DWORD);
+        DWORD type = 0;
+
+        if (RegQueryValueExW(key, widget_position_left_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
+            left = static_cast<int>(value);
+        if (RegQueryValueExW(key, widget_position_top_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
+            top = static_cast<int>(value);
+    }
+
+    ~Registry()
+    {
+        if (key)
+            RegCloseKey(key);
+    }
+
+private:
+    HKEY key;
+
+    void set_value(const wchar_t *name, DWORD value) const
+    {
+        if (!key)
+            return;
+        RegSetValueExW(
+            key,
+            name,
+            0,
+            REG_DWORD,
+            reinterpret_cast<const BYTE *>(&value),
+            sizeof(DWORD));
+    }
+
+    constexpr static const wchar_t *local_digits_key = L"LocalDigits";
+    constexpr static const wchar_t *black_background_key = L"BlackBackground";
+    constexpr static const wchar_t *show_widget_key = L"ShowWidget";
+    constexpr static const wchar_t *widget_position_left_key = L"WidgetLeft";
+    constexpr static const wchar_t *widget_position_top_key = L"WidgetTop";
+};
+
+static void handle_widget(HWND hwnd, app_state_t *app_state)
+{
+    HWND widgetHwnd = app_state->widget_hwnd;
+    if (app_state->show_widget)
+    {
+        if (!widgetHwnd)
+        {
+            UINT dpi = get_system_dpi();
+            int left = CW_USEDEFAULT, top = CW_USEDEFAULT;
+            Registry().get_widget_position(left, top);
+            widgetHwnd = CreateWindowExW(
+                WS_EX_OVERLAPPEDWINDOW | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED,
+                widgetClassName, L"",
+                WS_POPUP | WS_OVERLAPPED,
+                left, top,
+                static_cast<int>(dpi / 7 * 12),
+                static_cast<int>(dpi / 7 * 12),
+                hwnd, nullptr, hInst, nullptr);
+            SetTimer(widgetHwnd, widgetTimerId, 60000, nullptr);
+        }
+        ShowWindow(widgetHwnd, SW_SHOW);
+        SetForegroundWindow(widgetHwnd);
+        app_state->widget_hwnd = widgetHwnd;
+    }
+    else
+    {
+        if (widgetHwnd)
+        {
+            KillTimer(widgetHwnd, widgetTimerId);
+            CloseWindow(widgetHwnd);
+            DestroyWindow(widgetHwnd);
+            // widgetHwnd = nullptr;
+            app_state->widget_hwnd = nullptr;
+        }
+    }
+}
+
 static unsigned get_month_days(unsigned year, unsigned month)
 {
     return persian_to_days({month == 12 ? year + 1 : year, month == 12 ? 1 : month + 1, 1}) - persian_to_days({year, month, 1});
+}
+
+static void draw_table(unsigned table_start, unsigned table_top, unsigned cell_size, HDC hdc, persian_date_t date)
+{
+    bool is_dark_mode = is_dark_mode_active();
+    {
+        RECT table_rc{
+            static_cast<long>(table_start),
+            static_cast<long>(table_top),
+            static_cast<long>(table_start + 7 * cell_size),
+            static_cast<long>(7 * cell_size + table_top)};
+        FillRect(hdc, &table_rc, GetSysColorBrush(is_dark_mode ? COLOR_WINDOWFRAME : COLOR_BTNFACE));
+    }
+
+    HFONT hFont = get_system_font(static_cast<long>(cell_size));
+    HGDIOBJ oldFont = SelectObject(hdc, hFont);
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
+    for (unsigned i = 0; i < 7; ++i)
+    {
+        RECT cell_rc{
+            static_cast<long>(table_start + cell_size * i),
+            static_cast<long>(table_top),
+            static_cast<long>(table_start + cell_size * (i + 1)),
+            static_cast<long>(table_top + cell_size)};
+        DrawTextW(hdc, weekdays[i % 7], 1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+    table_top += cell_size;
+    unsigned week_start = (persian_to_days({date.year, date.month, 1}) + 3) % 7;
+    unsigned month_days = get_month_days(date.year, date.month);
+    for (unsigned i = week_start; i < month_days + week_start; ++i)
+    {
+        if (date.day == i + 1 - week_start)
+            SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
+        else
+            SetTextColor(hdc, is_dark_mode ? RGB(180, 180, 180) : RGB(150, 150, 150));
+        RECT cell_rc{
+            static_cast<long>(table_start + cell_size * (i % 7)),
+            static_cast<long>(table_top + cell_size * (i / 7)),
+            static_cast<long>(table_start + cell_size * (i % 7 + 1)),
+            static_cast<long>(table_top + cell_size * (i / 7 + 1))};
+        DrawTextW(hdc, format_number(i + 1 - week_start).value, -1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+    SelectObject(hdc, oldFont);
+    DeleteObject(hFont);
+}
+
+static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    switch (msg)
+    {
+    case WM_DESTROY:
+    {
+        WINDOWPLACEMENT wp;
+        wp.length = sizeof(WINDOWPLACEMENT);
+        if (GetWindowPlacement(hwnd, &wp))
+            Registry().set_widget_position(wp.rcNormalPosition.left, wp.rcNormalPosition.top);
+        break;
+    }
+
+    case WM_TIMER:
+    case WM_SETTINGCHANGE:
+        InvalidateRect(hwnd, nullptr, FALSE);
+        return 0;
+
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        const unsigned cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 7);
+        draw_table(0, 0, cell_size, hdc, days_to_persian(today_in_days()));
+        EndPaint(hwnd, &ps);
+        break;
+    }
+
+    // Make whole window movable
+    case WM_LBUTTONDOWN:
+    {
+        ReleaseCapture();
+        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+        return 0;
+    }
+
+    default:
+        break;
+    }
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
 static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -472,52 +720,10 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
 
         {
             persian_date_t date = date_combo_controller_t(hwnd, true).to_date();
-            unsigned month_days = get_month_days(date.year, date.month);
-
             const unsigned cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 16);
-
-            bool is_dark_mode = is_dark_mode_active();
             unsigned table_top = static_cast<unsigned>(ps.rcPaint.bottom / table_height_ratio);
             unsigned table_start = static_cast<unsigned>((ps.rcPaint.right - ps.rcPaint.left - static_cast<int>(cell_size) * 7) / 2);
-            {
-                RECT table_rc{
-                    static_cast<long>(table_start),
-                    static_cast<long>(table_top),
-                    static_cast<long>(table_start + 7 * cell_size),
-                    static_cast<long>(7 * cell_size + table_top)};
-                FillRect(hdc, &table_rc, GetSysColorBrush(is_dark_mode ? COLOR_WINDOWFRAME : COLOR_BTNFACE));
-            }
-
-            HFONT hFont = get_system_font(static_cast<long>(cell_size));
-            HGDIOBJ oldFont = SelectObject(hdc, hFont);
-            SetBkMode(hdc, TRANSPARENT);
-            SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
-            for (unsigned i = 0; i < 7; ++i)
-            {
-                RECT cell_rc{
-                    static_cast<long>(table_start + cell_size * i),
-                    static_cast<long>(table_top),
-                    static_cast<long>(table_start + cell_size * (i + 1)),
-                    static_cast<long>(table_top + cell_size)};
-                DrawTextW(hdc, weekdays[i % 7], 1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            }
-            table_top += cell_size;
-            unsigned week_start = (persian_to_days({date.year, date.month, 1}) + 3) % 7;
-            for (unsigned i = week_start; i < month_days + week_start; ++i)
-            {
-                if (date.day == i + 1 - week_start)
-                    SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
-                else
-                    SetTextColor(hdc, is_dark_mode ? RGB(180, 180, 180) : RGB(150, 150, 150));
-                RECT cell_rc{
-                    static_cast<long>(table_start + cell_size * (i % 7)),
-                    static_cast<long>(table_top + cell_size * (i / 7)),
-                    static_cast<long>(table_start + cell_size * (i % 7 + 1)),
-                    static_cast<long>(table_top + cell_size * (i / 7 + 1))};
-                DrawTextW(hdc, format_number(i + 1 - week_start).value, -1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            }
-            SelectObject(hdc, oldFont);
-            DeleteObject(hFont);
+            draw_table(table_start, table_top, cell_size, hdc, date);
         }
 
         EndPaint(hwnd, &ps);
@@ -581,8 +787,6 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
-constexpr static const wchar_t *converterClassName = L"CnvDlg";
-
 static void open_converter_dialog(HWND parent)
 {
     UINT dpi = get_system_dpi();
@@ -624,79 +828,6 @@ static void update(HWND hwnd, app_state_t *state)
     nid.hIcon = icon;
     Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
-
-#define appId L"PersianCalendarWin32"
-struct Registry
-{
-    Registry(const Registry &) = delete;
-    void operator=(const Registry &) = delete;
-    Registry() : key(nullptr)
-    {
-        LONG status = RegCreateKeyExW(
-            HKEY_CURRENT_USER,
-            L"Software\\" appId,
-            0,
-            nullptr,
-            REG_OPTION_NON_VOLATILE,
-            KEY_WRITE | KEY_READ,
-            nullptr,
-            &key,
-            nullptr);
-        if (status != ERROR_SUCCESS)
-            key = nullptr;
-    }
-
-    void fill_app_state(app_state_t *state) const
-    {
-        if (!key)
-            return;
-        DWORD value = 0;
-        DWORD size = sizeof(DWORD);
-        DWORD type = 0;
-
-        if (RegQueryValueExW(key, local_digits_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
-            state->local_digits = !!value;
-
-        if (RegQueryValueExW(key, black_background_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
-            state->black_background = !!value;
-    }
-
-    void set_local_digits(bool value) const
-    {
-        set_bool(local_digits_key, value);
-    }
-
-    void set_black_background(bool value) const
-    {
-        set_bool(black_background_key, value);
-    }
-
-    ~Registry()
-    {
-        if (key)
-            RegCloseKey(key);
-    }
-
-private:
-    HKEY key;
-
-    void set_bool(const wchar_t *name, bool value) const
-    {
-        if (!key)
-            return;
-        DWORD dword = value ? 1 : 0;
-        RegSetValueExW(
-            key,
-            name,
-            0,
-            REG_DWORD,
-            reinterpret_cast<const BYTE *>(&dword),
-            sizeof(DWORD));
-    }
-
-    constexpr static const wchar_t *local_digits_key = L"LocalDigits";
-    constexpr static const wchar_t *black_background_key = L"BlackBackground";
-};
 
 const unsigned notifyClickId = WM_USER + 1;
 static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -741,6 +872,18 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
             state->black_background = newValue;
             update(hwnd, state);
             Registry().set_black_background(newValue);
+            return 0;
+        }
+        else if (HAS_WIDGET && wParam == show_widget_id)
+        {
+            bool newValue = !state->show_widget;
+            state->show_widget = newValue;
+            handle_widget(hwnd, state);
+            const Registry &registry = Registry();
+            if (!newValue)
+                registry.set_widget_position(CW_USEDEFAULT, CW_USEDEFAULT);
+            update(hwnd, state);
+            registry.set_show_widget(newValue);
             return 0;
         }
         else if (wParam == date_converter_id)
@@ -853,6 +996,13 @@ void start()
         wc.lpfnWndProc = converter_window_procedure;
         wc.lpszClassName = converterClassName;
         RegisterClassExW(&wc);
+        if (HAS_WIDGET) 
+        {
+            // Widget Dialog's class
+            wc.lpfnWndProc = widget_window_procedure;
+            wc.lpszClassName = widgetClassName;
+            RegisterClassExW(&wc);
+        }
     }
     HWND hwnd = CreateWindowExW(0, appId, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
 
@@ -875,8 +1025,9 @@ void start()
     {
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
         Registry().fill_app_state(&state);
+        if (HAS_WIDGET) handle_widget(hwnd, &state);
         update(hwnd, &state);
-        SetTimer(hwnd, 1 /*timer id*/, 60000, nullptr);
+        SetTimer(hwnd, mainTimerId, 60000, nullptr);
     }
 
     // open_converter_dialog(hwnd); // for debugging
