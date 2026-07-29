@@ -61,11 +61,8 @@ static bool is_dark_mode_active()
 
 static bool is_system_in_dark_mode()
 {
-    auto build_number = get_build_number();
-    if (build_number < 17763)
+    if (get_build_number() < 18362)
         return false;
-    else if (build_number < 18362)
-        return is_dark_mode_active();
     auto pShouldSystemUseDarkMode = get_proc<bool(WINAPI *)()>(
         GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(138)); // undocumented ShouldAppsUseDarkMode
     return pShouldSystemUseDarkMode && pShouldSystemUseDarkMode();
@@ -83,7 +80,11 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
 
     FillRect(memDC, &rc, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
     SetBkMode(memDC, TRANSPARENT);
-    SetTextColor(memDC, (black_background || is_system_in_dark_mode()) ? RGB(255, 255, 255) : RGB(0, 0, 0));
+    SetTextColor(memDC, (black_background || is_system_in_dark_mode() ||
+                         // on older systems always assume the task bar has dark colors and foreground should be white
+                         get_build_number() < 18362)
+                            ? RGB(255, 255, 255)
+                            : RGB(0, 0, 0));
 
     HFONT hFont = get_system_font(-size + 12);
     HGDIOBJ oldFont = SelectObject(memDC, hFont);
