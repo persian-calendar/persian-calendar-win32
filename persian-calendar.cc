@@ -793,7 +793,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
 
     case WM_DESTROY:
         // If hwnd doesn't have a parent, it means it's in the portable mode
-        if (!GetParent(hwnd))
+        if (!GetWindow(hwnd, GW_OWNER))
         {
             PostQuitMessage(ERROR_SUCCESS);
             return 0;
