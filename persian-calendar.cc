@@ -61,8 +61,11 @@ static bool is_dark_mode_active()
 
 static bool is_system_in_dark_mode()
 {
-    if (get_build_number() < 18362)
+    auto build_number = get_build_number();
+    if (build_number < 17763)
         return false;
+    else if (build_number < 18362)
+        return is_dark_mode_active();
     auto pShouldSystemUseDarkMode = get_proc<bool(WINAPI *)()>(
         GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(138)); // undocumented ShouldAppsUseDarkMode
     return pShouldSystemUseDarkMode && pShouldSystemUseDarkMode();
