@@ -29,6 +29,45 @@ static HFONT get_system_font(LONG size)
     return reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
 }
 
+template <typename T>
+auto get_proc(HMODULE hModule, const char *procName)
+{
+    return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(hModule, procName)));
+}
+
+static DWORD get_build_number()
+{
+    auto pRtlGetVersion = get_proc<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>(
+        GetModuleHandleA("ntdll.dll"), "RtlGetVersion");
+    if (pRtlGetVersion)
+    {
+        RTL_OSVERSIONINFOW rovi;
+        rovi.dwOSVersionInfoSize = sizeof(rovi);
+        if (pRtlGetVersion(&rovi) == 0)
+            return rovi.dwBuildNumber;
+    }
+    return 0;
+}
+
+static bool is_dark_mode_active()
+{
+    // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
+    if (get_build_number() < 17763)
+        return false;
+    auto pShouldAppsUseDarkMode = get_proc<bool(WINAPI *)()>(
+        GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(132)); // undocumented ShouldAppsUseDarkMode
+    return pShouldAppsUseDarkMode && pShouldAppsUseDarkMode();
+}
+
+static bool is_system_in_dark_mode()
+{
+    if (get_build_number() < 18362)
+        return false;
+    auto pShouldSystemUseDarkMode = get_proc<bool(WINAPI *)()>(
+        GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(138)); // undocumented ShouldAppsUseDarkMode
+    return pShouldSystemUseDarkMode && pShouldSystemUseDarkMode();
+}
+
 static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_background)
 {
     const int size = 128; // GetSystemMetrics(SM_CXSMICON); oversized icon looks better
@@ -41,7 +80,7 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
 
     FillRect(memDC, &rc, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
     SetBkMode(memDC, TRANSPARENT);
-    SetTextColor(memDC, RGB(255, 255, 255));
+    SetTextColor(memDC, (black_background || is_system_in_dark_mode()) ? RGB(255, 255, 255) : RGB(0, 0, 0));
 
     HFONT hFont = get_system_font(-size + 12);
     HGDIOBJ oldFont = SelectObject(memDC, hFont);
@@ -319,36 +358,6 @@ static void update_values(HWND hwnd, update_source_t source)
 constexpr int window_width = 6;
 constexpr int window_height = 4;
 constexpr int table_height_ratio = 2;
-
-template <typename T>
-auto get_proc(HMODULE hModule, const char *procName)
-{
-    return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(hModule, procName)));
-}
-
-static DWORD get_build_number()
-{
-    auto pRtlGetVersion = get_proc<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>(
-        GetModuleHandleA("ntdll.dll"), "RtlGetVersion");
-    if (pRtlGetVersion)
-    {
-        RTL_OSVERSIONINFOW rovi;
-        rovi.dwOSVersionInfoSize = sizeof(rovi);
-        if (pRtlGetVersion(&rovi) == 0)
-            return rovi.dwBuildNumber;
-    }
-    return 0;
-}
-
-static bool is_dark_mode_active()
-{
-    // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
-    if (get_build_number() < 17763)
-        return false;
-    auto pShouldAppsUseDarkMode = get_proc<bool(WINAPI *)()>(
-        GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(132)); // undocumented ShouldAppsUseDarkMode
-    return pShouldAppsUseDarkMode && pShouldAppsUseDarkMode();
-}
 
 // In remembrance of old era Windows color/chroma keying,
 // * https://devblogs.microsoft.com/oldnewthing/20251014-00/?p=111681
@@ -848,6 +857,7 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         return 0;
 
     case WM_TIMER:
+    case WM_SETTINGCHANGE:
         update(hwnd, state);
         return 0;
 
