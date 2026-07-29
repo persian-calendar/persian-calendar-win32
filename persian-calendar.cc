@@ -779,6 +779,15 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         break;
     }
 
+    case WM_DESTROY:
+        // If hwnd doesn't have a parent, it means it's in the portable mode
+        if (!GetParent(hwnd))
+        {
+            PostQuitMessage(ERROR_SUCCESS);
+            return 0;
+        }
+        break;
+
     default:
         break;
     }
@@ -973,16 +982,33 @@ static void enable_visual_styles()
     pActivateActCtx(pCreateActCtxA(&actCtx), &ulpActivationCookie);
 }
 
+template <size_t N>
+static bool has_string_suffix(const wchar_t *str, const wchar_t (&suffix)[N])
+{
+    int str_len = lstrlenW(str);
+    constexpr int suffix_len = static_cast<int>(N) - 1;
+    if (str_len < suffix_len)
+        return false;
+    const wchar_t *check_ptr = str + (str_len - suffix_len);
+    for (size_t i = 0; i < suffix_len; ++i)
+        if (check_ptr[i] != suffix[i])
+            return false;
+    return true;
+}
+
 extern "C" [[noreturn]] void start();
 void start()
 {
+    bool is_portable = has_string_suffix(GetCommandLineW(), L"/p");
+
     HANDLE mutex = CreateMutexW(nullptr, 0, appId);
-    if (!mutex || GetLastError() == ERROR_ALREADY_EXISTS)
-        ExitProcess(1);
+    is_portable |= !mutex || GetLastError() == ERROR_ALREADY_EXISTS;
 
     {
         WNDCLASSEXW wc;
         zero_memory(wc);
+        if (is_portable)
+            wc.hIcon = LoadIconW(nullptr, IDI_ASTERISK);
         wc.hInstance = hInst;
         wc.cbSize = sizeof(WNDCLASSEXW);
         wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
@@ -994,7 +1020,7 @@ void start()
         wc.lpfnWndProc = converter_window_procedure;
         wc.lpszClassName = converterClassName;
         RegisterClassExW(&wc);
-        if (HAS_WIDGET) 
+        if (HAS_WIDGET)
         {
             // Widget Dialog's class
             wc.lpfnWndProc = widget_window_procedure;
@@ -1002,7 +1028,7 @@ void start()
             RegisterClassExW(&wc);
         }
     }
-    HWND hwnd = CreateWindowExW(0, appId, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
+    HWND hwnd = is_portable ? nullptr : CreateWindowExW(0, appId, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
 
     enable_visual_styles();
     enable_hidpi();
@@ -1016,19 +1042,23 @@ void start()
         notify_icon_data.uCallbackMessage = notifyClickId;
         notify_icon_data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         notify_icon_data.hWnd = hwnd;
-        Shell_NotifyIconW(NIM_ADD, &notify_icon_data);
+        if (!is_portable)
+            Shell_NotifyIconW(NIM_ADD, &notify_icon_data);
     }
 
     app_state_t state(&notify_icon_data);
+    if (!is_portable)
     {
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
         Registry().fill_app_state(&state);
-        if (HAS_WIDGET) handle_widget(hwnd, &state);
+        if (HAS_WIDGET)
+            handle_widget(hwnd, &state);
         update(hwnd, &state);
         SetTimer(hwnd, mainTimerId, 60000, nullptr);
     }
 
-    // open_converter_dialog(hwnd); // for debugging
+    if (is_portable)
+        open_converter_dialog(hwnd);
 
     // Main loop
     MSG msg;
@@ -1039,6 +1069,7 @@ void start()
     }
 
     // Finalize
+    if (!is_portable)
     {
         Shell_NotifyIconW(NIM_DELETE, &notify_icon_data);
         DestroyIcon(notify_icon_data.hIcon);
