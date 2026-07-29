@@ -141,7 +141,7 @@ struct app_state_t
     HWND widget_hwnd;
 
     app_state_t(NOTIFYICONDATAW *notify_icon_data_) : notify_icon_data(notify_icon_data_), local_digits(true),
-                                                      black_background(true), menu(nullptr),
+                                                      black_background(false), menu(nullptr),
                                                       show_widget(false), widget_hwnd(nullptr)
     {
     }
