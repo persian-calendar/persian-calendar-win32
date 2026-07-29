@@ -181,7 +181,7 @@ static void create_menu(app_state_t *state, wchar_t *date)
     {
         menu_item.fState = state->black_background ? MFS_CHECKED : 0;
         menu_item.wID = black_background_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"پیش‌زمینهٔ سیاه آیکون");
+        menu_item.dwTypeData = const_cast<wchar_t *>(L"پس‌زمینهٔ سیاه آیکون");
         InsertMenuItemW(menu, black_background_id, TRUE, &menu_item);
     }
     if (HAS_WIDGET)
