@@ -982,6 +982,10 @@ static void enable_visual_styles()
     pActivateActCtx(pCreateActCtxA(&actCtx), &ulpActivationCookie);
 }
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+#endif
 template <size_t N>
 static bool has_string_suffix(const wchar_t *str, const wchar_t (&suffix)[N])
 {
@@ -995,6 +999,9 @@ static bool has_string_suffix(const wchar_t *str, const wchar_t (&suffix)[N])
             return false;
     return true;
 }
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 extern "C" [[noreturn]] void start();
 void start()
