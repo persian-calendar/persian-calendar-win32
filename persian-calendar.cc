@@ -266,9 +266,9 @@ private:
 
 public:
     date_combo_controller_t(
-        HWND hwnd, bool is_persian) : hDay(GetDlgItem(hwnd, is_persian ? dlg_persian_day_combo_id : dlg_gregorian_day_combo_id)),
-                                      hMonth(GetDlgItem(hwnd, is_persian ? dlg_persian_month_combo_id : dlg_gregorian_month_combo_id)),
-                                      hYear(GetDlgItem(hwnd, is_persian ? dlg_persian_year_combo_id : dlg_gregorian_year_combo_id)),
+        HWND hwnd, bool is_persian) : hDay(GetDlgItem(hwnd, static_cast<int>(is_persian ? dlg_persian_day_combo_id : dlg_gregorian_day_combo_id))),
+                                      hMonth(GetDlgItem(hwnd, static_cast<int>(is_persian ? dlg_persian_month_combo_id : dlg_gregorian_month_combo_id))),
+                                      hYear(GetDlgItem(hwnd, static_cast<int>(is_persian ? dlg_persian_year_combo_id : dlg_gregorian_year_combo_id))),
                                       base_year(static_cast<unsigned>(GetWindowLongPtrW(hYear, GWLP_USERDATA))) {}
 
     date_t to_date() const
@@ -363,7 +363,7 @@ static void update_layout(HWND hwnd, unsigned width, unsigned height)
     {
         HWND item = GetDlgItem(hwnd, static_cast<int>(dlg_persian_day_combo_id + i));
         SendMessageW(item, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
-        int row = i % 3;
+        unsigned row = i % 3;
         MoveWindow(item,
                    MulDiv(static_cast<int>(width), static_cast<int>(row == 0 ? 1 : (row == 1 ? 6 : 19)), 25),
                    MulDiv(static_cast<int>(height), static_cast<int>(i < 3 ? 2 : 14), 25 * table_height_ratio),
