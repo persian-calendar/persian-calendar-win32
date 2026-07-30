@@ -557,7 +557,7 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
                 }
             }
             widgetHwnd = CreateWindowExW(
-                WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED,
+                WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED | WS_EX_TOOLWINDOW,
                 widgetClassName, L"",
                 WS_POPUP | WS_OVERLAPPED,
                 left, top,
@@ -931,7 +931,7 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
             TrackPopupMenu(state->menu, TPM_RIGHTALIGN | TPM_RIGHTBUTTON | TPM_LAYOUTRTL,
                            p.x, p.y, 0, hwnd, nullptr);
         }
-        else if (lParam == WM_LBUTTONUP)
+        else if (lParam == WM_LBUTTONDBLCLK)
             open_converter_dialog(hwnd);
         return 0;
 
