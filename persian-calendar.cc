@@ -62,7 +62,7 @@ static bool is_dark_mode_active()
 static bool is_system_in_dark_mode()
 {
     if (get_build_number() < 18362)
-        return false;
+        return is_dark_mode_active();
     auto pShouldSystemUseDarkMode = get_proc<bool(WINAPI *)()>(
         GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(138)); // undocumented ShouldAppsUseDarkMode
     return pShouldSystemUseDarkMode && pShouldSystemUseDarkMode();
@@ -147,8 +147,6 @@ struct app_state_t
     }
 };
 
-constexpr bool HAS_WIDGET = 0;
-
 constexpr unsigned date_id = 1000;
 constexpr unsigned first_separator_id = 1001;
 constexpr unsigned local_digits_id = 1002;
@@ -184,7 +182,6 @@ static void create_menu(app_state_t *state, wchar_t *date)
         menu_item.dwTypeData = const_cast<wchar_t *>(L"پس‌زمینهٔ سیاه آیکون");
         InsertMenuItemW(menu, black_background_id, TRUE, &menu_item);
     }
-    if (HAS_WIDGET)
     {
         menu_item.fState = state->show_widget ? MFS_CHECKED : 0;
         menu_item.wID = show_widget_id;
@@ -550,8 +547,17 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
             UINT dpi = get_system_dpi();
             int left = CW_USEDEFAULT, top = CW_USEDEFAULT;
             Registry().get_widget_position(left, top);
+            if (left == CW_USEDEFAULT || top == CW_USEDEFAULT)
+            {
+                RECT rc;
+                if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &rc, 0))
+                {
+                    left = rc.right - static_cast<int>(dpi / 7 * 13);
+                    top = rc.bottom - static_cast<int>(dpi / 7 * 13);
+                }
+            }
             widgetHwnd = CreateWindowExW(
-                WS_EX_OVERLAPPEDWINDOW | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED,
+                WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED,
                 widgetClassName, L"",
                 WS_POPUP | WS_OVERLAPPED,
                 left, top,
@@ -582,18 +588,10 @@ static unsigned get_month_days(unsigned year, unsigned month)
     return persian_to_days({month == 12 ? year + 1 : year, month == 12 ? 1 : month + 1, 1}) - persian_to_days({year, month, 1});
 }
 
-static void draw_table(unsigned table_start, unsigned table_top, unsigned cell_size, HDC hdc, persian_date_t date)
+static void draw_table(
+    const unsigned table_start, const unsigned table_top, const unsigned cell_size, HDC hdc, persian_date_t date,
+    bool is_dark_mode, bool display_month_year)
 {
-    bool is_dark_mode = is_dark_mode_active();
-    {
-        RECT table_rc{
-            static_cast<long>(table_start),
-            static_cast<long>(table_top),
-            static_cast<long>(table_start + 7 * cell_size),
-            static_cast<long>(7 * cell_size + table_top)};
-        FillRect(hdc, &table_rc, GetSysColorBrush(is_dark_mode ? COLOR_WINDOWFRAME : COLOR_BTNFACE));
-    }
-
     HFONT hFont = get_system_font(static_cast<long>(cell_size));
     HGDIOBJ oldFont = SelectObject(hdc, hFont);
     SetBkMode(hdc, TRANSPARENT);
@@ -607,7 +605,6 @@ static void draw_table(unsigned table_start, unsigned table_top, unsigned cell_s
             static_cast<long>(table_top + cell_size)};
         DrawTextW(hdc, weekdays[i % 7], 1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
-    table_top += cell_size;
     unsigned week_start = (persian_to_days({date.year, date.month, 1}) + 3) % 7;
     unsigned month_days = get_month_days(date.year, date.month);
     for (unsigned i = week_start; i < month_days + week_start; ++i)
@@ -618,13 +615,28 @@ static void draw_table(unsigned table_start, unsigned table_top, unsigned cell_s
             SetTextColor(hdc, is_dark_mode ? RGB(180, 180, 180) : RGB(150, 150, 150));
         RECT cell_rc{
             static_cast<long>(table_start + cell_size * (i % 7)),
-            static_cast<long>(table_top + cell_size * (i / 7)),
+            static_cast<long>(table_top + cell_size * (i / 7 + 1)),
             static_cast<long>(table_start + cell_size * (i % 7 + 1)),
-            static_cast<long>(table_top + cell_size * (i / 7 + 1))};
+            static_cast<long>(table_top + cell_size * (i / 7 + 2))};
         DrawTextW(hdc, format_number(i + 1 - week_start).value, -1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
-    SelectObject(hdc, oldFont);
+    HFONT hFont2 = get_system_font(static_cast<long>(MulDiv(static_cast<int>(cell_size), 4, 5)));
+    SelectObject(hdc, hFont2);
     DeleteObject(hFont);
+    if (display_month_year)
+    {
+        SetTextColor(hdc, is_dark_mode ? RGB(150, 150, 150) : RGB(180, 180, 180));
+        RECT cell_rc{
+            static_cast<long>(table_start),
+            static_cast<long>(table_top + cell_size * 6),
+            static_cast<long>(table_start + cell_size * 7),
+            static_cast<long>(table_top + cell_size * 7)};
+        wchar_t buf[64];
+        wsprintfW(buf, L"%s %s", persian_months[(date.month - 1) % 12], format_number(date.year).value);
+        DrawTextW(hdc, buf, -1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+    SelectObject(hdc, oldFont);
+    DeleteObject(hFont2);
 }
 
 static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -650,8 +662,43 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
         const unsigned cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 7);
-        draw_table(0, 0, cell_size, hdc, days_to_persian(today_in_days()));
+        bool is_dark_mode = is_system_in_dark_mode();
+        {
+            HBRUSH background_brush = CreateSolidBrush(is_dark_mode ? RGB(32, 32, 32) : RGB(255, 255, 255));
+            FillRect(hdc, &ps.rcPaint, background_brush);
+            DeleteObject(background_brush);
+        }
+        draw_table(0, 0, cell_size, hdc, days_to_persian(today_in_days()), is_dark_mode, true);
         EndPaint(hwnd, &ps);
+        break;
+    }
+
+    case WM_MOUSEMOVE:
+    {
+        // GWLP_USERDATA is used to store whether the mouse is currently is tracked.
+        if (!GetWindowLongPtrW(hwnd, GWLP_USERDATA))
+        {
+            TRACKMOUSEEVENT tme;
+            tme.cbSize = sizeof(TRACKMOUSEEVENT);
+            tme.dwFlags = TME_HOVER | TME_LEAVE; // Type of events to track & trigger.
+            tme.dwHoverTime = 1;                 // How long the mouse has to be in the window to trigger a hover event.
+            tme.hwndTrack = hwnd;
+            TrackMouseEvent(&tme);
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, true);
+        }
+        break;
+    }
+
+    case WM_MOUSEHOVER:
+        SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+        break;
+
+    case WM_CREATE:
+    case WM_MOUSELEAVE:
+    {
+        constexpr int default_window_alpha = 200;
+        SetLayeredWindowAttributes(hwnd, 0, default_window_alpha, LWA_ALPHA);
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, false);
         break;
     }
 
@@ -734,7 +781,17 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
             const unsigned cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 16);
             unsigned table_top = static_cast<unsigned>(ps.rcPaint.bottom / table_height_ratio);
             unsigned table_start = static_cast<unsigned>((ps.rcPaint.right - ps.rcPaint.left - static_cast<int>(cell_size) * 7) / 2);
-            draw_table(table_start, table_top, cell_size, hdc, date);
+            bool is_dark_mode = is_system_in_dark_mode();
+            {
+                HBRUSH background_brush = GetSysColorBrush(is_dark_mode ? COLOR_WINDOWFRAME : COLOR_BTNFACE);
+                RECT table_rc{
+                    static_cast<long>(table_start),
+                    static_cast<long>(table_top),
+                    static_cast<long>(table_start + 7 * cell_size),
+                    static_cast<long>(7 * cell_size + table_top)};
+                FillRect(hdc, &table_rc, background_brush);
+            }
+            draw_table(table_start, table_top, cell_size, hdc, date, is_dark_mode, false);
         }
 
         EndPaint(hwnd, &ps);
@@ -895,7 +952,7 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
             Registry().set_black_background(newValue);
             return 0;
         }
-        else if (HAS_WIDGET && wParam == show_widget_id)
+        else if (wParam == show_widget_id)
         {
             bool newValue = !state->show_widget;
             state->show_widget = newValue;
@@ -1041,13 +1098,10 @@ void start()
         wc.lpfnWndProc = converter_window_procedure;
         wc.lpszClassName = converterClassName;
         RegisterClassExW(&wc);
-        if (HAS_WIDGET)
-        {
-            // Widget Dialog's class
-            wc.lpfnWndProc = widget_window_procedure;
-            wc.lpszClassName = widgetClassName;
-            RegisterClassExW(&wc);
-        }
+        // Widget Dialog's class
+        wc.lpfnWndProc = widget_window_procedure;
+        wc.lpszClassName = widgetClassName;
+        RegisterClassExW(&wc);
     }
     HWND hwnd = is_portable ? nullptr : CreateWindowExW(0, appId, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
 
@@ -1072,8 +1126,7 @@ void start()
     {
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
         Registry().fill_app_state(&state);
-        if (HAS_WIDGET)
-            handle_widget(hwnd, &state);
+        handle_widget(hwnd, &state);
         update(hwnd, &state);
         SetTimer(hwnd, mainTimerId, 60000, nullptr);
     }
