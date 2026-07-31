@@ -634,9 +634,9 @@ static unsigned get_month_days(unsigned year, unsigned month)
 
 static void draw_table(
     const unsigned table_start, const unsigned table_top, const unsigned cell_size, HDC hdc, persian_date_t date,
-    bool is_dark_mode, bool disable_antialiasing)
+    bool is_dark_mode, bool is_in_widget)
 {
-    HFONT hFont = get_system_font(static_cast<long>(cell_size), disable_antialiasing);
+    HFONT hFont = get_system_font(static_cast<long>(cell_size), !is_in_widget);
     HGDIOBJ oldFont = SelectObject(hdc, hFont);
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
@@ -656,7 +656,7 @@ static void draw_table(
         if (date.day == i + 1 - week_start)
             SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
         else
-            SetTextColor(hdc, is_dark_mode ? RGB(160, 160, 160) : RGB(150, 150, 150));
+            SetTextColor(hdc, is_dark_mode ? RGB(160, 160, 160) : (is_in_widget ? RGB(180, 180, 180) : RGB(100, 100, 100)));
         RECT cell_rc{
             static_cast<long>(table_start + cell_size * (i % 7)),
             static_cast<long>(table_top + cell_size * (i / 7 + 1)),
@@ -664,7 +664,7 @@ static void draw_table(
             static_cast<long>(table_top + cell_size * (i / 7 + 2))};
         DrawTextW(hdc, format_number(i + 1 - week_start).value, -1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
-    HFONT hFont2 = get_system_font(static_cast<long>(MulDiv(static_cast<int>(cell_size), 7, 10)), disable_antialiasing);
+    HFONT hFont2 = get_system_font(static_cast<long>(MulDiv(static_cast<int>(cell_size), 7, 10)), !is_in_widget);
     SelectObject(hdc, hFont2);
     DeleteObject(hFont);
     {
@@ -711,7 +711,7 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
             FillRect(hdc, &ps.rcPaint, background_brush);
             DeleteObject(background_brush);
         }
-        draw_table(cell_size / 2, cell_size / 2, cell_size, hdc, days_to_persian(today_in_days()), is_dark_mode, false);
+        draw_table(cell_size / 2, cell_size / 2, cell_size, hdc, days_to_persian(today_in_days()), is_dark_mode, true);
         EndPaint(hwnd, &ps);
         break;
     }
@@ -825,7 +825,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
             unsigned table_top = static_cast<unsigned>(ps.rcPaint.bottom / table_height_ratio);
             unsigned table_start = static_cast<unsigned>((ps.rcPaint.right - ps.rcPaint.left - static_cast<int>(cell_size) * 7) / 2);
             bool is_dark_mode = is_system_in_dark_mode();
-            draw_table(table_start, table_top, cell_size, hdc, date, is_dark_mode, true);
+            draw_table(table_start, table_top, cell_size, hdc, date, is_dark_mode, false);
         }
 
         EndPaint(hwnd, &ps);
