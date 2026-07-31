@@ -78,7 +78,7 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
 
     HDC memDC = CreateCompatibleDC(hdc);
     HGDIOBJ oldBmp = SelectObject(memDC, hbmColor);
-    RECT rc{0, 0, size, size};
+    RECT rc{0, -14/*tweak y height*/, size, size};
 
     FillRect(memDC, &rc, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
     SetBkMode(memDC, TRANSPARENT);
