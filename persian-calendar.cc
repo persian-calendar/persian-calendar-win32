@@ -601,11 +601,12 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
                 HMODULE hDwmapi = LoadLibraryA("dwmapi.dll");
                 auto pDwmSetWindowAttribute = get_proc<HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
                     hDwmapi, "DwmSetWindowAttribute");
-                pDwmSetWindowAttribute(
-                    widgetHwnd,
-                    DWMWA_WINDOW_CORNER_PREFERENCE,
-                    &preference,
-                    sizeof(preference));
+                if (pDwmSetWindowAttribute)
+                    pDwmSetWindowAttribute(
+                        widgetHwnd,
+                        DWMWA_WINDOW_CORNER_PREFERENCE,
+                        &preference,
+                        sizeof(preference));
                 FreeLibrary(hDwmapi);
             }
         }
