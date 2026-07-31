@@ -51,16 +51,11 @@ struct LibraryLoader
     }
 };
 
-template <typename T>
-auto get_proc(HMODULE hModule, const char *procName)
-{
-    return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(hModule, procName)));
-}
-
 static DWORD get_build_number()
 {
-    auto pRtlGetVersion = get_proc<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>(
-        GetModuleHandleA("ntdll.dll"), "RtlGetVersion");
+    LibraryLoader ntdll("ntdll.dll");
+    auto pRtlGetVersion = ntdll.getProcedure<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>(
+        "RtlGetVersion");
     if (pRtlGetVersion)
     {
         RTL_OSVERSIONINFOW rovi;
@@ -76,8 +71,9 @@ static bool is_dark_mode_active()
     // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
     if (get_build_number() < 17763)
         return false;
-    auto pShouldAppsUseDarkMode = get_proc<bool(WINAPI *)()>(
-        GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(132)); // undocumented ShouldAppsUseDarkMode
+    LibraryLoader uxtheme("uxtheme.dll");
+    auto pShouldAppsUseDarkMode = uxtheme.getProcedure<bool(WINAPI *)()>(
+        MAKEINTRESOURCEA(132)); // undocumented ShouldAppsUseDarkMode
     return pShouldAppsUseDarkMode && pShouldAppsUseDarkMode();
 }
 
@@ -85,8 +81,9 @@ static bool is_system_in_dark_mode()
 {
     if (get_build_number() < 18362)
         return is_dark_mode_active();
-    auto pShouldSystemUseDarkMode = get_proc<bool(WINAPI *)()>(
-        GetModuleHandleA("uxtheme.dll"), MAKEINTRESOURCEA(138)); // undocumented ShouldAppsUseDarkMode
+    LibraryLoader uxtheme("uxtheme.dll");
+    auto pShouldSystemUseDarkMode = uxtheme.getProcedure<bool(WINAPI *)()>(
+        MAKEINTRESOURCEA(138)); // undocumented ShouldAppsUseDarkMode
     return pShouldSystemUseDarkMode && pShouldSystemUseDarkMode();
 }
 
@@ -424,10 +421,10 @@ static void update_window_visual_styles(HWND hwnd)
     BOOL darkMode = is_dark_mode_active();
 
     {
-        auto pSetWindowTheme = get_proc<HRESULT(WINAPI *)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList)>(
-            GetModuleHandleA("uxtheme.dll"), "SetWindowTheme");
-        auto pGetComboBoxInfo = get_proc<BOOL(WINAPI *)(HWND hwndCombo, PCOMBOBOXINFO pcbi)>(
-            GetModuleHandleA("user32.dll"), "GetComboBoxInfo");
+        LibraryLoader uxtheme("uxtheme.dll");
+        LibraryLoader user32("user32.dll");
+        auto pSetWindowTheme = uxtheme.getProcedure<HRESULT(WINAPI *)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList)>("SetWindowTheme");
+        auto pGetComboBoxInfo = user32.getProcedure<BOOL(WINAPI *)(HWND hwndCombo, PCOMBOBOXINFO pcbi)>("GetComboBoxInfo");
         if (pSetWindowTheme)
             for (unsigned id = dlg_persian_day_combo_id; id <= dlg_gregorian_year_combo_id; ++id)
             {
@@ -1047,14 +1044,14 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
 
 static void enable_hidpi()
 {
-    HMODULE hUser32 = GetModuleHandleA("user32.dll");
-    auto pSetProcessDpiAwarenessContext = get_proc<BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT value)>(
-        hUser32, "SetProcessDpiAwarenessContext");
+    LibraryLoader user32("user32");
+    auto pSetProcessDpiAwarenessContext = user32.getProcedure<BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT value)>(
+        "SetProcessDpiAwarenessContext");
     if (pSetProcessDpiAwarenessContext)
         pSetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     else
     {
-        auto pSetProcessDPIAware = get_proc<BOOL(WINAPI *)()>(hUser32, "SetProcessDPIAware");
+        auto pSetProcessDPIAware = user32.getProcedure<BOOL(WINAPI *)()>("SetProcessDPIAware");
         if (pSetProcessDPIAware)
             pSetProcessDPIAware();
     }
@@ -1063,14 +1060,14 @@ static void enable_hidpi()
 static void enable_dark_mode_support()
 {
     // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
-    HMODULE hUxTheme = GetModuleHandleA("uxtheme.dll");
     DWORD build_number = get_build_number();
     if (build_number < 17763)
         return;
     else if (build_number < 18362)
     {
-        auto pAllowDarkModeForApp = get_proc<bool(WINAPI *)(bool allow)>(
-            hUxTheme, MAKEINTRESOURCEA(135)); // undocumented AllowDarkModeForApp
+        LibraryLoader uxtheme("uxtheme.dll");
+        auto pAllowDarkModeForApp = uxtheme.getProcedure<bool(WINAPI *)(bool allow)>(
+            MAKEINTRESOURCEA(135)); // undocumented AllowDarkModeForApp
         if (pAllowDarkModeForApp)
             pAllowDarkModeForApp(true);
     }
@@ -1084,8 +1081,9 @@ static void enable_dark_mode_support()
             ForceLight,
             Max
         };
-        auto pSetPreferredAppMode = get_proc<INT(WINAPI *)(PreferredAppMode value)>(
-            hUxTheme, MAKEINTRESOURCEA(135)); // undocumented SetPreferredAppMode
+        LibraryLoader uxtheme("uxtheme.dll");
+        auto pSetPreferredAppMode = uxtheme.getProcedure<INT(WINAPI *)(PreferredAppMode value)>(
+            MAKEINTRESOURCEA(135)); // undocumented SetPreferredAppMode
         if (pSetPreferredAppMode)
             pSetPreferredAppMode(PreferredAppMode::AllowDark);
     }
@@ -1096,10 +1094,10 @@ static void enable_dark_mode_support()
 static void enable_visual_styles()
 {
     // CreateActCtxA and ActivateActCtx aren't available in Windowws 2000, so
-    HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
-    auto pCreateActCtxA = get_proc<HANDLE(WINAPI *)(PCACTCTXA pActCtx)>(hKernel32, "CreateActCtxA");
-    auto pActivateActCtx = get_proc<BOOL(WINAPI *)(HANDLE hActCtx, ULONG_PTR * lpCookie)>(
-        hKernel32, "ActivateActCtx");
+    LibraryLoader kernel32("kernel32.dll");
+    auto pCreateActCtxA = kernel32.getProcedure<HANDLE(WINAPI *)(PCACTCTXA pActCtx)>("CreateActCtxA");
+    auto pActivateActCtx = kernel32.getProcedure<BOOL(WINAPI *)(HANDLE hActCtx, ULONG_PTR * lpCookie)>(
+        "ActivateActCtx");
     if (!pCreateActCtxA || !pActivateActCtx)
         return;
 
