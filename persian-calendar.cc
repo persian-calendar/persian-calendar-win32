@@ -33,16 +33,22 @@ static HFONT get_system_font(LONG size, bool disable_antialiasing = false)
 
 struct LibraryLoader
 {
+private:
     HMODULE module;
 
     LibraryLoader(const LibraryLoader &) = delete;
     void operator=(const LibraryLoader &) = delete;
-    LibraryLoader(const char *name) : module(LoadLibraryA(name)) {}
-    ~LibraryLoader()
+
+    static HMODULE getModuleWithFallback(const char *name)
     {
-        if (module)
-            FreeLibrary(module);
+        HMODULE module = GetModuleHandleA(name);
+        return module ? module : LoadLibraryA(name);
     }
+
+public:
+    LibraryLoader(const char *name) : module(getModuleWithFallback(name)) {}
+    // Let's just don't free, all we load is system libraries and they are always loaded anyway, so no need to free them.
+    // ~LibraryLoader() { if (module) FreeLibrary(module); }
 
     template <typename T>
     auto getProcedure(const char *procName)
@@ -53,9 +59,7 @@ struct LibraryLoader
 
 static DWORD get_build_number()
 {
-    LibraryLoader ntdll("ntdll.dll");
-    auto pRtlGetVersion = ntdll.getProcedure<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>(
-        "RtlGetVersion");
+    auto pRtlGetVersion = LibraryLoader("ntdll.dll").getProcedure<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>("RtlGetVersion");
     if (pRtlGetVersion)
     {
         RTL_OSVERSIONINFOW rovi;
@@ -71,9 +75,7 @@ static bool is_dark_mode_active()
     // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
     if (get_build_number() < 17763)
         return false;
-    LibraryLoader uxtheme("uxtheme.dll");
-    auto pShouldAppsUseDarkMode = uxtheme.getProcedure<bool(WINAPI *)()>(
-        MAKEINTRESOURCEA(132)); // undocumented ShouldAppsUseDarkMode
+    auto pShouldAppsUseDarkMode = LibraryLoader("uxtheme.dll").getProcedure<bool(WINAPI *)()>(MAKEINTRESOURCEA(132)); // undocumented ShouldAppsUseDarkMode
     return pShouldAppsUseDarkMode && pShouldAppsUseDarkMode();
 }
 
@@ -81,9 +83,7 @@ static bool is_system_in_dark_mode()
 {
     if (get_build_number() < 18362)
         return is_dark_mode_active();
-    LibraryLoader uxtheme("uxtheme.dll");
-    auto pShouldSystemUseDarkMode = uxtheme.getProcedure<bool(WINAPI *)()>(
-        MAKEINTRESOURCEA(138)); // undocumented ShouldAppsUseDarkMode
+    auto pShouldSystemUseDarkMode = LibraryLoader("uxtheme.dll").getProcedure<bool(WINAPI *)()>(MAKEINTRESOURCEA(138)); // undocumented ShouldAppsUseDarkMode
     return pShouldSystemUseDarkMode && pShouldSystemUseDarkMode();
 }
 
@@ -421,10 +421,8 @@ static void update_window_visual_styles(HWND hwnd)
     BOOL darkMode = is_dark_mode_active();
 
     {
-        LibraryLoader uxtheme("uxtheme.dll");
-        LibraryLoader user32("user32.dll");
-        auto pSetWindowTheme = uxtheme.getProcedure<HRESULT(WINAPI *)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList)>("SetWindowTheme");
-        auto pGetComboBoxInfo = user32.getProcedure<BOOL(WINAPI *)(HWND hwndCombo, PCOMBOBOXINFO pcbi)>("GetComboBoxInfo");
+        auto pSetWindowTheme = LibraryLoader("uxtheme.dll").getProcedure<HRESULT(WINAPI *)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList)>("SetWindowTheme");
+        auto pGetComboBoxInfo = LibraryLoader("user32.dll").getProcedure<BOOL(WINAPI *)(HWND hwndCombo, PCOMBOBOXINFO pcbi)>("GetComboBoxInfo");
         if (pSetWindowTheme)
             for (unsigned id = dlg_persian_day_combo_id; id <= dlg_gregorian_year_combo_id; ++id)
             {
@@ -613,9 +611,7 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
             SetTimer(widgetHwnd, widgetTimerId, 60000, nullptr);
             {
                 DWM_WINDOW_CORNER_PREFERENCE preference = DWMWCP_ROUND;
-                LibraryLoader dwmapi("dwmapi.dll");
-                auto pDwmSetWindowAttribute = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
-                    "DwmSetWindowAttribute");
+                auto pDwmSetWindowAttribute = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>("DwmSetWindowAttribute");
                 if (pDwmSetWindowAttribute)
                     pDwmSetWindowAttribute(
                         widgetHwnd,
@@ -1065,9 +1061,7 @@ static void enable_dark_mode_support()
         return;
     else if (build_number < 18362)
     {
-        LibraryLoader uxtheme("uxtheme.dll");
-        auto pAllowDarkModeForApp = uxtheme.getProcedure<bool(WINAPI *)(bool allow)>(
-            MAKEINTRESOURCEA(135)); // undocumented AllowDarkModeForApp
+        auto pAllowDarkModeForApp = LibraryLoader("uxtheme.dll").getProcedure<bool(WINAPI *)(bool allow)>(MAKEINTRESOURCEA(135)); // undocumented AllowDarkModeForApp
         if (pAllowDarkModeForApp)
             pAllowDarkModeForApp(true);
     }
