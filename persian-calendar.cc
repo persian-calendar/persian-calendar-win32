@@ -655,8 +655,10 @@ static void draw_table(
     {
         if (date.day == i + 1 - week_start)
             SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
+        else if (is_in_widget)
+            SetTextColor(hdc, is_dark_mode ? RGB(160, 160, 160) : RGB(180, 180, 180));
         else
-            SetTextColor(hdc, is_dark_mode ? RGB(160, 160, 160) : (is_in_widget ? RGB(180, 180, 180) : RGB(100, 100, 100)));
+            SetTextColor(hdc, is_dark_mode ? RGB(160, 160, 160) : RGB(200, 200, 200));
         RECT cell_rc{
             static_cast<long>(table_start + cell_size * (i % 7)),
             static_cast<long>(table_top + cell_size * (i / 7 + 1)),
