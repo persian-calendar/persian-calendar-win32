@@ -1,6 +1,6 @@
-A simple and small (9kb) way to display Persian calendar as a tray icon in your Windows machine and a date converter.
+A simple and small (5kb) way to display Persian calendar as a tray icon in your Windows machine and a date converter.
 
-برنامهٔ سادهٔ و کوچک (۹ کیلوبایت) نمایش تقویم فارسی به‌عنوان یک آیکون در نوار اعلان ویندوز و یک مبدل تاریخ.
+برنامهٔ سادهٔ و کوچک (۵ کیلوبایت) نمایش تقویم فارسی به‌عنوان یک آیکون در نوار اعلان ویندوز و یک مبدل تاریخ.
 
 It looks something like this
 
