@@ -31,6 +31,26 @@ static HFONT get_system_font(LONG size, bool disable_antialiasing = false)
     return reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
 }
 
+struct LibraryLoader
+{
+    HMODULE module;
+
+    LibraryLoader(const LibraryLoader &) = delete;
+    void operator=(const LibraryLoader &) = delete;
+    LibraryLoader(const char *name) : module(LoadLibraryA(name)) {}
+    ~LibraryLoader()
+    {
+        if (module)
+            FreeLibrary(module);
+    }
+
+    template <typename T>
+    auto getProcedure(const char *procName)
+    {
+        return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(module, procName)));
+    }
+};
+
 template <typename T>
 auto get_proc(HMODULE hModule, const char *procName)
 {
@@ -78,7 +98,7 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
 
     HDC memDC = CreateCompatibleDC(hdc);
     HGDIOBJ oldBmp = SelectObject(memDC, hbmColor);
-    RECT rc{0, -14/*tweak y height*/, size, size};
+    RECT rc{0, -14 /*tweak y height*/, size, size};
 
     FillRect(memDC, &rc, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
     SetBkMode(memDC, TRANSPARENT);
@@ -423,10 +443,10 @@ static void update_window_visual_styles(HWND hwnd)
             }
     }
 
-    HMODULE hDwmapi = LoadLibraryA("dwmapi.dll");
+    LibraryLoader dwmapi("dwmapi.dll");
     {
-        auto pDwmExtendFrameIntoClientArea = get_proc<HRESULT(WINAPI *)(HWND, const MARGINS *)>(
-            hDwmapi, "DwmExtendFrameIntoClientArea");
+        auto pDwmExtendFrameIntoClientArea = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND, const MARGINS *)>(
+            "DwmExtendFrameIntoClientArea");
         if (pDwmExtendFrameIntoClientArea)
         {
             MARGINS margins = {-1, -1, -1, -1};
@@ -434,8 +454,8 @@ static void update_window_visual_styles(HWND hwnd)
         }
     }
     {
-        auto pDwmSetWindowAttribute = get_proc<HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
-            hDwmapi, "DwmSetWindowAttribute");
+        auto pDwmSetWindowAttribute = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
+            "DwmSetWindowAttribute");
         if (pDwmSetWindowAttribute)
         {
             pDwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
@@ -443,8 +463,6 @@ static void update_window_visual_styles(HWND hwnd)
             pDwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
         }
     }
-    if (hDwmapi)
-        FreeLibrary(hDwmapi);
 }
 
 #define appId L"PersianCalendarWin32"
@@ -598,16 +616,15 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
             SetTimer(widgetHwnd, widgetTimerId, 60000, nullptr);
             {
                 DWM_WINDOW_CORNER_PREFERENCE preference = DWMWCP_ROUND;
-                HMODULE hDwmapi = LoadLibraryA("dwmapi.dll");
-                auto pDwmSetWindowAttribute = get_proc<HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
-                    hDwmapi, "DwmSetWindowAttribute");
+                LibraryLoader dwmapi("dwmapi.dll");
+                auto pDwmSetWindowAttribute = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
+                    "DwmSetWindowAttribute");
                 if (pDwmSetWindowAttribute)
                     pDwmSetWindowAttribute(
                         widgetHwnd,
                         DWMWA_WINDOW_CORNER_PREFERENCE,
                         &preference,
                         sizeof(preference));
-                FreeLibrary(hDwmapi);
             }
         }
         handle_widget_movability(widgetHwnd, app_state);
