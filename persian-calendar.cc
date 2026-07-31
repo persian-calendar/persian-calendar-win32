@@ -594,6 +594,19 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
                 static_cast<int>(dpi / 7 * 12),
                 hwnd, nullptr, hInst, nullptr);
             SetTimer(widgetHwnd, widgetTimerId, 60000, nullptr);
+            {
+                DWM_WINDOW_CORNER_PREFERENCE preference = DWMWCP_ROUND;
+                HMODULE hDwmapi = LoadLibraryA("dwmapi.dll");
+                auto pDwmSetWindowAttribute = get_proc<HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
+                    hDwmapi, "DwmSetWindowAttribute");
+                pDwmSetWindowAttribute(
+                    widgetHwnd,
+                    DWMWA_WINDOW_CORNER_PREFERENCE,
+                    &preference,
+                    sizeof(preference)
+                );
+                FreeLibrary(hDwmapi);
+            }
         }
         handle_widget_movability(widgetHwnd, app_state);
         ShowWindow(widgetHwnd, SW_SHOW);
@@ -691,14 +704,14 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
     {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
-        const unsigned cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 7);
+        const unsigned cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 8);
         bool is_dark_mode = is_system_in_dark_mode();
         {
             HBRUSH background_brush = CreateSolidBrush(is_dark_mode ? RGB(32, 32, 32) : RGB(255, 255, 255));
             FillRect(hdc, &ps.rcPaint, background_brush);
             DeleteObject(background_brush);
         }
-        draw_table(0, 0, cell_size, hdc, days_to_persian(today_in_days()), is_dark_mode, true);
+        draw_table(cell_size / 2, cell_size / 2, cell_size, hdc, days_to_persian(today_in_days()), is_dark_mode, true);
         EndPaint(hwnd, &ps);
         break;
     }
