@@ -34,7 +34,7 @@ static HFONT get_system_font(LONG size, bool disable_antialiasing = false)
 struct LibraryLoader
 {
 private:
-    HMODULE module;
+    HMODULE m_module;
 
     LibraryLoader(const LibraryLoader &) = delete;
     void operator=(const LibraryLoader &) = delete;
@@ -46,14 +46,14 @@ private:
     }
 
 public:
-    LibraryLoader(const char *name) : module(getModuleWithFallback(name)) {}
+    LibraryLoader(const char *name) : m_module(getModuleWithFallback(name)) {}
     // Let's just don't free, all we load is system libraries and they are always loaded anyway, so no need to free them.
     // ~LibraryLoader() { if (module) FreeLibrary(module); }
 
     template <typename T>
     auto getProcedure(const char *procName)
     {
-        return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(module, procName)));
+        return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(m_module, procName)));
     }
 };
 
