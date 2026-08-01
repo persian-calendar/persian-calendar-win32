@@ -727,14 +727,16 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
     {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
-        const unsigned cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 8);
+        const int table_size = static_cast<int>(ps.rcPaint.bottom - ps.rcPaint.top);
+        const unsigned cell_size = static_cast<unsigned>(table_size / 8);
+        const unsigned padding = (static_cast<unsigned>(table_size) - cell_size * 7) / 2;
         bool is_dark_mode = is_system_in_dark_mode();
         {
             HBRUSH background_brush = CreateSolidBrush(is_dark_mode ? RGB(32, 32, 32) : RGB(255, 255, 255));
             FillRect(hdc, &ps.rcPaint, background_brush);
             DeleteObject(background_brush);
         }
-        draw_table(cell_size / 2, cell_size / 2, cell_size, hdc, days_to_persian(today_in_days()), is_dark_mode, true);
+        draw_table(padding, padding, cell_size, hdc, days_to_persian(today_in_days()), is_dark_mode, true);
         EndPaint(hwnd, &ps);
         break;
     }
