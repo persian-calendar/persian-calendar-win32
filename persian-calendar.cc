@@ -711,7 +711,7 @@ static void draw_table(
         else if (is_in_widget)
             SetTextColor(hdc, is_dark_mode ? RGB(160, 160, 160) : RGB(180, 180, 180));
         else
-            SetTextColor(hdc, is_dark_mode ? RGB(160, 160, 160) : RGB(200, 200, 200));
+            SetTextColor(hdc, is_dark_mode ? RGB(160, 160, 160) : RGB(240, 240, 240));
         RECT cell_rc{
             static_cast<long>(table_start + cell_size * (i % 7)),
             static_cast<long>(table_top + cell_size * (i / 7 + 1)),
