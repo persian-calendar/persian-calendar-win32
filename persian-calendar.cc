@@ -296,7 +296,7 @@ struct formatted_number_t
 static formatted_number_t format_number(unsigned number, BOOL local_digits = true)
 {
     formatted_number_t result;
-    constexpr unsigned size = array_length(result.value);
+    constexpr size_t size = array_length(result.value);
     wsprintfW(result.value, L"%d", number);
     if (local_digits)
         for (unsigned i = 0; i < size && result.value[i % size]; ++i)
