@@ -1168,9 +1168,11 @@ static void enable_dark_mode_support()
     DWORD build_number = get_build_number();
     if (build_number < 17763)
         return;
-    else if (build_number < 18362)
+    LibraryLoader uxtheme("uxtheme.dll");
+    if (build_number < 18362)
     {
-        auto pAllowDarkModeForApp = LibraryLoader("uxtheme.dll").getProcedure<bool(WINAPI *)(bool allow)>(MAKEINTRESOURCEA(135)); // undocumented AllowDarkModeForApp
+        auto pAllowDarkModeForApp = uxtheme.getProcedure<bool(WINAPI *)(bool allow)>(
+            MAKEINTRESOURCEA(135)); // undocumented AllowDarkModeForApp
         if (pAllowDarkModeForApp)
             pAllowDarkModeForApp(true);
     }
@@ -1184,7 +1186,6 @@ static void enable_dark_mode_support()
             ForceLight,
             Max
         };
-        LibraryLoader uxtheme("uxtheme.dll");
         auto pSetPreferredAppMode = uxtheme.getProcedure<INT(WINAPI *)(PreferredAppMode value)>(
             MAKEINTRESOURCEA(135)); // undocumented SetPreferredAppMode
         if (pSetPreferredAppMode)
