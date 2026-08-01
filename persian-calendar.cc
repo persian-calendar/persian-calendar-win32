@@ -529,24 +529,27 @@ struct Registry
         set_value(fixed_widget_placement_key, value);
     }
 
-    void set_widget_position(int left, int top) const
+    void set_widget_position(int left, int top, int size) const
     {
-        set_value(widget_position_left_key, static_cast<DWORD>(left));
-        set_value(widget_position_top_key, static_cast<DWORD>(top));
+        set_value(widget_left_key, static_cast<DWORD>(left));
+        set_value(widget_top_key, static_cast<DWORD>(top));
+        set_value(widget_size_key, static_cast<DWORD>(size));
     }
 
-    void get_widget_position(int &left, int &top) const
+    void get_widget_position(int &left, int &top, int &size) const
     {
         if (!key)
             return;
         DWORD value = 0;
-        DWORD size = sizeof(DWORD);
+        DWORD value_size = sizeof(DWORD);
         DWORD type = 0;
 
-        if (RegQueryValueExW(key, widget_position_left_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
+        if (RegQueryValueExW(key, widget_left_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &value_size) == ERROR_SUCCESS && type == REG_DWORD)
             left = static_cast<int>(value);
-        if (RegQueryValueExW(key, widget_position_top_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
+        if (RegQueryValueExW(key, widget_top_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &value_size) == ERROR_SUCCESS && type == REG_DWORD)
             top = static_cast<int>(value);
+        if (RegQueryValueExW(key, widget_size_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &value_size) == ERROR_SUCCESS && type == REG_DWORD)
+            size = static_cast<int>(value);
     }
 
     ~Registry()
@@ -574,8 +577,9 @@ private:
     constexpr static const wchar_t *local_digits_key = L"LocalDigits";
     constexpr static const wchar_t *black_background_key = L"BlackBackground";
     constexpr static const wchar_t *show_widget_key = L"ShowWidget";
-    constexpr static const wchar_t *widget_position_left_key = L"WidgetLeft";
-    constexpr static const wchar_t *widget_position_top_key = L"WidgetTop";
+    constexpr static const wchar_t *widget_left_key = L"WidgetLeft";
+    constexpr static const wchar_t *widget_top_key = L"WidgetTop";
+    constexpr static const wchar_t *widget_size_key = L"WidgetSize";
     constexpr static const wchar_t *fixed_widget_placement_key = L"FixedWidget";
 };
 
@@ -599,13 +603,14 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
         if (!widgetHwnd)
         {
             UINT dpi = get_system_dpi();
-            int left = CW_USEDEFAULT, top = CW_USEDEFAULT;
-            Registry().get_widget_position(left, top);
-            if (left == CW_USEDEFAULT || top == CW_USEDEFAULT)
+            int left = CW_USEDEFAULT, top = CW_USEDEFAULT, size = CW_USEDEFAULT;
+            Registry().get_widget_position(left, top, size);
+            if (left == CW_USEDEFAULT || top == CW_USEDEFAULT || size == CW_USEDEFAULT)
             {
                 RECT rc;
                 if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &rc, 0))
                 {
+                    size = static_cast<int>(dpi / 7 * 12);
                     left = rc.right - static_cast<int>(dpi / 7 * 13);
                     top = rc.bottom - static_cast<int>(dpi / 7 * 13);
                 }
@@ -613,10 +618,9 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
             widgetHwnd = CreateWindowExW(
                 WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED | WS_EX_TOOLWINDOW,
                 widgetClassName, L"",
-                WS_POPUP | WS_OVERLAPPED,
+                WS_POPUP | WS_OVERLAPPED | WS_SIZEBOX,
                 left, top,
-                static_cast<int>(dpi / 7 * 12),
-                static_cast<int>(dpi / 7 * 12),
+                size, size,
                 hwnd, nullptr, hInst, nullptr);
             SetTimer(widgetHwnd, widgetTimerId, 60000, nullptr);
             {
@@ -714,8 +718,86 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
         WINDOWPLACEMENT wp;
         wp.length = sizeof(WINDOWPLACEMENT);
         if (GetWindowPlacement(hwnd, &wp))
-            Registry().set_widget_position(wp.rcNormalPosition.left, wp.rcNormalPosition.top);
+            Registry().set_widget_position(wp.rcNormalPosition.left, wp.rcNormalPosition.top, wp.rcNormalPosition.right - wp.rcNormalPosition.left);
         break;
+    }
+
+    case WM_SIZE:
+    {
+        InvalidateRect(hwnd, nullptr, FALSE);
+        break;
+    }
+
+    case WM_NCCALCSIZE:
+    {
+        if (wParam == TRUE)
+            return 0;
+        break;
+    }
+
+    case WM_NCHITTEST:
+    {
+        POINT pt{LOWORD(lParam), HIWORD(lParam)};
+        ScreenToClient(hwnd, &pt);
+        RECT rect;
+        GetClientRect(hwnd, &rect);
+        int borderZone = MulDiv(8, static_cast<int>(get_system_dpi()), 96);
+        bool isLeft = (pt.x > rect.right - borderZone); // Flipped for RTL
+        bool isRight = (pt.x < rect.left + borderZone); // Flipped for RTL
+        bool isTop = (pt.y < rect.top + borderZone);
+        bool isBottom = (pt.y > rect.bottom - borderZone);
+        if (isTop && isLeft)
+            return HTTOPLEFT;
+        if (isTop && isRight)
+            return HTTOPRIGHT;
+        if (isBottom && isLeft)
+            return HTBOTTOMLEFT;
+        if (isBottom && isRight)
+            return HTBOTTOMRIGHT;
+        if (isLeft)
+            return HTLEFT;
+        if (isRight)
+            return HTRIGHT;
+        if (isTop)
+            return HTTOP;
+        if (isBottom)
+            return HTBOTTOM;
+        return HTCAPTION;
+    }
+
+    case WM_SIZING:
+    {
+        RECT *rect = reinterpret_cast<RECT *>(lParam);
+        int currentWidth = rect->right - rect->left;
+        int currentHeight = rect->bottom - rect->top;
+        switch (wParam)
+        {
+        case WMSZ_RIGHT:
+        case WMSZ_BOTTOMRIGHT:
+            rect->bottom = rect->top + currentWidth;
+            break;
+
+        case WMSZ_BOTTOM:
+            rect->right = rect->left + currentHeight;
+            break;
+
+        case WMSZ_LEFT:
+        case WMSZ_BOTTOMLEFT:
+            rect->bottom = rect->top + currentWidth;
+            break;
+
+        case WMSZ_TOP:
+        case WMSZ_TOPRIGHT:
+            rect->right = rect->left + currentHeight;
+            break;
+
+        case WMSZ_TOPLEFT:
+            rect->top = rect->bottom - currentWidth;
+            break;
+        default:
+            break;
+        }
+        return TRUE;
     }
 
     case WM_TIMER:
@@ -741,36 +823,14 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
         break;
     }
 
-    case WM_MOUSEMOVE:
-    {
-        // GWLP_USERDATA is used to store whether the mouse is currently is tracked.
-        if (!GetWindowLongPtrW(hwnd, GWLP_USERDATA))
-        {
-            TRACKMOUSEEVENT tme;
-            tme.cbSize = sizeof(TRACKMOUSEEVENT);
-            tme.dwFlags = TME_HOVER | TME_LEAVE; // Type of events to track & trigger.
-            tme.dwHoverTime = 1;                 // How long the mouse has to be in the window to trigger a hover event.
-            tme.hwndTrack = hwnd;
-            TrackMouseEvent(&tme);
-            SetWindowLongPtrW(hwnd, GWLP_USERDATA, true);
-        }
-        break;
-    }
-
-    case WM_MOUSEHOVER:
-        SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
-        break;
-
     case WM_CREATE:
-    case WM_MOUSELEAVE:
     {
         constexpr int default_window_alpha = 200;
         SetLayeredWindowAttributes(hwnd, 0, default_window_alpha, LWA_ALPHA);
-        SetWindowLongPtrW(hwnd, GWLP_USERDATA, false);
         break;
     }
 
-    // Make whole window movable
+    // Make the whole window movable
     case WM_LBUTTONDOWN:
     {
         ReleaseCapture();
@@ -887,7 +947,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         return 0;
     }
 
-    // Make whole window movable
+    // Make the whole window movable
     case WM_LBUTTONDOWN:
     {
         ReleaseCapture();
@@ -1018,7 +1078,7 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
             handle_widget(hwnd, state);
             const Registry &registry = Registry();
             if (!newValue)
-                registry.set_widget_position(CW_USEDEFAULT, CW_USEDEFAULT);
+                registry.set_widget_position(CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT);
             update(hwnd, state);
             registry.set_show_widget(newValue);
             return 0;
