@@ -1,14 +1,21 @@
+#include "warnings.hpp"
 #define WIN32_LEAN_AND_MEAN
 #define UNICODE
 #define WINVER 0x0500 // XP support, and maybe 2000? Why not
+IB_WARNING_PUSH
+IB_WARNING_DISABLE_CLANG("-Wnonportable-system-include-path")
 #include <windows.h>
+IB_WARNING_POP
 #include <shellapi.h>
 #include <dwmapi.h>
 
 #include "persian-calendar.h"
 
+IB_WARNING_PUSH
+IB_WARNING_DISABLE_CLANG("-Wreserved-identifier")
 // https://web.archive.org/web/20190205041452/https://blogs.msdn.microsoft.com/oldnewthing/20041025-00/?p=37483
 extern "C" IMAGE_DOS_HEADER __ImageBase;
+IB_WARNING_POP
 #define hInst (reinterpret_cast<HMODULE>(&__ImageBase))
 
 template <typename T>
@@ -1111,10 +1118,8 @@ static void enable_visual_styles()
     pActivateActCtx(pCreateActCtxA(&actCtx), &ulpActivationCookie);
 }
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
-#endif
+IB_WARNING_PUSH
+IB_WARNING_DISABLE_CLANG("-Wunsafe-buffer-usage")
 template <size_t N>
 static bool has_string_suffix(const wchar_t *str, const wchar_t (&suffix)[N])
 {
@@ -1128,9 +1133,7 @@ static bool has_string_suffix(const wchar_t *str, const wchar_t (&suffix)[N])
             return false;
     return true;
 }
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+IB_WARNING_POP
 
 extern "C" [[noreturn]] void start();
 void start()

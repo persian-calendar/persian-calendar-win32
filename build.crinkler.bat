@@ -6,7 +6,6 @@ REM https://github.com/runestubbe/Crinkler - Crinkler.exe must be in the project
     -c persian-calendar.cc -o persian-calendar.obj ^
     -Weverything -Wall -Wextra -Wpedantic -Werror -Weffc++ ^
     -Wno-c++98-compat-pedantic -Wno-c++17-attribute-extensions ^
-    -Wno-nonportable-system-include-path -Wno-reserved-identifier ^
     -fno-exceptions -fno-rtti -Oz
 IF ERRORLEVEL 1 EXIT /B 1
 
