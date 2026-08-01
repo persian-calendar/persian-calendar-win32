@@ -165,12 +165,13 @@ struct app_state_t
     HMENU menu;
     BOOL show_widget;
     BOOL fixed_widget_placement;
+    BOOL always_on_top_widget;
     HWND widget_hwnd;
 
     app_state_t(NOTIFYICONDATAW *notify_icon_data_) : notify_icon_data(notify_icon_data_), local_digits(true),
                                                       black_background(get_build_number() < 18362), menu(nullptr),
                                                       show_widget(false), fixed_widget_placement(false),
-                                                      widget_hwnd(nullptr)
+                                                      always_on_top_widget(false), widget_hwnd(nullptr)
     {
     }
 };
@@ -182,10 +183,11 @@ constexpr unsigned black_background_id = 1003;
 constexpr unsigned second_separator_id = 1004;
 constexpr unsigned show_widget_id = 1005;
 constexpr unsigned fixed_widget_placement_id = 1006;
-constexpr unsigned third_separator_id = 1007;
-constexpr unsigned date_converter_id = 1008;
-constexpr unsigned fourth_separator_id = 1009;
-constexpr unsigned exit_id = 1010;
+constexpr unsigned always_on_top_widget_id = 1007;
+constexpr unsigned third_separator_id = 1008;
+constexpr unsigned date_converter_id = 1009;
+constexpr unsigned fourth_separator_id = 1010;
+constexpr unsigned exit_id = 1011;
 static void create_menu(app_state_t *state, wchar_t *date)
 {
     HMENU menu = CreatePopupMenu();
@@ -222,8 +224,14 @@ static void create_menu(app_state_t *state, wchar_t *date)
     {
         menu_item.fState = state->fixed_widget_placement ? MFS_CHECKED : 0;
         menu_item.wID = fixed_widget_placement_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"مکان ثابت ویجت");
+        menu_item.dwTypeData = const_cast<wchar_t *>(L"ثابت‌شدن مکان ویجت");
         InsertMenuItemW(menu, fixed_widget_placement_id, TRUE, &menu_item);
+    }
+    {
+        menu_item.fState = state->always_on_top_widget ? MFS_CHECKED : 0;
+        menu_item.wID = always_on_top_widget_id;
+        menu_item.dwTypeData = const_cast<wchar_t *>(L"همیشه بالاترین‌بودن ویجت");
+        InsertMenuItemW(menu, always_on_top_widget_id, TRUE, &menu_item);
     }
     InsertMenuW(menu, third_separator_id, MF_SEPARATOR, TRUE, nullptr);
     {
@@ -507,6 +515,12 @@ struct Registry
 
         if (RegQueryValueExW(key, show_widget_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
             state->show_widget = !!value;
+
+        if (RegQueryValueExW(key, fixed_widget_placement_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
+            state->fixed_widget_placement = !!value;
+
+        if (RegQueryValueExW(key, always_on_top_widget_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
+            state->always_on_top_widget = !!value;
     }
 
     void set_local_digits(bool value) const
@@ -527,6 +541,11 @@ struct Registry
     void set_fixed_widget_placement(bool value) const
     {
         set_value(fixed_widget_placement_key, value);
+    }
+
+    void set_always_on_top_widget(bool value) const
+    {
+        set_value(always_on_top_widget_key, value);
     }
 
     void set_widget_position(int left, int top, int size) const
@@ -581,6 +600,7 @@ private:
     constexpr static const wchar_t *widget_top_key = L"WidgetTop";
     constexpr static const wchar_t *widget_size_key = L"WidgetSize";
     constexpr static const wchar_t *fixed_widget_placement_key = L"FixedWidget";
+    constexpr static const wchar_t *always_on_top_widget_key = L"AlwaysOnTopWidget";
 };
 
 static void handle_widget_movability(HWND hwnd, app_state_t *app_state)
@@ -593,6 +613,13 @@ static void handle_widget_movability(HWND hwnd, app_state_t *app_state)
     else
         exStyle &= ~WS_EX_TRANSPARENT;
     SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle);
+}
+
+static void handle_widget_always_on_top(HWND hwnd, app_state_t *app_state)
+{
+    if (hwnd == nullptr)
+        return;
+    SetWindowPos(hwnd, app_state->always_on_top_widget ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 }
 
 static void handle_widget(HWND hwnd, app_state_t *app_state)
@@ -635,6 +662,7 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
             }
         }
         handle_widget_movability(widgetHwnd, app_state);
+        handle_widget_always_on_top(widgetHwnd, app_state);
         ShowWindow(widgetHwnd, SW_SHOW);
         SetForegroundWindow(widgetHwnd);
         app_state->widget_hwnd = widgetHwnd;
@@ -1090,6 +1118,15 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
             update(hwnd, state);
             handle_widget_movability(state->widget_hwnd, state);
             Registry().set_fixed_widget_placement(newValue);
+            return 0;
+        }
+        else if (wParam == always_on_top_widget_id)
+        {
+            bool newValue = !state->always_on_top_widget;
+            state->always_on_top_widget = newValue;
+            update(hwnd, state);
+            handle_widget_always_on_top(state->widget_hwnd, state);
+            Registry().set_always_on_top_widget(newValue);
             return 0;
         }
         else if (wParam == date_converter_id)
