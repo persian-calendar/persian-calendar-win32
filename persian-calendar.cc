@@ -742,10 +742,10 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
         RECT rect;
         GetClientRect(hwnd, &rect);
         int borderZone = MulDiv(8, static_cast<int>(get_system_dpi()), 96);
-        bool isLeft = (pt.x > rect.right - borderZone); // Flipped for RTL
-        bool isRight = (pt.x < rect.left + borderZone); // Flipped for RTL
-        bool isTop = (pt.y < rect.top + borderZone);
-        bool isBottom = (pt.y > rect.bottom - borderZone);
+        bool isLeft = pt.x > rect.right - borderZone; // Flipped for RTL
+        bool isRight = pt.x < rect.left + borderZone; // Flipped for RTL
+        bool isTop = pt.y < rect.top + borderZone;
+        bool isBottom = pt.y > rect.bottom - borderZone;
         if (isTop && isLeft)
             return HTTOPLEFT;
         if (isTop && isRight)
