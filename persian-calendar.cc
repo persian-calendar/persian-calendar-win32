@@ -77,6 +77,11 @@ static DWORD get_build_number()
     return 0;
 }
 
+static bool is_in_wine()
+{
+    return LibraryLoader("ntdll.dll").getProcedure<const char*(WINAPI *)()>("wine_get_version");
+}
+
 static bool is_dark_mode_active()
 {
     // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
@@ -108,7 +113,7 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
     SetBkMode(memDC, TRANSPARENT);
     SetTextColor(memDC, (black_background || is_system_in_dark_mode() ||
                          // on older systems always assume the task bar has dark colors and foreground should be white
-                         get_build_number() < 18362)
+                         get_build_number() < 18362 || is_in_wine())
                             ? RGB(255, 255, 255)
                             : RGB(0, 0, 0));
 
@@ -931,7 +936,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         HDC hdc = BeginPaint(hwnd, &ps);
 
         {
-            bool has_aero = get_build_number() >= 4015; // https://betawiki.net/wiki/Windows_Aero
+            bool has_aero = get_build_number() >= 4015 && !is_in_wine(); // https://betawiki.net/wiki/Windows_Aero
             HBRUSH brush = CreateSolidBrush(has_aero ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
             FillRect(hdc, &ps.rcPaint, brush);
             DeleteObject(brush);
@@ -1020,7 +1025,7 @@ static void open_converter_dialog(HWND parent)
 {
     UINT dpi = get_system_dpi();
     HWND hwnd = CreateWindowExW(
-        WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED,
+        WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | (is_in_wine() ? 0 : WS_EX_LAYERED),
         converterClassName, L"",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_SIZEBOX,
         CW_USEDEFAULT, CW_USEDEFAULT,
