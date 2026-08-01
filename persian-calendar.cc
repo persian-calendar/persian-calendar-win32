@@ -723,7 +723,7 @@ static void draw_table(
     SelectObject(hdc, hFont2);
     DeleteObject(hFont);
     {
-        SetTextColor(hdc, is_dark_mode ? RGB(150, 150, 150) : RGB(180, 180, 180));
+        SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
         RECT cell_rc{
             static_cast<long>(table_start),
             static_cast<long>(table_top + cell_size * 6),
