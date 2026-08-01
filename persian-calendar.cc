@@ -851,10 +851,15 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
         break;
     }
 
+    case WM_NCACTIVATE:
+        return TRUE;
+
     case WM_CREATE:
     {
         constexpr int default_window_alpha = 200;
         SetLayeredWindowAttributes(hwnd, 0, default_window_alpha, LWA_ALPHA);
+        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
         break;
     }
 
