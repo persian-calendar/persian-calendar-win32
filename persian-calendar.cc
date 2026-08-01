@@ -332,26 +332,29 @@ struct date_combo_controller_t
 {
 private:
     HWND hDay, hMonth, hYear;
-    unsigned base_year;
+
+    unsigned base_year() const
+    {
+        return static_cast<unsigned>(GetWindowLongPtrW(hYear, GWLP_USERDATA));
+    }
 
 public:
     date_combo_controller_t(
         HWND hwnd, bool is_persian) : hDay(GetDlgItem(hwnd, static_cast<int>(is_persian ? dlg_persian_day_combo_id : dlg_gregorian_day_combo_id))),
                                       hMonth(GetDlgItem(hwnd, static_cast<int>(is_persian ? dlg_persian_month_combo_id : dlg_gregorian_month_combo_id))),
-                                      hYear(GetDlgItem(hwnd, static_cast<int>(is_persian ? dlg_persian_year_combo_id : dlg_gregorian_year_combo_id))),
-                                      base_year(static_cast<unsigned>(GetWindowLongPtrW(hYear, GWLP_USERDATA))) {}
+                                      hYear(GetDlgItem(hwnd, static_cast<int>(is_persian ? dlg_persian_year_combo_id : dlg_gregorian_year_combo_id))) {}
 
     date_t to_date() const
     {
         return {
-            static_cast<unsigned>(SendMessageW(hYear, CB_GETCURSEL, 0, 0)) + base_year,
+            static_cast<unsigned>(SendMessageW(hYear, CB_GETCURSEL, 0, 0)) + base_year(),
             static_cast<unsigned>(SendMessageW(hMonth, CB_GETCURSEL, 0, 0)) + 1,
             static_cast<unsigned>(SendMessageW(hDay, CB_GETCURSEL, 0, 0)) + 1};
     }
 
     void set_from_date_triplet(const date_t &date)
     {
-        SendMessageW(hYear, CB_SETCURSEL, date.year - base_year, 0);
+        SendMessageW(hYear, CB_SETCURSEL, date.year - base_year(), 0);
         SendMessageW(hMonth, CB_SETCURSEL, date.month - 1, 0);
         SendMessageW(hDay, CB_SETCURSEL, date.day - 1, 0);
     }
@@ -1204,5 +1207,5 @@ void start()
         DestroyIcon(notify_icon_data.hIcon);
     }
 
-    ExitProcess(msg.wParam);
+    ExitProcess(static_cast<UINT>(msg.wParam));
 }
