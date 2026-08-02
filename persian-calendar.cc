@@ -77,9 +77,9 @@ static DWORD get_build_number()
     return 0;
 }
 
-static const char* get_wine_version()
+static const char *get_wine_version()
 {
-    auto pWineGetVersion = LibraryLoader("ntdll.dll").getProcedure<const char*(CDECL *)()>("wine_get_version");
+    auto pWineGetVersion = LibraryLoader("ntdll.dll").getProcedure<const char *(CDECL *)()>("wine_get_version");
     return pWineGetVersion ? pWineGetVersion() : nullptr;
 }
 
