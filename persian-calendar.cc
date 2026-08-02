@@ -1121,8 +1121,8 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
             state->show_widget = newValue;
             handle_widget(hwnd, state);
             const Registry &registry = Registry();
-            if (!newValue)
-                registry.set_widget_position(CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT);
+            // if (!newValue)
+            //     registry.set_widget_position(CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT);
             update(hwnd, state);
             registry.set_show_widget(newValue);
             return 0;
