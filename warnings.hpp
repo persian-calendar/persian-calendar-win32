@@ -6,9 +6,9 @@
 
 #ifdef __clang__
 #define IB_COMPILER_CLANG 1
-#elif defined(__GNUC__)
+#elifdef __GNUC__
 #define IB_COMPILER_GCC 1
-#elif defined(_MSC_VER)
+#elifdef _MSC_VER
 #define IB_COMPILER_MSVC 1
 #else
 #define IB_COMPILER_UNKNOWN 1
@@ -58,7 +58,7 @@
 
 #define IB_WARNING_DISABLE_DEPRECATED IB_WARNING_DISABLE_CLANG("-Wdeprecated-declarations") IB_WARNING_DISABLE_DEPRECATED_MACRO
 
-#elif defined(IB_COMPILER_GCC)
+#elifdef IB_COMPILER_GCC
 
 #define IB_WARNING_PUSH IB_PRAGMA_TO_STR(GCC diagnostic push)
 #define IB_WARNING_POP IB_PRAGMA_TO_STR(GCC diagnostic pop)
@@ -81,7 +81,7 @@
 
 #define IB_WARNING_DISABLE_DEPRECATED IB_WARNING_DISABLE_GCC("-Wdeprecated-declarations")
 
-#elif defined(IB_COMPILER_MSVC)
+#elifdef IB_COMPILER_MSVC
 
 #undef IB_PRAGMA_TO_STR
 
