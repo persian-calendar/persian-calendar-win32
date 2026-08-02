@@ -1235,6 +1235,7 @@ static void enable_visual_styles()
     pActivateActCtx(pCreateActCtxA(&actCtx), &ulpActivationCookie);
 }
 
+IB_WARNING_DISABLE_CLANG_PUSH("-Wunsafe-buffer-usage")
 template <size_t N>
 static bool has_string_suffix(const wchar_t *str, const wchar_t (&suffix)[N])
 {
@@ -1243,12 +1244,11 @@ static bool has_string_suffix(const wchar_t *str, const wchar_t (&suffix)[N])
     if (str_len < suffix_len)
         return false;
     for (size_t i = 0; i < suffix_len; ++i)
-IB_WARNING_DISABLE_CLANG_PUSH("-Wunsafe-buffer-usage")
         if (str[static_cast<size_t>(str_len - suffix_len) + i] != suffix[i])
-IB_WARNING_DISABLE_CLANG_POP
             return false;
     return true;
 }
+IB_WARNING_DISABLE_CLANG_POP
 
 extern "C" [[noreturn]] void start();
 void start()
