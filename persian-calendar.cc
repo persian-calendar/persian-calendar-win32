@@ -5,9 +5,9 @@
 IB_WARNING_PUSH
 IB_WARNING_DISABLE_CLANG("-Wnonportable-system-include-path")
 #include <windows.h>
-IB_WARNING_POP
 #include <shellapi.h>
 #include <dwmapi.h>
+IB_WARNING_POP
 
 #include "persian-calendar.h"
 
@@ -1034,7 +1034,7 @@ static void open_converter_dialog(HWND parent)
 {
     UINT dpi = get_system_dpi();
     HWND hwnd = CreateWindowExW(
-        WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | (get_wine_version() ? 0 : WS_EX_LAYERED),
+        WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | (get_wine_version() ? static_cast<DWORD>(0) : WS_EX_LAYERED),
         converterClassName, L"",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_SIZEBOX,
         CW_USEDEFAULT, CW_USEDEFAULT,
