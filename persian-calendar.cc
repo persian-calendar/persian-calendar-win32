@@ -3,11 +3,11 @@
 #define UNICODE
 #define WINVER 0x0500 // XP support, and maybe 2000? Why not
 IB_WARNING_PUSH
-IB_WARNING_DISABLE_CLANG("-Wnonportable-system-include-path")
+IB_WARNING_DISABLE_CLANG_PUSH("-Wnonportable-system-include-path")
 #include <windows.h>
+IB_WARNING_POP
 #include <shellapi.h>
 #include <dwmapi.h>
-IB_WARNING_POP
 
 #include "persian-calendar.h"
 
