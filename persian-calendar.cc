@@ -75,10 +75,9 @@ static DWORD get_build_number()
     return 0;
 }
 
-static const char *get_wine_version()
+static bool is_in_wine()
 {
-    auto pWineGetVersion = LibraryLoader("ntdll.dll").getProcedure<const char *(CDECL *)()>("wine_get_version");
-    return pWineGetVersion ? pWineGetVersion() : nullptr;
+    return !!LibraryLoader("ntdll.dll").getProcedure<const char *(CDECL *)()>("wine_get_version");
 }
 
 static bool is_dark_mode_active()
@@ -112,7 +111,7 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
     SetBkMode(memDC, TRANSPARENT);
     SetTextColor(memDC, (black_background || is_system_in_dark_mode() ||
                          // on older systems always assume the task bar has dark colors and foreground should be white
-                         get_build_number() < 18362 || get_wine_version())
+                         get_build_number() < 18362 || is_in_wine())
                             ? RGB(255, 255, 255)
                             : RGB(0, 0, 0));
 
@@ -1036,7 +1035,7 @@ static void open_converter_dialog(HWND parent)
 {
     UINT dpi = get_system_dpi();
     HWND hwnd = CreateWindowExW(
-        WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | (get_wine_version() ? static_cast<DWORD>(0) : WS_EX_LAYERED),
+        WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | (has_composition() ? WS_EX_LAYERED : static_cast<DWORD>(0)),
         converterClassName, L"",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_SIZEBOX,
         CW_USEDEFAULT, CW_USEDEFAULT,
