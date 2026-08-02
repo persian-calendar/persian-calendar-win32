@@ -635,7 +635,6 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
     {
         if (!widgetHwnd)
         {
-            UINT dpi = get_system_dpi();
             int left = CW_USEDEFAULT, top = CW_USEDEFAULT, size = CW_USEDEFAULT;
             Registry().get_widget_position(left, top, size);
             if (left == CW_USEDEFAULT || top == CW_USEDEFAULT || size == CW_USEDEFAULT)
@@ -643,10 +642,12 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
                 RECT rc;
                 if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &rc, 0))
                 {
-                    size = static_cast<int>(dpi / 7 * 12);
-                    left = rc.right - static_cast<int>(dpi / 7 * 13);
-                    top = rc.bottom - static_cast<int>(dpi / 7 * 13);
+                    size = static_cast<int>(rc.right / 10);
+                    left = rc.right - size - size / 10;
+                    top = rc.bottom - size - size / 10;
                 }
+                else
+                    size = static_cast<int>(get_system_dpi() / 7 * 12);
             }
             widgetHwnd = CreateWindowExW(
                 WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED | WS_EX_TOOLWINDOW,
