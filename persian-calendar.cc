@@ -640,14 +640,14 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
             if (left == CW_USEDEFAULT || top == CW_USEDEFAULT || size == CW_USEDEFAULT)
             {
                 RECT rc;
+                size = static_cast<int>(get_system_dpi() / 7 * 12);
                 if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &rc, 0))
                 {
-                    size = static_cast<int>(rc.right / 10);
+                    int newValue = static_cast<int>(rc.bottom / 10);
+                    size = newValue > size ? newValue : size;
                     left = rc.right - size - size / 10;
                     top = rc.bottom - size - size / 10;
                 }
-                else
-                    size = static_cast<int>(get_system_dpi() / 7 * 12);
             }
             widgetHwnd = CreateWindowExW(
                 WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED | WS_EX_TOOLWINDOW,
@@ -754,18 +754,14 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
 {
     switch (msg)
     {
-    case WM_DESTROY:
+    case WM_SIZE:
+    case WM_MOVE:
     {
+        InvalidateRect(hwnd, nullptr, FALSE);
         WINDOWPLACEMENT wp;
         wp.length = sizeof(WINDOWPLACEMENT);
         if (GetWindowPlacement(hwnd, &wp))
             Registry().set_widget_position(wp.rcNormalPosition.left, wp.rcNormalPosition.top, wp.rcNormalPosition.right - wp.rcNormalPosition.left);
-        break;
-    }
-
-    case WM_SIZE:
-    {
-        InvalidateRect(hwnd, nullptr, FALSE);
         break;
     }
 
@@ -988,6 +984,12 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         unsigned newWidth = static_cast<unsigned>(LOWORD(lParam));
         unsigned newHeight = static_cast<unsigned>(HIWORD(lParam));
         update_layout(hwnd, newWidth, newHeight);
+        InvalidateRect(hwnd, nullptr, FALSE);
+        return 0;
+    }
+
+    case WM_MOVE:
+    {
         InvalidateRect(hwnd, nullptr, FALSE);
         return 0;
     }
