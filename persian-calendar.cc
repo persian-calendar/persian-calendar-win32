@@ -687,9 +687,16 @@ static unsigned get_month_days(unsigned year, unsigned month)
     return persian_to_days({month == 12 ? year + 1 : year, month == 12 ? 1 : month + 1, 1}) - persian_to_days({year, month, 1});
 }
 
-static bool has_aero()
+static bool has_composition()
 {
-    return get_build_number() >= 4015 && !get_wine_version(); // https://betawiki.net/wiki/Windows_Aero
+    auto pDwmIsCompositionEnabled = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(BOOL* pfEnabled)>("DwmIsCompositionEnabled");
+    if (pDwmIsCompositionEnabled)
+    {
+        BOOL result;
+        pDwmIsCompositionEnabled(&result);
+        return result;
+    }
+    return false;
 }
 
 static void draw_table(
@@ -711,12 +718,12 @@ static void draw_table(
     }
     unsigned week_start = (persian_to_days({date.year, date.month, 1}) + 3) % 7;
     unsigned month_days = get_month_days(date.year, date.month);
-    bool has_aero = ::has_aero();
+    bool has_composition = ::has_composition();
     for (unsigned i = week_start; i < month_days + week_start; ++i)
     {
         if (date.day == i + 1 - week_start)
             SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
-        else if (is_in_widget || !has_aero)
+        else if (is_in_widget || !has_composition)
             SetTextColor(hdc, is_dark_mode ? RGB(160, 160, 160) : RGB(180, 180, 180));
         else
             SetTextColor(hdc, is_dark_mode ? RGB(160, 160, 160) : RGB(240, 240, 240));
@@ -935,7 +942,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         HDC hdc = BeginPaint(hwnd, &ps);
 
         {
-            HBRUSH brush = CreateSolidBrush(has_aero() ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
+            HBRUSH brush = CreateSolidBrush(has_composition() ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
             FillRect(hdc, &ps.rcPaint, brush);
             DeleteObject(brush);
         }
