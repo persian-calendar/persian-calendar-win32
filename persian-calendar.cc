@@ -341,11 +341,6 @@ static void toggle_exstyle(HWND hWnd, bool enable, long flag)
     SetWindowLongPtrW(hWnd, GWL_EXSTYLE, exStyle);
 }
 
-static void enable_help_button(HWND hWnd, bool enable)
-{
-    toggle_exstyle(hWnd, enable, WS_EX_CONTEXTHELP);
-}
-
 enum class update_source_t
 {
     INIT,
@@ -401,7 +396,7 @@ static void update_values(HWND hwnd, update_source_t source)
     unsigned today_days = today_in_days();
     const wchar_t *weekday = weekdays[(days + 3) % 7];
     wchar_t result[128];
-    enable_help_button(hwnd, days != today_days);
+    toggle_exstyle(hwnd, days != today_days, WS_EX_CONTEXTHELP); // toggle window's help button
     if (days == today_days)
         wsprintfW(result, L"%s، امروز", weekday);
     else if (days < today_days)
@@ -931,6 +926,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
     }
         [[fallthrough]];
     case WM_SETTINGCHANGE:
+        toggle_exstyle(hwnd, has_composition(), WS_EX_LAYERED);
         update_window_visual_styles(hwnd);
         InvalidateRect(hwnd, nullptr, FALSE);
         return 0;
@@ -1035,7 +1031,7 @@ static void open_converter_dialog(HWND parent)
 {
     UINT dpi = get_system_dpi();
     HWND hwnd = CreateWindowExW(
-        WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | (has_composition() ? WS_EX_LAYERED : static_cast<DWORD>(0)),
+        WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED,
         converterClassName, L"",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_SIZEBOX,
         CW_USEDEFAULT, CW_USEDEFAULT,
