@@ -926,7 +926,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
     }
         [[fallthrough]];
     case WM_SETTINGCHANGE:
-        toggle_exstyle(hwnd, has_composition(), WS_EX_LAYERED);
+        toggle_exstyle(hwnd, has_composition(), WS_EX_LAYERED | WS_EX_COMPOSITED);
         update_window_visual_styles(hwnd);
         InvalidateRect(hwnd, nullptr, FALSE);
         return 0;
@@ -1031,7 +1031,7 @@ static void open_converter_dialog(HWND parent)
 {
     UINT dpi = get_system_dpi();
     HWND hwnd = CreateWindowExW(
-        WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED,
+        WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL,
         converterClassName, L"",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_SIZEBOX,
         CW_USEDEFAULT, CW_USEDEFAULT,
