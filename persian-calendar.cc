@@ -16,6 +16,8 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 IB_WARNING_DISABLE_CLANG_POP
 #define hInst (reinterpret_cast<HMODULE>(&__ImageBase))
 
+// NOLINTBEGIN(modernize-avoid-c-arrays)
+
 template <typename T>
 void zero_memory(T &ptr, size_t size = sizeof(T))
 {
@@ -41,9 +43,6 @@ struct LibraryLoader
 private:
     HMODULE m_module;
 
-    LibraryLoader(const LibraryLoader &) = delete;
-    void operator=(const LibraryLoader &) = delete;
-
     static auto getModuleWithFallback(const char *name) -> HMODULE
     {
         HMODULE module = GetModuleHandleA(name);
@@ -51,6 +50,8 @@ private:
     }
 
 public:
+    LibraryLoader(const LibraryLoader &) = delete;
+    void operator=(const LibraryLoader &) = delete;
     LibraryLoader(const char *name) : m_module(getModuleWithFallback(name)) {}
     // Let's just don't free, all we load is system libraries and they are always loaded anyway, so no need to free them.
     // ~LibraryLoader() { if (module) FreeLibrary(module); }
@@ -58,7 +59,9 @@ public:
     template <typename T>
     auto getProcedure(const char *procName)
     {
-        return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(m_module, procName)));
+IB_WARNING_DISABLE_CLANG_PUSH("-Wcast-function-type-strict")
+        return reinterpret_cast<T>(GetProcAddress(m_module, procName));
+IB_WARNING_DISABLE_CLANG_POP
     }
 };
 
@@ -309,7 +312,7 @@ struct formatted_number_t
 {
     wchar_t value[8];
 };
-static auto format_number(unsigned number, BOOL local_digits = true) -> formatted_number_t
+static auto format_number(unsigned number, bool local_digits = true) -> formatted_number_t
 {
     formatted_number_t result;
     constexpr size_t size = array_length(result.value);
@@ -555,7 +558,9 @@ struct Registry
         set_value(widget_size_key, static_cast<DWORD>(size));
     }
 
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     void get_widget_position(int &left, int &top, int &size) const
+    // NOLINTEND(bugprone-easily-swappable-parameters)
     {
         if (!key)
             return;
@@ -744,7 +749,7 @@ static void draw_table(
     DeleteObject(hFont2);
 }
 
-static LRESULT CALLBACK widget_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static auto CALLBACK widget_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) -> LRESULT
 {
     switch (msg)
     {
@@ -880,7 +885,7 @@ static LRESULT CALLBACK widget_window_procedure(HWND hWnd, UINT msg, WPARAM wPar
     return DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
-static LRESULT CALLBACK converter_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static auto CALLBACK converter_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) -> LRESULT
 {
     switch (msg)
     {
@@ -1068,7 +1073,7 @@ static void update(HWND hWnd, app_state_t *state)
 }
 
 const unsigned notifyClickId = WM_USER + 1;
-static LRESULT CALLBACK tray_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static auto CALLBACK tray_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) -> LRESULT
 {
     auto *state = reinterpret_cast<app_state_t *>(
         GetWindowLongPtrW(hWnd, GWLP_USERDATA));
@@ -1236,12 +1241,12 @@ IB_WARNING_DISABLE_CLANG_PUSH("-Wunsafe-buffer-usage")
 template <size_t N>
 static auto has_string_suffix(const wchar_t *str, const wchar_t (&suffix)[N]) -> bool
 {
-    int str_len = lstrlenW(str);
-    constexpr int suffix_len = static_cast<int>(N) - 1;
+    auto str_len = static_cast<size_t>(lstrlenW(str));
+    constexpr size_t suffix_len = static_cast<size_t>(N) - 1;
     if (str_len < suffix_len)
         return false;
     for (size_t i = 0; i < suffix_len; ++i)
-        if (str[static_cast<size_t>(str_len - suffix_len) + i] != suffix[i])
+        if (str[str_len - suffix_len + i] != suffix[i])
             return false;
     return true;
 }
@@ -1324,3 +1329,5 @@ void start()
 
     ExitProcess(static_cast<UINT>(msg.wParam));
 }
+
+// NOLINTEND(modernize-avoid-c-arrays)
