@@ -1,6 +1,6 @@
 @echo off
 taskkill /IM persian-calendar.exe /FI "STATUS eq RUNNING" ^
-    && "C:\Program Files\LLVM\bin\clang-tidy" -checks="-*,bugprone-*,modernize-*" persian-calendar.cc -- -std=c++23 ^
+    && "C:\Program Files\LLVM\bin\clang-tidy" -checks="-*,bugprone-*,modernize-*,-modernize-avoid-c-arrays" persian-calendar.cc -- -std=c++23 ^
     && "C:\Program Files\LLVM\bin\clang" test.cc -D_CRT_SECURE_NO_WARNINGS -o test.exe && test.exe ^
     && build.bat && python postlink.py ^
     && python -c "d=open('persian-calendar.exe', 'rb').read(); print(f'{len(d)}-{len(d) - len(d.rstrip(b'\xcc'))}')" ^

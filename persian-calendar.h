@@ -14,7 +14,6 @@ License: GNU/LGPL _ Open Source & Free :: Version: 2.80 : [2020=1399]
 using persian_date_t = struct date_t { unsigned year, month, day; };
 using gregorian_date_t = struct date_t;
 
-// NOLINTBEGIN(modernize-avoid-c-arrays)
 inline auto gregorian_to_days(gregorian_date_t date) -> unsigned {
   unsigned gy2 = (date.month > 2) ? date.year + 1 : date.year;
   static const unsigned g_d_m[12] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
@@ -77,4 +76,3 @@ inline auto days_to_gregorian(unsigned days) -> gregorian_date_t {
   result.day = gd;
   return result;
 }
-// NOLINTEND(modernize-avoid-c-arrays)

@@ -16,8 +16,6 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 IB_WARNING_DISABLE_CLANG_POP
 #define hInst (reinterpret_cast<HMODULE>(&__ImageBase))
 
-// NOLINTBEGIN(modernize-avoid-c-arrays)
-
 template <typename T>
 void zero_memory(T &ptr, size_t size = sizeof(T))
 {
@@ -59,9 +57,7 @@ public:
     template <typename T>
     auto getProcedure(const char *procName)
     {
-//NOLINTBEGIN(bugprone-casting-through-void)
-        return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(m_module, procName)));
-//NOLINTEND(bugprone-casting-through-void)
+        return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(m_module, procName))); // NOLINT(bugprone-casting-through-void)
     }
 };
 
@@ -558,9 +554,7 @@ struct Registry
         set_value(widget_size_key, static_cast<DWORD>(size));
     }
 
-    // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-    void get_widget_position(int &left, int &top, int &size) const
-    // NOLINTEND(bugprone-easily-swappable-parameters)
+    void get_widget_position(int &left, int &top, int &size) const // NOLINT(bugprone-easily-swappable-parameters)
     {
         if (!key)
             return;
@@ -1329,5 +1323,3 @@ void start()
 
     ExitProcess(static_cast<UINT>(msg.wParam));
 }
-
-// NOLINTEND(modernize-avoid-c-arrays)
