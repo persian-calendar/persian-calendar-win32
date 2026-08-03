@@ -329,14 +329,21 @@ static unsigned today_in_days()
     return gregorian_to_days({static_cast<unsigned>(st.wYear), static_cast<unsigned>(st.wMonth), static_cast<unsigned>(st.wDay)});
 }
 
-static void enable_help_button(HWND hWnd, bool enable)
+static void toggle_exstyle(HWND hWnd, bool enable, long flag)
 {
+    if (!hWnd)
+        return;
     LONG_PTR exStyle = GetWindowLongPtrW(hWnd, GWL_EXSTYLE);
     if (enable)
-        exStyle |= WS_EX_CONTEXTHELP;
+        exStyle |= flag;
     else
-        exStyle &= ~WS_EX_CONTEXTHELP;
+        exStyle &= ~flag;
     SetWindowLongPtrW(hWnd, GWL_EXSTYLE, exStyle);
+}
+
+static void enable_help_button(HWND hWnd, bool enable)
+{
+    toggle_exstyle(hWnd, enable, WS_EX_CONTEXTHELP);
 }
 
 enum class update_source_t
@@ -605,14 +612,7 @@ private:
 
 static void handle_widget_movability(HWND hwnd, app_state_t *app_state)
 {
-    if (hwnd == nullptr)
-        return;
-    LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-    if (app_state->fixed_widget_placement)
-        exStyle |= WS_EX_TRANSPARENT;
-    else
-        exStyle &= ~WS_EX_TRANSPARENT;
-    SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle);
+    toggle_exstyle(hwnd, app_state->fixed_widget_placement, WS_EX_TRANSPARENT);
 }
 
 static void handle_widget_always_on_top(HWND hwnd, app_state_t *app_state)
@@ -688,7 +688,7 @@ static unsigned get_month_days(unsigned year, unsigned month)
 
 static bool has_composition()
 {
-    auto pDwmIsCompositionEnabled = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(BOOL* pfEnabled)>("DwmIsCompositionEnabled");
+    auto pDwmIsCompositionEnabled = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(BOOL * pfEnabled)>("DwmIsCompositionEnabled");
     if (pDwmIsCompositionEnabled)
     {
         BOOL result;
