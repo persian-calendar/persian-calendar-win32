@@ -22,7 +22,7 @@ void zero_memory(T &ptr, size_t size = sizeof(T))
     SecureZeroMemory(&ptr, size);
 }
 
-static HFONT get_system_font(LONG size, bool disable_antialiasing = false)
+static auto get_system_font(LONG size, bool disable_antialiasing = false) -> HFONT
 {
     NONCLIENTMETRICSW ncm;
     ncm.cbSize = sizeof(NONCLIENTMETRICSW);
@@ -44,7 +44,7 @@ private:
     LibraryLoader(const LibraryLoader &) = delete;
     void operator=(const LibraryLoader &) = delete;
 
-    static HMODULE getModuleWithFallback(const char *name)
+    static auto getModuleWithFallback(const char *name) -> HMODULE
     {
         HMODULE module = GetModuleHandleA(name);
         return module ? module : LoadLibraryA(name);
@@ -62,7 +62,7 @@ public:
     }
 };
 
-static DWORD get_build_number()
+static auto get_build_number() -> DWORD
 {
     auto pRtlGetVersion = LibraryLoader("ntdll.dll").getProcedure<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>("RtlGetVersion");
     if (pRtlGetVersion)
@@ -75,12 +75,12 @@ static DWORD get_build_number()
     return 0;
 }
 
-static bool is_in_wine()
+static auto is_in_wine() -> bool
 {
     return !!LibraryLoader("ntdll.dll").getProcedure<const char *(CDECL *)()>("wine_get_version");
 }
 
-static bool is_dark_mode_active()
+static auto is_dark_mode_active() -> bool
 {
     // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
     if (get_build_number() < 17763)
@@ -89,7 +89,7 @@ static bool is_dark_mode_active()
     return pShouldAppsUseDarkMode && pShouldAppsUseDarkMode();
 }
 
-static bool is_system_in_dark_mode()
+static auto is_system_in_dark_mode() -> bool
 {
     if (get_build_number() < 18362)
         return is_dark_mode_active();
@@ -97,7 +97,7 @@ static bool is_system_in_dark_mode()
     return pShouldSystemUseDarkMode && pShouldSystemUseDarkMode();
 }
 
-static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_background)
+static auto create_text_icon(HDC hdc, const wchar_t *text, bool black_background) -> HICON
 {
     const int size = 128; // GetSystemMetrics(SM_CXSMICON); oversized icon looks better
     HBITMAP hbmColor = CreateCompatibleBitmap(hdc, size, size);
@@ -105,7 +105,7 @@ static HICON create_text_icon(HDC hdc, const wchar_t *text, bool black_backgroun
 
     HDC memDC = CreateCompatibleDC(hdc);
     HGDIOBJ oldBmp = SelectObject(memDC, hbmColor);
-    RECT rc{0, -14 /*tweak y height*/, size, size};
+    RECT rc{.left = 0, .top = -14 /*tweak y height*/, .right = size, .bottom = size};
 
     FillRect(memDC, &rc, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
     SetBkMode(memDC, TRANSPARENT);
@@ -150,7 +150,7 @@ constexpr static const int widgetTimerId = 2;
 constexpr static const wchar_t *widgetClassName = L"WgtDlg";
 constexpr static const wchar_t *converterClassName = L"CnvDlg";
 
-static UINT get_system_dpi()
+static auto get_system_dpi() -> UINT
 {
     HDC hdc = GetDC(nullptr);
     if (!hdc)
@@ -163,18 +163,16 @@ static UINT get_system_dpi()
 struct app_state_t
 {
     NOTIFYICONDATAW *notify_icon_data;
-    BOOL local_digits;
+    BOOL local_digits{true};
     BOOL black_background;
-    HMENU menu;
-    BOOL show_widget;
-    BOOL fixed_widget_placement;
-    BOOL always_on_top_widget;
-    HWND widget_hwnd;
+    HMENU menu{nullptr};
+    BOOL show_widget{false};
+    BOOL fixed_widget_placement{false};
+    BOOL always_on_top_widget{false};
+    HWND widget_hwnd{nullptr};
 
-    app_state_t(NOTIFYICONDATAW *notify_icon_data_) : notify_icon_data(notify_icon_data_), local_digits(true),
-                                                      black_background(get_build_number() < 18362), menu(nullptr),
-                                                      show_widget(false), fixed_widget_placement(false),
-                                                      always_on_top_widget(false), widget_hwnd(nullptr)
+    app_state_t(NOTIFYICONDATAW *notify_icon_data_) : notify_icon_data(notify_icon_data_),
+                                                      black_background(get_build_number() < 18362)
     {
     }
 };
@@ -302,7 +300,7 @@ constexpr unsigned dlg_gregorian_month_combo_id = 2005;
 constexpr unsigned dlg_gregorian_year_combo_id = 2006;
 
 template <typename T, size_t N>
-constexpr size_t array_length(T (&)[N])
+constexpr auto array_length(T (&)[N]) -> size_t
 {
     return N;
 }
@@ -311,7 +309,7 @@ struct formatted_number_t
 {
     wchar_t value[8];
 };
-static formatted_number_t format_number(unsigned number, BOOL local_digits = true)
+static auto format_number(unsigned number, BOOL local_digits = true) -> formatted_number_t
 {
     formatted_number_t result;
     constexpr size_t size = array_length(result.value);
@@ -322,11 +320,11 @@ static formatted_number_t format_number(unsigned number, BOOL local_digits = tru
     return result;
 }
 
-static unsigned today_in_days()
+static auto today_in_days() -> unsigned
 {
     SYSTEMTIME st;
     GetLocalTime(&st);
-    return gregorian_to_days({static_cast<unsigned>(st.wYear), static_cast<unsigned>(st.wMonth), static_cast<unsigned>(st.wDay)});
+    return gregorian_to_days({.year = static_cast<unsigned>(st.wYear), .month = static_cast<unsigned>(st.wMonth), .day = static_cast<unsigned>(st.wDay)});
 }
 
 static void toggle_exstyle(HWND hWnd, bool enable, long flag)
@@ -361,12 +359,12 @@ public:
                                       hYear(GetDlgItem(hWnd, static_cast<int>(is_persian ? dlg_persian_year_combo_id : dlg_gregorian_year_combo_id))),
                                       base_year(static_cast<unsigned>(GetWindowLongPtrW(hYear, GWLP_USERDATA))) {}
 
-    date_t to_date() const
+    [[nodiscard]] auto to_date() const -> date_t
     {
         return {
-            static_cast<unsigned>(SendMessageW(hYear, CB_GETCURSEL, 0, 0)) + base_year,
-            static_cast<unsigned>(SendMessageW(hMonth, CB_GETCURSEL, 0, 0)) + 1,
-            static_cast<unsigned>(SendMessageW(hDay, CB_GETCURSEL, 0, 0)) + 1};
+            .year = static_cast<unsigned>(SendMessageW(hYear, CB_GETCURSEL, 0, 0)) + base_year,
+            .month = static_cast<unsigned>(SendMessageW(hMonth, CB_GETCURSEL, 0, 0)) + 1,
+            .day = static_cast<unsigned>(SendMessageW(hDay, CB_GETCURSEL, 0, 0)) + 1};
     }
 
     void set_from_date_triplet(const date_t &date)
@@ -464,7 +462,7 @@ static void update_window_visual_styles(HWND hWnd)
             "DwmExtendFrameIntoClientArea");
         if (pDwmExtendFrameIntoClientArea)
         {
-            MARGINS margins = {-1, -1, -1, -1};
+            MARGINS margins = {.cxLeftWidth = -1, .cxRightWidth = -1, .cyTopHeight = -1, .cyBottomHeight = -1};
             pDwmExtendFrameIntoClientArea(hWnd, &margins);
         }
     }
@@ -485,7 +483,7 @@ struct Registry
 {
     Registry(const Registry &) = delete;
     void operator=(const Registry &) = delete;
-    Registry() : key(nullptr)
+    Registry()
     {
         LONG status = RegCreateKeyExW(
             HKEY_CURRENT_USER,
@@ -580,7 +578,7 @@ struct Registry
     }
 
 private:
-    HKEY key;
+    HKEY key{nullptr};
 
     void set_value(const wchar_t *name, DWORD value) const
     {
@@ -676,12 +674,12 @@ static void handle_widget(HWND hWnd, app_state_t *app_state)
     }
 }
 
-static unsigned get_month_days(unsigned year, unsigned month)
+static auto get_month_days(unsigned year, unsigned month) -> unsigned
 {
-    return persian_to_days({month == 12 ? year + 1 : year, month == 12 ? 1 : month + 1, 1}) - persian_to_days({year, month, 1});
+    return persian_to_days({.year = month == 12 ? year + 1 : year, .month = month == 12 ? 1 : month + 1, .day = 1}) - persian_to_days({.year = year, .month = month, .day = 1});
 }
 
-static bool has_composition()
+static auto has_composition() -> bool
 {
     auto pDwmIsCompositionEnabled = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(BOOL * pfEnabled)>("DwmIsCompositionEnabled");
     if (pDwmIsCompositionEnabled)
@@ -704,13 +702,13 @@ static void draw_table(
     for (unsigned i = 0; i < 7; ++i)
     {
         RECT cell_rc{
-            static_cast<long>(table_start + cell_size * i),
-            static_cast<long>(table_top),
-            static_cast<long>(table_start + cell_size * (i + 1)),
-            static_cast<long>(table_top + cell_size)};
+            .left = static_cast<long>(table_start + cell_size * i),
+            .top = static_cast<long>(table_top),
+            .right = static_cast<long>(table_start + cell_size * (i + 1)),
+            .bottom = static_cast<long>(table_top + cell_size)};
         DrawTextW(hdc, weekdays[i % 7], 1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
-    unsigned week_start = (persian_to_days({date.year, date.month, 1}) + 3) % 7;
+    unsigned week_start = (persian_to_days({.year = date.year, .month = date.month, .day = 1}) + 3) % 7;
     unsigned month_days = get_month_days(date.year, date.month);
     bool has_composition = ::has_composition();
     for (unsigned i = week_start; i < month_days + week_start; ++i)
@@ -722,10 +720,10 @@ static void draw_table(
         else
             SetTextColor(hdc, is_dark_mode ? RGB(160, 160, 160) : RGB(240, 240, 240));
         RECT cell_rc{
-            static_cast<long>(table_start + cell_size * (i % 7)),
-            static_cast<long>(table_top + cell_size * (i / 7 + 1)),
-            static_cast<long>(table_start + cell_size * (i % 7 + 1)),
-            static_cast<long>(table_top + cell_size * (i / 7 + 2))};
+            .left = static_cast<long>(table_start + cell_size * (i % 7)),
+            .top = static_cast<long>(table_top + cell_size * (i / 7 + 1)),
+            .right = static_cast<long>(table_start + cell_size * (i % 7 + 1)),
+            .bottom = static_cast<long>(table_top + cell_size * (i / 7 + 2))};
         DrawTextW(hdc, format_number(i + 1 - week_start).value, -1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
     HFONT hFont2 = get_system_font(static_cast<long>(MulDiv(static_cast<int>(cell_size), 7, 10)), !is_in_widget);
@@ -734,10 +732,10 @@ static void draw_table(
     {
         SetTextColor(hdc, is_dark_mode ? RGB(255, 255, 255) : RGB(0, 0, 0));
         RECT cell_rc{
-            static_cast<long>(table_start),
-            static_cast<long>(table_top + cell_size * 6),
-            static_cast<long>(table_start + cell_size * 7),
-            static_cast<long>(table_top + cell_size * 7)};
+            .left = static_cast<long>(table_start),
+            .top = static_cast<long>(table_top + cell_size * 6),
+            .right = static_cast<long>(table_start + cell_size * 7),
+            .bottom = static_cast<long>(table_top + cell_size * 7)};
         wchar_t buf[64];
         wsprintfW(buf, L"%s %s", persian_months[(date.month - 1) % 12], format_number(date.year).value);
         DrawTextW(hdc, buf, -1, &cell_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -770,7 +768,7 @@ static LRESULT CALLBACK widget_window_procedure(HWND hWnd, UINT msg, WPARAM wPar
 
     case WM_NCHITTEST:
     {
-        POINT pt{LOWORD(lParam), HIWORD(lParam)};
+        POINT pt{.x = LOWORD(lParam), .y = HIWORD(lParam)};
         ScreenToClient(hWnd, &pt);
         RECT rect;
         GetClientRect(hWnd, &rect);
@@ -843,7 +841,7 @@ static LRESULT CALLBACK widget_window_procedure(HWND hWnd, UINT msg, WPARAM wPar
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
         const int table_size = static_cast<int>(ps.rcPaint.bottom - ps.rcPaint.top);
-        const unsigned cell_size = static_cast<unsigned>(table_size / 8);
+        const auto cell_size = static_cast<unsigned>(table_size / 8);
         const unsigned padding = (static_cast<unsigned>(table_size) - cell_size * 7) / 2;
         bool is_dark_mode = is_system_in_dark_mode();
         {
@@ -944,9 +942,9 @@ static LRESULT CALLBACK converter_window_procedure(HWND hWnd, UINT msg, WPARAM w
 
         {
             persian_date_t date = date_combo_controller_t(hWnd, true).to_date();
-            const unsigned cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 16);
-            unsigned table_top = static_cast<unsigned>(ps.rcPaint.bottom / table_height_ratio);
-            unsigned table_start = static_cast<unsigned>((ps.rcPaint.right - ps.rcPaint.left - static_cast<int>(cell_size) * 7) / 2);
+            const auto cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 16);
+            auto table_top = static_cast<unsigned>(ps.rcPaint.bottom / table_height_ratio);
+            auto table_start = static_cast<unsigned>((ps.rcPaint.right - ps.rcPaint.left - static_cast<int>(cell_size) * 7) / 2);
             bool is_dark_mode = is_system_in_dark_mode();
             draw_table(table_start, table_top, cell_size, hdc, date, is_dark_mode, false);
         }
@@ -978,8 +976,8 @@ static LRESULT CALLBACK converter_window_procedure(HWND hWnd, UINT msg, WPARAM w
 
     case WM_SIZE:
     {
-        unsigned newWidth = static_cast<unsigned>(LOWORD(lParam));
-        unsigned newHeight = static_cast<unsigned>(HIWORD(lParam));
+        auto newWidth = static_cast<unsigned>(LOWORD(lParam));
+        auto newHeight = static_cast<unsigned>(HIWORD(lParam));
         update_layout(hWnd, newWidth, newHeight);
         InvalidateRect(hWnd, nullptr, FALSE);
         return 0;
@@ -1072,7 +1070,7 @@ static void update(HWND hWnd, app_state_t *state)
 const unsigned notifyClickId = WM_USER + 1;
 static LRESULT CALLBACK tray_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    app_state_t *state = reinterpret_cast<app_state_t *>(
+    auto *state = reinterpret_cast<app_state_t *>(
         GetWindowLongPtrW(hWnd, GWLP_USERDATA));
     switch (msg)
     {
@@ -1236,7 +1234,7 @@ static void enable_visual_styles()
 
 IB_WARNING_DISABLE_CLANG_PUSH("-Wunsafe-buffer-usage")
 template <size_t N>
-static bool has_string_suffix(const wchar_t *str, const wchar_t (&suffix)[N])
+static auto has_string_suffix(const wchar_t *str, const wchar_t (&suffix)[N]) -> bool
 {
     int str_len = lstrlenW(str);
     constexpr int suffix_len = static_cast<int>(N) - 1;
