@@ -221,12 +221,14 @@ static void create_menu(app_state_t *state, wchar_t *date)
         menu_item.dwTypeData = const_cast<wchar_t *>(L"نمایش ویجت");
         InsertMenuItemW(menu, show_widget_id, TRUE, &menu_item);
     }
+    if (state->show_widget)
     {
         menu_item.fState = state->fixed_widget_placement ? MFS_CHECKED : 0;
         menu_item.wID = fixed_widget_placement_id;
         menu_item.dwTypeData = const_cast<wchar_t *>(L"مکان ثابت ویجت");
         InsertMenuItemW(menu, fixed_widget_placement_id, TRUE, &menu_item);
     }
+    if (state->show_widget)
     {
         menu_item.fState = state->always_on_top_widget ? MFS_CHECKED : 0;
         menu_item.wID = always_on_top_widget_id;
