@@ -356,9 +356,9 @@ private:
 
 public:
     date_combo_controller_t(
-        HWND hwnd, bool is_persian) : hDay(GetDlgItem(hwnd, static_cast<int>(is_persian ? dlg_persian_day_combo_id : dlg_gregorian_day_combo_id))),
-                                      hMonth(GetDlgItem(hwnd, static_cast<int>(is_persian ? dlg_persian_month_combo_id : dlg_gregorian_month_combo_id))),
-                                      hYear(GetDlgItem(hwnd, static_cast<int>(is_persian ? dlg_persian_year_combo_id : dlg_gregorian_year_combo_id))),
+        HWND hWnd, bool is_persian) : hDay(GetDlgItem(hWnd, static_cast<int>(is_persian ? dlg_persian_day_combo_id : dlg_gregorian_day_combo_id))),
+                                      hMonth(GetDlgItem(hWnd, static_cast<int>(is_persian ? dlg_persian_month_combo_id : dlg_gregorian_month_combo_id))),
+                                      hYear(GetDlgItem(hWnd, static_cast<int>(is_persian ? dlg_persian_year_combo_id : dlg_gregorian_year_combo_id))),
                                       base_year(static_cast<unsigned>(GetWindowLongPtrW(hYear, GWLP_USERDATA))) {}
 
     date_t to_date() const
@@ -377,10 +377,10 @@ public:
     }
 };
 
-static void update_values(HWND hwnd, update_source_t source)
+static void update_values(HWND hWnd, update_source_t source)
 {
-    date_combo_controller_t persian_combo(hwnd, true);
-    date_combo_controller_t gregorian_combo(hwnd, false);
+    date_combo_controller_t persian_combo(hWnd, true);
+    date_combo_controller_t gregorian_combo(hWnd, false);
 
     unsigned days;
     if (source == update_source_t::INIT)
@@ -396,14 +396,14 @@ static void update_values(HWND hwnd, update_source_t source)
     unsigned today_days = today_in_days();
     const wchar_t *weekday = weekdays[(days + 3) % 7];
     wchar_t result[128];
-    toggle_exstyle(hwnd, days != today_days, WS_EX_CONTEXTHELP); // toggle window's help button
+    toggle_exstyle(hWnd, days != today_days, WS_EX_CONTEXTHELP); // toggle window's help button
     if (days == today_days)
         wsprintfW(result, L"%s، امروز", weekday);
     else if (days < today_days)
         wsprintfW(result, L"%s، %s روز پیش", weekday, format_number(today_days - days).value);
     else if (days > today_days)
         wsprintfW(result, L"%s، %s روز آتی", weekday, format_number(days - today_days).value);
-    SetWindowTextW(hwnd, result);
+    SetWindowTextW(hWnd, result);
 }
 
 constexpr int window_width = 6;
@@ -416,12 +416,12 @@ constexpr int table_height_ratio = 2;
 // Derived from the original magenta color to solve click-through issues
 #define APP_LWA_COLORKEY (RGB(0xFE, 0x01, 0xFD))
 
-static void update_layout(HWND hwnd, unsigned width, unsigned height)
+static void update_layout(HWND hWnd, unsigned width, unsigned height)
 {
     HFONT hFont = get_system_font(MulDiv(static_cast<int>(height), 8, 25 * table_height_ratio));
     for (unsigned i = 0; i < 6; ++i)
     {
-        HWND item = GetDlgItem(hwnd, static_cast<int>(dlg_persian_day_combo_id + i));
+        HWND item = GetDlgItem(hWnd, static_cast<int>(dlg_persian_day_combo_id + i));
         SendMessageW(item, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
         unsigned row = i % 3;
         MoveWindow(item,
@@ -436,17 +436,17 @@ static void update_layout(HWND hwnd, unsigned width, unsigned height)
     }
 }
 
-static void update_window_visual_styles(HWND hwnd)
+static void update_window_visual_styles(HWND hWnd)
 {
     BOOL darkMode = is_dark_mode_active();
 
     {
-        auto pSetWindowTheme = LibraryLoader("uxtheme.dll").getProcedure<HRESULT(WINAPI *)(HWND hwnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList)>("SetWindowTheme");
-        auto pGetComboBoxInfo = LibraryLoader("user32.dll").getProcedure<BOOL(WINAPI *)(HWND hwndCombo, PCOMBOBOXINFO pcbi)>("GetComboBoxInfo");
+        auto pSetWindowTheme = LibraryLoader("uxtheme.dll").getProcedure<HRESULT(WINAPI *)(HWND hWnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList)>("SetWindowTheme");
+        auto pGetComboBoxInfo = LibraryLoader("user32.dll").getProcedure<BOOL(WINAPI *)(HWND hWndCombo, PCOMBOBOXINFO pcbi)>("GetComboBoxInfo");
         if (pSetWindowTheme)
             for (unsigned id = dlg_persian_day_combo_id; id <= dlg_gregorian_year_combo_id; ++id)
             {
-                HWND item = GetDlgItem(hwnd, static_cast<int>(id));
+                HWND item = GetDlgItem(hWnd, static_cast<int>(id));
                 pSetWindowTheme(item, darkMode ? L"DarkMode_CFD" : L"Explorer", nullptr);
                 if (pGetComboBoxInfo)
                 {
@@ -465,17 +465,17 @@ static void update_window_visual_styles(HWND hwnd)
         if (pDwmExtendFrameIntoClientArea)
         {
             MARGINS margins = {-1, -1, -1, -1};
-            pDwmExtendFrameIntoClientArea(hwnd, &margins);
+            pDwmExtendFrameIntoClientArea(hWnd, &margins);
         }
     }
     {
-        auto pDwmSetWindowAttribute = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
+        auto pDwmSetWindowAttribute = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND hWnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
             "DwmSetWindowAttribute");
         if (pDwmSetWindowAttribute)
         {
-            pDwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
+            pDwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
             int backdropType = DWMSBT_TRANSIENTWINDOW; // instead of Mica's DWMSBT_MAINWINDOW
-            pDwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
+            pDwmSetWindowAttribute(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
         }
     }
 }
@@ -605,19 +605,19 @@ private:
     constexpr static const wchar_t *always_on_top_widget_key = L"AlwaysOnTopWidget";
 };
 
-static void handle_widget_movability(HWND hwnd, app_state_t *app_state)
+static void handle_widget_movability(HWND hWnd, app_state_t *app_state)
 {
-    toggle_exstyle(hwnd, app_state->fixed_widget_placement, WS_EX_TRANSPARENT);
+    toggle_exstyle(hWnd, app_state->fixed_widget_placement, WS_EX_TRANSPARENT);
 }
 
-static void handle_widget_always_on_top(HWND hwnd, app_state_t *app_state)
+static void handle_widget_always_on_top(HWND hWnd, app_state_t *app_state)
 {
-    if (hwnd == nullptr)
+    if (hWnd == nullptr)
         return;
-    SetWindowPos(hwnd, app_state->always_on_top_widget ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    SetWindowPos(hWnd, app_state->always_on_top_widget ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 }
 
-static void handle_widget(HWND hwnd, app_state_t *app_state)
+static void handle_widget(HWND hWnd, app_state_t *app_state)
 {
     HWND widgetHwnd = app_state->widget_hwnd;
     if (app_state->show_widget)
@@ -644,11 +644,11 @@ static void handle_widget(HWND hwnd, app_state_t *app_state)
                 WS_POPUP | WS_OVERLAPPED | WS_SIZEBOX,
                 left, top,
                 size, size,
-                hwnd, nullptr, hInst, nullptr);
+                hWnd, nullptr, hInst, nullptr);
             SetTimer(widgetHwnd, widgetTimerId, 60000, nullptr);
             {
                 DWM_WINDOW_CORNER_PREFERENCE preference = DWMWCP_ROUND;
-                auto pDwmSetWindowAttribute = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>("DwmSetWindowAttribute");
+                auto pDwmSetWindowAttribute = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(HWND hWnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>("DwmSetWindowAttribute");
                 if (pDwmSetWindowAttribute)
                     pDwmSetWindowAttribute(
                         widgetHwnd,
@@ -746,17 +746,17 @@ static void draw_table(
     DeleteObject(hFont2);
 }
 
-static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK widget_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch (msg)
     {
     case WM_SIZE:
     case WM_MOVE:
     {
-        InvalidateRect(hwnd, nullptr, FALSE);
+        InvalidateRect(hWnd, nullptr, FALSE);
         WINDOWPLACEMENT wp;
         wp.length = sizeof(WINDOWPLACEMENT);
-        if (GetWindowPlacement(hwnd, &wp))
+        if (GetWindowPlacement(hWnd, &wp))
             Registry().set_widget_position(wp.rcNormalPosition.left, wp.rcNormalPosition.top, wp.rcNormalPosition.right - wp.rcNormalPosition.left);
         break;
     }
@@ -771,9 +771,9 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
     case WM_NCHITTEST:
     {
         POINT pt{LOWORD(lParam), HIWORD(lParam)};
-        ScreenToClient(hwnd, &pt);
+        ScreenToClient(hWnd, &pt);
         RECT rect;
-        GetClientRect(hwnd, &rect);
+        GetClientRect(hWnd, &rect);
         int borderZone = MulDiv(8, static_cast<int>(get_system_dpi()), 96);
         bool isLeft = pt.x > rect.right - borderZone; // Flipped for RTL
         bool isRight = pt.x < rect.left + borderZone; // Flipped for RTL
@@ -835,13 +835,13 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
 
     case WM_TIMER:
     case WM_SETTINGCHANGE:
-        InvalidateRect(hwnd, nullptr, FALSE);
+        InvalidateRect(hWnd, nullptr, FALSE);
         return 0;
 
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hwnd, &ps);
+        HDC hdc = BeginPaint(hWnd, &ps);
         const int table_size = static_cast<int>(ps.rcPaint.bottom - ps.rcPaint.top);
         const unsigned cell_size = static_cast<unsigned>(table_size / 8);
         const unsigned padding = (static_cast<unsigned>(table_size) - cell_size * 7) / 2;
@@ -852,7 +852,7 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
             DeleteObject(background_brush);
         }
         draw_table(padding, padding, cell_size, hdc, days_to_persian(today_in_days()), is_dark_mode, true);
-        EndPaint(hwnd, &ps);
+        EndPaint(hWnd, &ps);
         break;
     }
 
@@ -862,8 +862,8 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
     case WM_CREATE:
     {
         constexpr int default_window_alpha = 200;
-        SetLayeredWindowAttributes(hwnd, 0, default_window_alpha, LWA_ALPHA);
-        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+        SetLayeredWindowAttributes(hWnd, 0, default_window_alpha, LWA_ALPHA);
+        SetWindowPos(hWnd, nullptr, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
         break;
     }
@@ -872,17 +872,17 @@ static LRESULT CALLBACK widget_window_procedure(HWND hwnd, UINT msg, WPARAM wPar
     case WM_LBUTTONDOWN:
     {
         ReleaseCapture();
-        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+        SendMessageW(hWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
         return 0;
     }
 
     default:
         break;
     }
-    return DefWindowProcW(hwnd, msg, wParam, lParam);
+    return DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
-static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK converter_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch (msg)
     {
@@ -897,7 +897,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
             HWND item = CreateWindowExW(
                 0, L"COMBOBOX", nullptr,
                 WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-                0, 0, 0, 0, hwnd,
+                0, 0, 0, 0, hWnd,
                 reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_persian_day_combo_id + i)), hInst, nullptr);
             bool is_persian = i < 3;
             unsigned row = i % 3;
@@ -922,19 +922,19 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
                     SendMessageW(item, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(format_number(base_year + j).value));
             }
         }
-        update_values(hwnd, update_source_t::INIT);
+        update_values(hWnd, update_source_t::INIT);
     }
         [[fallthrough]];
     case WM_SETTINGCHANGE:
-        toggle_exstyle(hwnd, has_composition(), WS_EX_LAYERED | WS_EX_COMPOSITED);
-        update_window_visual_styles(hwnd);
-        InvalidateRect(hwnd, nullptr, FALSE);
+        toggle_exstyle(hWnd, has_composition(), WS_EX_LAYERED | WS_EX_COMPOSITED);
+        update_window_visual_styles(hWnd);
+        InvalidateRect(hWnd, nullptr, FALSE);
         return 0;
 
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hwnd, &ps);
+        HDC hdc = BeginPaint(hWnd, &ps);
 
         {
             HBRUSH brush = CreateSolidBrush(has_composition() ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
@@ -943,7 +943,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         }
 
         {
-            persian_date_t date = date_combo_controller_t(hwnd, true).to_date();
+            persian_date_t date = date_combo_controller_t(hWnd, true).to_date();
             const unsigned cell_size = static_cast<unsigned>(ps.rcPaint.bottom / 16);
             unsigned table_top = static_cast<unsigned>(ps.rcPaint.bottom / table_height_ratio);
             unsigned table_start = static_cast<unsigned>((ps.rcPaint.right - ps.rcPaint.left - static_cast<int>(cell_size) * 7) / 2);
@@ -951,7 +951,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
             draw_table(table_start, table_top, cell_size, hdc, date, is_dark_mode, false);
         }
 
-        EndPaint(hwnd, &ps);
+        EndPaint(hWnd, &ps);
         break;
     }
 
@@ -960,8 +960,8 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
     {
         if (wParam == HTHELP)
         {
-            update_values(hwnd, update_source_t::INIT);
-            InvalidateRect(hwnd, nullptr, FALSE);
+            update_values(hWnd, update_source_t::INIT);
+            InvalidateRect(hWnd, nullptr, FALSE);
             return 0;
         }
         break;
@@ -980,14 +980,14 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
     {
         unsigned newWidth = static_cast<unsigned>(LOWORD(lParam));
         unsigned newHeight = static_cast<unsigned>(HIWORD(lParam));
-        update_layout(hwnd, newWidth, newHeight);
-        InvalidateRect(hwnd, nullptr, FALSE);
+        update_layout(hWnd, newWidth, newHeight);
+        InvalidateRect(hWnd, nullptr, FALSE);
         return 0;
     }
 
     case WM_MOVE:
     {
-        InvalidateRect(hwnd, nullptr, FALSE);
+        InvalidateRect(hWnd, nullptr, FALSE);
         return 0;
     }
 
@@ -995,7 +995,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
     case WM_LBUTTONDOWN:
     {
         ReleaseCapture();
-        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+        SendMessageW(hWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
         return 0;
     }
 
@@ -1005,8 +1005,8 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
         const WORD code = HIWORD(wParam);
         if (code == CBN_SELCHANGE)
         {
-            update_values(hwnd, id < dlg_gregorian_day_combo_id ? update_source_t::PERSIAN : update_source_t::GREGORIAN);
-            InvalidateRect(hwnd, nullptr, FALSE);
+            update_values(hWnd, id < dlg_gregorian_day_combo_id ? update_source_t::PERSIAN : update_source_t::GREGORIAN);
+            InvalidateRect(hWnd, nullptr, FALSE);
             return 0;
         }
         break;
@@ -1014,7 +1014,7 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
 
     case WM_DESTROY:
         // If hwnd doesn't have a parent, it means it's in the portable mode
-        if (!GetWindow(hwnd, GW_OWNER))
+        if (!GetWindow(hWnd, GW_OWNER))
         {
             PostQuitMessage(ERROR_SUCCESS);
             return 0;
@@ -1024,13 +1024,13 @@ static LRESULT CALLBACK converter_window_procedure(HWND hwnd, UINT msg, WPARAM w
     default:
         break;
     }
-    return DefWindowProcW(hwnd, msg, wParam, lParam);
+    return DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
 static void open_converter_dialog(HWND parent)
 {
     UINT dpi = get_system_dpi();
-    HWND hwnd = CreateWindowExW(
+    HWND hWnd = CreateWindowExW(
         WS_EX_DLGMODALFRAME | WS_EX_OVERLAPPEDWINDOW | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL,
         converterClassName, L"",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_SIZEBOX,
@@ -1038,12 +1038,12 @@ static void open_converter_dialog(HWND parent)
         static_cast<int>(window_width * dpi),
         static_cast<int>(window_height * dpi),
         parent, nullptr, hInst, nullptr);
-    SetLayeredWindowAttributes(hwnd, APP_LWA_COLORKEY, 0, LWA_COLORKEY);
-    ShowWindow(hwnd, SW_SHOW);
-    SetForegroundWindow(hwnd);
+    SetLayeredWindowAttributes(hWnd, APP_LWA_COLORKEY, 0, LWA_COLORKEY);
+    ShowWindow(hWnd, SW_SHOW);
+    SetForegroundWindow(hWnd);
 }
 
-static void update(HWND hwnd, app_state_t *state)
+static void update(HWND hWnd, app_state_t *state)
 {
     unsigned days = today_in_days();
     persian_date_t date = days_to_persian(days);
@@ -1060,9 +1060,9 @@ static void update(HWND hwnd, app_state_t *state)
     // szTip allocated string is both used for the tooltip and first item of the menu
     create_menu(state, nid.szTip);
 
-    HDC hdc = GetDC(hwnd);
+    HDC hdc = GetDC(hWnd);
     HICON icon = create_text_icon(hdc, format_number(date.day, local_digits).value, state->black_background);
-    ReleaseDC(hwnd, hdc);
+    ReleaseDC(hWnd, hdc);
     if (nid.hIcon)
         DestroyIcon(nid.hIcon);
     nid.hIcon = icon;
@@ -1070,10 +1070,10 @@ static void update(HWND hwnd, app_state_t *state)
 }
 
 const unsigned notifyClickId = WM_USER + 1;
-static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK tray_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     app_state_t *state = reinterpret_cast<app_state_t *>(
-        GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+        GetWindowLongPtrW(hWnd, GWLP_USERDATA));
     switch (msg)
     {
     case WM_DESTROY:
@@ -1082,7 +1082,7 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
 
     case WM_TIMER:
     case WM_SETTINGCHANGE:
-        update(hwnd, state);
+        update(hWnd, state);
         return 0;
 
     case notifyClickId:
@@ -1090,12 +1090,12 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         {
             POINT p;
             GetCursorPos(&p);
-            SetForegroundWindow(hwnd);
+            SetForegroundWindow(hWnd);
             TrackPopupMenu(state->menu, TPM_RIGHTALIGN | TPM_RIGHTBUTTON | TPM_LAYOUTRTL,
-                           p.x, p.y, 0, hwnd, nullptr);
+                           p.x, p.y, 0, hWnd, nullptr);
         }
         else if (lParam == WM_LBUTTONDBLCLK)
-            open_converter_dialog(hwnd);
+            open_converter_dialog(hWnd);
         return 0;
 
     case WM_COMMAND:
@@ -1103,7 +1103,7 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         {
             bool newValue = !state->local_digits;
             state->local_digits = newValue;
-            update(hwnd, state);
+            update(hWnd, state);
             Registry().set_local_digits(newValue);
             return 0;
         }
@@ -1111,7 +1111,7 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         {
             bool newValue = !state->black_background;
             state->black_background = newValue;
-            update(hwnd, state);
+            update(hWnd, state);
             Registry().set_black_background(newValue);
             return 0;
         }
@@ -1119,11 +1119,11 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         {
             bool newValue = !state->show_widget;
             state->show_widget = newValue;
-            handle_widget(hwnd, state);
+            handle_widget(hWnd, state);
             const Registry &registry = Registry();
             // if (!newValue)
             //     registry.set_widget_position(CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT);
-            update(hwnd, state);
+            update(hWnd, state);
             registry.set_show_widget(newValue);
             return 0;
         }
@@ -1131,7 +1131,7 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         {
             bool newValue = !state->fixed_widget_placement;
             state->fixed_widget_placement = newValue;
-            update(hwnd, state);
+            update(hWnd, state);
             handle_widget_movability(state->widget_hwnd, state);
             Registry().set_fixed_widget_placement(newValue);
             return 0;
@@ -1140,14 +1140,14 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         {
             bool newValue = !state->always_on_top_widget;
             state->always_on_top_widget = newValue;
-            update(hwnd, state);
+            update(hWnd, state);
             handle_widget_always_on_top(state->widget_hwnd, state);
             Registry().set_always_on_top_widget(newValue);
             return 0;
         }
         else if (wParam == date_converter_id)
         {
-            open_converter_dialog(hwnd);
+            open_converter_dialog(hWnd);
             return 0;
         }
         else if (wParam == exit_id)
@@ -1160,7 +1160,7 @@ static LRESULT CALLBACK tray_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
     default:
         break;
     }
-    return DefWindowProcW(hwnd, msg, wParam, lParam);
+    return DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
 static void enable_hidpi()
@@ -1278,7 +1278,7 @@ void start()
         wc.lpszClassName = widgetClassName;
         RegisterClassExW(&wc);
     }
-    HWND hwnd = is_portable ? nullptr : CreateWindowExW(0, appId, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
+    HWND hWnd = is_portable ? nullptr : CreateWindowExW(0, appId, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
 
     enable_visual_styles();
     enable_hidpi();
@@ -1291,7 +1291,7 @@ void start()
         notify_icon_data.cbSize = sizeof(NOTIFYICONDATAW);
         notify_icon_data.uCallbackMessage = notifyClickId;
         notify_icon_data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
-        notify_icon_data.hWnd = hwnd;
+        notify_icon_data.hWnd = hWnd;
         if (!is_portable)
             Shell_NotifyIconW(NIM_ADD, &notify_icon_data);
     }
@@ -1299,15 +1299,15 @@ void start()
     app_state_t state(&notify_icon_data);
     if (!is_portable)
     {
-        SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
+        SetWindowLongPtrW(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
         Registry().fill_app_state(&state);
-        handle_widget(hwnd, &state);
-        update(hwnd, &state);
-        SetTimer(hwnd, mainTimerId, 60000, nullptr);
+        handle_widget(hWnd, &state);
+        update(hWnd, &state);
+        SetTimer(hWnd, mainTimerId, 60000, nullptr);
     }
 
     if (is_portable)
-        open_converter_dialog(hwnd);
+        open_converter_dialog(hWnd);
 
     // Main loop
     MSG msg;
