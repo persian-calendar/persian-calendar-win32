@@ -59,9 +59,9 @@ public:
     template <typename T>
     auto getProcedure(const char *procName)
     {
-IB_WARNING_DISABLE_CLANG_PUSH("-Wcast-function-type-strict")
-        return reinterpret_cast<T>(GetProcAddress(m_module, procName));
-IB_WARNING_DISABLE_CLANG_POP
+//NOLINTBEGIN(bugprone-casting-through-void)
+        return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(m_module, procName)));
+//NOLINTEND(bugprone-casting-through-void)
     }
 };
 
