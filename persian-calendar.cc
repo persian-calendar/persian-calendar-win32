@@ -1,11 +1,4 @@
-#include "warnings.hpp"
-#define WIN32_LEAN_AND_MEAN
-#define UNICODE
-#define WINVER 0x0500 // XP support, and maybe 2000? Why not
-IB_WARNING_DISABLE_CLANG_PUSH("-Wnonportable-system-include-path")
-#include <windows.h>
-IB_WARNING_DISABLE_CLANG_POP
-#include <shellapi.h>
+#include "shared.hh"
 #include <dwmapi.h>
 
 #include "persian-calendar.h"
@@ -15,12 +8,6 @@ IB_WARNING_DISABLE_CLANG_PUSH("-Wreserved-identifier")
 extern "C" IMAGE_DOS_HEADER __ImageBase;
 IB_WARNING_DISABLE_CLANG_POP
 #define hInst (reinterpret_cast<HMODULE>(&__ImageBase))
-
-template <typename T>
-void zero_memory(T &ptr, size_t size = sizeof(T))
-{
-    SecureZeroMemory(&ptr, size);
-}
 
 static auto get_system_font(LONG size, bool disable_antialiasing = false) -> HFONT
 {
@@ -35,31 +22,6 @@ static auto get_system_font(LONG size, bool disable_antialiasing = false) -> HFO
     }
     return reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
 }
-
-struct LibraryLoader
-{
-private:
-    HMODULE m_module;
-
-    static auto getModuleWithFallback(const char *name) -> HMODULE
-    {
-        HMODULE module = GetModuleHandleA(name);
-        return module ? module : LoadLibraryA(name);
-    }
-
-public:
-    LibraryLoader(const LibraryLoader &) = delete;
-    void operator=(const LibraryLoader &) = delete;
-    LibraryLoader(const char *name) : m_module(getModuleWithFallback(name)) {}
-    // Let's just don't free, all we load is system libraries and they are always loaded anyway, so no need to free them.
-    // ~LibraryLoader() { if (module) FreeLibrary(module); }
-
-    template <typename T>
-    auto getProcedure(const char *procName)
-    {
-        return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(m_module, procName))); // NOLINT(bugprone-casting-through-void)
-    }
-};
 
 static auto get_build_number() -> DWORD
 {
@@ -176,18 +138,6 @@ struct app_state_t
     }
 };
 
-constexpr unsigned date_id = 1000;
-constexpr unsigned first_separator_id = 1001;
-constexpr unsigned local_digits_id = 1002;
-constexpr unsigned black_background_id = 1003;
-constexpr unsigned second_separator_id = 1004;
-constexpr unsigned show_widget_id = 1005;
-constexpr unsigned fixed_widget_placement_id = 1006;
-constexpr unsigned always_on_top_widget_id = 1007;
-constexpr unsigned third_separator_id = 1008;
-constexpr unsigned date_converter_id = 1009;
-constexpr unsigned fourth_separator_id = 1010;
-constexpr unsigned exit_id = 1011;
 static void create_menu(app_state_t *state, wchar_t *date)
 {
     HMENU menu = CreatePopupMenu();
@@ -479,7 +429,6 @@ static void update_window_visual_styles(HWND hWnd)
     }
 }
 
-#define appId L"PersianCalendarWin32"
 struct Registry
 {
     Registry(const Registry &) = delete;
@@ -488,7 +437,7 @@ struct Registry
     {
         LONG status = RegCreateKeyExW(
             HKEY_CURRENT_USER,
-            L"Software\\" appId,
+            L"Software\\" APP_ID,
             0,
             nullptr,
             REG_OPTION_NON_VOLATILE,
@@ -745,6 +694,14 @@ static void draw_table(
     DeleteObject(hFont2);
 }
 
+static void set_layered_window_attributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags) {
+    LibraryLoader user32("user32");
+    auto pSetLayeredWindowAttributes = user32.getProcedure<BOOL(WINAPI *)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)>(
+        "SetLayeredWindowAttributes");
+    if (pSetLayeredWindowAttributes)
+        pSetLayeredWindowAttributes(hwnd, crKey, bAlpha, dwFlags);
+}
+
 static auto CALLBACK widget_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) -> LRESULT
 {
     switch (msg)
@@ -861,7 +818,7 @@ static auto CALLBACK widget_window_procedure(HWND hWnd, UINT msg, WPARAM wParam,
     case WM_CREATE:
     {
         constexpr int default_window_alpha = 200;
-        SetLayeredWindowAttributes(hWnd, 0, default_window_alpha, LWA_ALPHA);
+        set_layered_window_attributes(hWnd, 0, default_window_alpha, LWA_ALPHA);
         SetWindowPos(hWnd, nullptr, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
         break;
@@ -1037,7 +994,7 @@ static void open_converter_dialog(HWND parent)
         static_cast<int>(window_width * dpi),
         static_cast<int>(window_height * dpi),
         parent, nullptr, hInst, nullptr);
-    SetLayeredWindowAttributes(hWnd, APP_LWA_COLORKEY, 0, LWA_COLORKEY);
+    set_layered_window_attributes(hWnd, APP_LWA_COLORKEY, 0, LWA_COLORKEY);
     ShowWindow(hWnd, SW_SHOW);
     SetForegroundWindow(hWnd);
 }
@@ -1162,21 +1119,6 @@ static auto CALLBACK tray_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, L
     return DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
-static void enable_hidpi()
-{
-    LibraryLoader user32("user32");
-    auto pSetProcessDpiAwarenessContext = user32.getProcedure<BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT value)>(
-        "SetProcessDpiAwarenessContext");
-    if (pSetProcessDpiAwarenessContext)
-        pSetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    else
-    {
-        auto pSetProcessDPIAware = user32.getProcedure<BOOL(WINAPI *)()>("SetProcessDPIAware");
-        if (pSetProcessDPIAware)
-            pSetProcessDPIAware();
-    }
-}
-
 static void enable_dark_mode_support()
 {
     // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
@@ -1253,7 +1195,7 @@ void start()
 {
     bool is_portable = has_string_suffix(GetCommandLineW(), L"/p");
 
-    HANDLE mutex = CreateMutexW(nullptr, 0, appId);
+    HANDLE mutex = CreateMutexW(nullptr, 0, APP_ID);
     is_portable |= !mutex || GetLastError() == ERROR_ALREADY_EXISTS;
 
     {
@@ -1266,7 +1208,7 @@ void start()
         wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
         // Tray Menu's class
         wc.lpfnWndProc = tray_window_procedure;
-        wc.lpszClassName = appId;
+        wc.lpszClassName = APP_ID;
         RegisterClassExW(&wc);
         // Converter Dialog's class
         wc.lpfnWndProc = converter_window_procedure;
@@ -1277,7 +1219,7 @@ void start()
         wc.lpszClassName = widgetClassName;
         RegisterClassExW(&wc);
     }
-    HWND hWnd = is_portable ? nullptr : CreateWindowExW(0, appId, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
+    HWND hWnd = is_portable ? nullptr : CreateWindowExW(0, APP_ID, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, hInst, nullptr);
 
     enable_visual_styles();
     enable_hidpi();

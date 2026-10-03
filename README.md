@@ -1,6 +1,6 @@
-A simple and small (5kb) way to display Persian calendar as a tray icon in your Windows machine and a date converter.
+A simple and small (20kb) way to display Persian calendar as a tray icon in your Windows machine and a date converter.
 
-برنامهٔ سادهٔ و کوچک (۵ کیلوبایت) نمایش تقویم فارسی به‌عنوان یک آیکون در نوار اعلان ویندوز و یک مبدل تاریخ.
+برنامهٔ سادهٔ و کوچک (۲۰ کیلوبایت) نمایش تقویم فارسی به‌عنوان یک آیکون در نوار اعلان ویندوز و یک مبدل تاریخ.
 
 It looks something like this
 
@@ -13,9 +13,15 @@ and it has a support from Windows XP to Windows 11's HiDPI and dark mode.
 Installation
 ------------
 
-* Find a `persian-calendar.exe` from the latest version of https://github.com/persian-calendar/persian-calendar-win32/releases
+The easier way:
+* Download `installer.exe` from https://github.com/persian-calendar/persian-calendar-win32/releases
+(and for uninstallation just double click the installer.exe again or use another traditional ways)
+
+Or the manual way:
+* Find the `persian-calendar.exe` from the latest version of https://github.com/persian-calendar/persian-calendar-win32/releases
 * Press Win+R and type `shell:startup`
 * Drop the `persian-calendar.exe` on the folder
+(and for uninstallation, exit the app, remove the app from `shell:startup`)
 
 Build
 -----

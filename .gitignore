@@ -3,6 +3,7 @@ persian-calendar.gcc.exe
 persian-calendar.llvm.exe
 Crinkler.exe
 test.exe
+installer.exe
 .vscode/
 .DS_Store
 persian-calendar.obj
