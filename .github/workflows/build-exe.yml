@@ -61,7 +61,8 @@ jobs:
           $year = $persianCalendar.GetYear($now)
           $month = $persianCalendar.GetMonth($now)
           $day = $persianCalendar.GetDayOfMonth($now)
-          $tagName = "$year-$($month.ToString('00'))-$($day.ToString('00'))"
+          $shortYear = $year % 100
+          $tagName = "v$shortYear.$month.$day"
 
           gh release view $tagName *> $null
           if ($LASTEXITCODE -eq 0) {
