@@ -82,12 +82,12 @@ static void set_prop(IPropertyStore *ps, DWORD pid, const wchar_t *v)
 static bool make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar_t *uninstCmd)
 {
     IShellLinkW *sl = nullptr;
-    if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void **)&sl)))
+    if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, reinterpret_cast<void **>(&sl))))
         return false;
     sl->SetPath(target);
     sl->SetDescription(APP_NAME);
     IPropertyStore *ps = nullptr;
-    if (SUCCEEDED(sl->QueryInterface(IID_IPropertyStore, (void **)&ps)))
+    if (SUCCEEDED(sl->QueryInterface(IID_IPropertyStore, reinterpret_cast<void **>(&ps))))
     {
         set_prop(ps, 5, APP_ID);
         set_prop(ps, 37, uninstCmd);
@@ -96,7 +96,7 @@ static bool make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar
     }
     IPersistFile *pf = nullptr;
     bool ok = false;
-    if (SUCCEEDED(sl->QueryInterface(IID_IPersistFile, (void **)&pf)))
+    if (SUCCEEDED(sl->QueryInterface(IID_IPersistFile, reinterpret_cast<void **>(&pf))))
     {
         ok = SUCCEEDED(pf->Save(lnk, TRUE));
         pf->Release();
@@ -107,14 +107,14 @@ static bool make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar
 
 static void set_str(HKEY k, const wchar_t *name, const wchar_t *v)
 {
-    DWORD n = (DWORD)lstrlenW(v);
-    RegSetValueExW(k, name, 0, REG_SZ, (const BYTE *)v, (n + 1) * sizeof(wchar_t));
+    DWORD n = static_cast<DWORD>(lstrlenW(v));
+    RegSetValueExW(k, name, 0, REG_SZ, reinterpret_cast<const BYTE *>(v), (n + 1) * sizeof(wchar_t));
 }
 
 static void set_one(HKEY k, const wchar_t *name)
 {
     DWORD one = 1;
-    RegSetValueExW(k, name, 0, REG_DWORD, (const BYTE *)&one, sizeof one);
+    RegSetValueExW(k, name, 0, REG_DWORD, reinterpret_cast<const BYTE *>(&one), sizeof one);
 }
 
 static UINT install(const Paths &p)

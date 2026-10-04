@@ -12,8 +12,7 @@ REM https://github.com/llvm/llvm-project/releases Install from the Windows insta
     -Weverything -Wall -Wextra -Wpedantic -Werror -Weffc++ -std=c++23 -Wno-c23-extensions ^
     -mno-stack-arg-probe ^
     -Wno-c++98-compat-pedantic ^
-    -Wno-old-style-cast ^
-    -fno-exceptions -fno-rtti -fno-builtin ^
+    -fno-exceptions -fno-rtti -fsafe-buffer-usage-suggestions -fno-builtin ^
     -flto -m32 -fuse-ld=lld-link -nostdlib -nodefaultlibs -nostartfiles ^
     -Oz -lkernel32 -luser32 -lshell32 -lole32 -ladvapi32 -lshlwapi -lgdi32 ^
     -Wl,/entry:start -Wl,/subsystem:windows -Wl,/fixed -Wl,/merge:.rdata=.text ^
