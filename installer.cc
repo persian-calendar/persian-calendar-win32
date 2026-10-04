@@ -202,33 +202,58 @@ static UINT uninstall(const Paths &p)
     si.dwFlags = STARTF_USESHOWWINDOW;
     si.wShowWindow = SW_HIDE;
     PROCESS_INFORMATION pi;
-    if (CreateProcessW(nullptr, cmd, nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+    if (CreateProcessW(nullptr, cmd, nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
+    {
         CloseHandle(pi.hThread);
         CloseHandle(pi.hProcess);
     }
     return 0;
 }
 
-static bool g_dark;
-static bool g_confirmed;
-static HBRUSH g_background;
+struct dialog_state_t
+{
+    HBRUSH background;
+    BOOL dark;
+    BOOL confirmed;
+    HWND label;
+    HWND yesButton;
+    HWND noButton;
+
+    void darkModeUpdate(HWND hwnd)
+    {
+        dark = is_dark_mode_active();
+        set_immersive_dark_mode(hwnd, dark);
+        if (auto set_theme = LibraryLoader("uxtheme.dll").getProcedure<HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR)>("SetWindowTheme"))
+        {
+            set_theme(label, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+            set_theme(yesButton, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+            set_theme(noButton, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+        }
+    }
+};
 
 static LRESULT CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    auto *state = reinterpret_cast<dialog_state_t *>(
+        GetWindowLongPtrW(hwnd, GWLP_USERDATA));
     switch (msg)
     {
+    case WM_SETTINGCHANGE:
+        state->darkModeUpdate(hwnd);
+        InvalidateRect(hwnd, nullptr, FALSE);
+        break;
     case WM_COMMAND:
         if (LOWORD(wParam) == IDYES || LOWORD(wParam) == IDNO || LOWORD(wParam) == IDCANCEL)
         {
-            g_confirmed = LOWORD(wParam) == IDYES;
+            state->confirmed = LOWORD(wParam) == IDYES;
             DestroyWindow(hwnd);
             return 0;
         }
         break;
     case WM_CTLCOLORSTATIC:
-        SetTextColor(reinterpret_cast<HDC>(wParam), g_dark ? RGB(255, 255, 255) : RGB(0, 0, 0));
+        SetTextColor(reinterpret_cast<HDC>(wParam), state->dark ? RGB(255, 255, 255) : RGB(0, 0, 0));
         SetBkMode(reinterpret_cast<HDC>(wParam), TRANSPARENT);
-        return reinterpret_cast<LRESULT>(g_background);
+        return reinterpret_cast<LRESULT>(state->background);
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
@@ -240,24 +265,27 @@ static LRESULT CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wPa
 
 static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *yes, const wchar_t *no)
 {
-    g_dark = is_dark_mode_active();
+    dialog_state_t state;
+    zero_memory(state);
+    state.dark = is_dark_mode_active();
     // GDI text doesn't write alpha, so over glass it's invisible; a color key keeps it opaque.
     constexpr COLORREF colorKey = RGB(0xFE, 0x01, 0xFD);
-    g_background = CreateSolidBrush(colorKey);
+    state.background = CreateSolidBrush(colorKey);
 
     WNDCLASSW wc;
     zero_memory(wc);
     wc.lpfnWndProc = confirm_window_procedure;
     wc.hInstance = GetModuleHandleW(nullptr);
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    wc.hbrBackground = g_background;
+    wc.hbrBackground = state.background;
     wc.lpszClassName = L"InstallerConfirm";
     RegisterClassW(&wc);
 
     HDC screen = GetDC(nullptr);
     const int dpi = GetDeviceCaps(screen, LOGPIXELSX);
     ReleaseDC(nullptr, screen);
-    auto px = [dpi](int v) { return MulDiv(v, dpi, 96); };
+    auto px = [dpi](int v)
+    { return MulDiv(v, dpi, 96); };
 
     const DWORD style = WS_CAPTION | WS_SYSMENU;
     const DWORD exStyle = WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_COMPOSITED;
@@ -265,11 +293,12 @@ static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
     AdjustWindowRectEx(&rc, style, FALSE, exStyle);
     HWND hwnd = CreateWindowExW(exStyle, wc.lpszClassName, title, style, CW_USEDEFAULT, CW_USEDEFAULT,
                                 rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, wc.hInstance, nullptr);
+    SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
     SetLayeredWindowAttributes(hwnd, colorKey, 0, LWA_COLORKEY);
 
-    HWND label = CreateWindowExW(0, L"STATIC", text, WS_CHILD | WS_VISIBLE | SS_LEFT, px(20), px(20), px(360), px(56), hwnd, nullptr, wc.hInstance, nullptr);
-    HWND yesButton = CreateWindowExW(0, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, px(120), px(88), px(120), px(28), hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
-    HWND noButton = CreateWindowExW(0, L"BUTTON", no, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, px(260), px(88), px(120), px(28), hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDNO)), wc.hInstance, nullptr);
+    state.label = CreateWindowExW(0, L"STATIC", text, WS_CHILD | WS_VISIBLE | SS_LEFT, px(20), px(20), px(360), px(56), hwnd, nullptr, wc.hInstance, nullptr);
+    state.yesButton = CreateWindowExW(0, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, px(120), px(88), px(120), px(28), hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
+    state.noButton = CreateWindowExW(0, L"BUTTON", no, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, px(260), px(88), px(120), px(28), hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDNO)), wc.hInstance, nullptr);
     {
         NONCLIENTMETRICSW ncm;
         zero_memory(ncm);
@@ -279,8 +308,8 @@ static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
             ncm.lfMessageFont.lfWeight = FW_NORMAL;
             ncm.lfMessageFont.lfHeight = px(16);
             HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
-            SendMessageW(yesButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-            SendMessageW(noButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+            SendMessageW(state.yesButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+            SendMessageW(state.noButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
         }
         {
             // Antialiased edges would blend with the magenta color key.
@@ -288,20 +317,12 @@ static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
             ncm.lfMessageFont.lfWeight = FW_BOLD;
             ncm.lfMessageFont.lfHeight = px(17);
             HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
-            SendMessageW(label, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+            SendMessageW(state.label, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
         }
     }
-    HWND controls[] = {label, yesButton, noButton};
-    SetFocus(noButton);
-
-    BOOL dark = g_dark;
-    if (auto set_attribute = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD)>("DwmSetWindowAttribute"))
-        set_attribute(hwnd, 20 /*DWMWA_USE_IMMERSIVE_DARK_MODE*/, &dark, sizeof dark);
-    if (auto set_theme = LibraryLoader("uxtheme.dll").getProcedure<HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR)>("SetWindowTheme"))
-        for (HWND h : controls)
-            set_theme(h, g_dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
-
-    glass_window(hwnd, g_dark);
+    glass_window(hwnd);
+    state.darkModeUpdate(hwnd);
+    SetFocus(state.noButton);
 
     ShowWindow(hwnd, SW_SHOW);
     SetForegroundWindow(hwnd);
@@ -313,7 +334,7 @@ static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
             TranslateMessage(&m);
             DispatchMessageW(&m);
         }
-    return g_confirmed;
+    return state.confirmed;
 }
 
 static bool ask(const wchar_t *text, const wchar_t *yes)

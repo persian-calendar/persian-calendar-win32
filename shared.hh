@@ -110,26 +110,26 @@ inline void enable_dark_mode_support()
     }
 }
 
-inline void glass_window(HWND hWnd, bool darkMode) {
+inline void set_immersive_dark_mode(HWND hWnd, BOOL darkMode)
+{
+    if (auto set_attribute = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD)>("DwmSetWindowAttribute"))
+        set_attribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof darkMode);
+}
+
+inline void glass_window(HWND hWnd)
+{
     LibraryLoader dwmapi("dwmapi.dll");
+    if (auto pDwmExtendFrameIntoClientArea = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND, const MARGINS *)>(
+            "DwmExtendFrameIntoClientArea"))
     {
-        auto pDwmExtendFrameIntoClientArea = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND, const MARGINS *)>(
-            "DwmExtendFrameIntoClientArea");
-        if (pDwmExtendFrameIntoClientArea)
-        {
-            MARGINS margins = {.cxLeftWidth = -1, .cxRightWidth = -1, .cyTopHeight = -1, .cyBottomHeight = -1};
-            pDwmExtendFrameIntoClientArea(hWnd, &margins);
-        }
+        MARGINS margins = {.cxLeftWidth = -1, .cxRightWidth = -1, .cyTopHeight = -1, .cyBottomHeight = -1};
+        pDwmExtendFrameIntoClientArea(hWnd, &margins);
     }
+    if (auto pDwmSetWindowAttribute = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND hWnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
+            "DwmSetWindowAttribute"))
     {
-        auto pDwmSetWindowAttribute = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND hWnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
-            "DwmSetWindowAttribute");
-        if (pDwmSetWindowAttribute)
-        {
-            pDwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
-            int backdropType = DWMSBT_TRANSIENTWINDOW; // instead of Mica's DWMSBT_MAINWINDOW
-            pDwmSetWindowAttribute(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
-        }
+        int backdropType = DWMSBT_TRANSIENTWINDOW; // instead of Mica's DWMSBT_MAINWINDOW
+        pDwmSetWindowAttribute(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
     }
 }
 

@@ -384,7 +384,7 @@ static void update_window_visual_styles(HWND hWnd)
                 }
             }
     }
-    glass_window(hWnd, darkMode);
+    set_immersive_dark_mode(hWnd, darkMode);
 }
 
 struct Registry
@@ -652,7 +652,8 @@ static void draw_table(
     DeleteObject(hFont2);
 }
 
-static void set_layered_window_attributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags) {
+static void set_layered_window_attributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
+{
     LibraryLoader user32("user32");
     auto pSetLayeredWindowAttributes = user32.getProcedure<BOOL(WINAPI *)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)>(
         "SetLayeredWindowAttributes");
@@ -802,6 +803,7 @@ static auto CALLBACK converter_window_procedure(HWND hWnd, UINT msg, WPARAM wPar
     {
     case WM_CREATE:
     {
+        glass_window(hWnd);
         unsigned days = today_in_days();
         persian_date_t persian_date = days_to_persian(days);
         gregorian_date_t gregorian_date = days_to_gregorian(days);
