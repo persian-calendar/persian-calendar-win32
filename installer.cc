@@ -338,21 +338,24 @@ void start()
 {
     enable_hidpi();
     enable_dark_mode_support();
-    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-
-    Paths p;
-    if (!get_paths(p))
-        ExitProcess(1);
-
-    bool isSilent = StrStrW(GetCommandLineW(), L"/silent") != nullptr;
-    UINT code = 0;
-    if (GetFileAttributesW(p.appExe) != INVALID_FILE_ATTRIBUTES)
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    int code = 1;
+    if (SUCCEEDED(hr))
     {
-        if (isSilent || ask(L"مایلید تقویم فارسی را حذف نصب کنید؟", L"حذف نصب"))
-            code = uninstall(p);
+        Paths p;
+        if (get_paths(p))
+        {
+            bool isSilent = StrStrW(GetCommandLineW(), L"/silent") != nullptr;
+            code = 0;
+            if (GetFileAttributesW(p.appExe) != INVALID_FILE_ATTRIBUTES)
+            {
+                if (isSilent || ask(L"مایلید تقویم فارسی را حذف نصب کنید؟", L"حذف نصب"))
+                    code = uninstall(p);
+            }
+            else if (isSilent || ask(L"مایلید تقویم فارسی را نصب کنید؟", L"نصب"))
+                code = install(p);
+        }
+        CoUninitialize();
     }
-    else if (isSilent || ask(L"مایلید تقویم فارسی را نصب کنید؟", L"نصب"))
-        code = install(p);
-
     ExitProcess(code);
 }
