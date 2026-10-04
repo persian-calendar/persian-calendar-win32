@@ -12,6 +12,7 @@ static const unsigned char payload[] = {
 #define APP_EXE L"PersianCalendar.exe"
 #define UNINSTALL_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32"
 #define TILE_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Start\\TileProperties\\W~" APP_ID
+#define STARTUP_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
 static bool known_folder(const KNOWNFOLDERID &id, wchar_t *out)
 {
@@ -52,20 +53,19 @@ static void kill_app()
 
 struct Paths
 {
-    wchar_t startup[MAX_PATH], programs[MAX_PATH], dir[MAX_PATH];
-    wchar_t appExe[MAX_PATH], uninstallerExe[MAX_PATH], lnk[MAX_PATH];
+    wchar_t dir[MAX_PATH], appExe[MAX_PATH], uninstallExe[MAX_PATH], lnk[MAX_PATH];
 };
 
 static bool get_paths(Paths &p)
 {
     wchar_t local[MAX_PATH];
-    if (!known_folder(FOLDERID_Startup, p.startup) || !known_folder(FOLDERID_Programs, p.programs) ||
-        !known_folder(FOLDERID_LocalAppData, local))
+    wchar_t programs[MAX_PATH];
+    if (!known_folder(FOLDERID_Programs, programs) || !known_folder(FOLDERID_LocalAppData, local))
         return false;
     wsprintfW(p.dir, L"%s\\" APP_ID, local);
-    wsprintfW(p.appExe, L"%s\\" APP_EXE, p.startup);
-    wsprintfW(p.uninstallerExe, L"%s\\uninstall.exe", p.dir);
-    wsprintfW(p.lnk, L"%s\\" APP_NAME L".lnk", p.programs);
+    wsprintfW(p.appExe, L"%s\\" APP_EXE, p.dir);
+    wsprintfW(p.uninstallExe, L"%s\\uninstall.exe", p.dir);
+    wsprintfW(p.lnk, L"%s\\" APP_NAME L".lnk", programs);
     return true;
 }
 
@@ -123,9 +123,9 @@ static UINT install(const Paths &p)
     CreateDirectoryW(p.dir, nullptr);
     wchar_t self[MAX_PATH], cmd[MAX_PATH + 16], silentCmd[MAX_PATH + 32];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
-    wsprintfW(cmd, L"\"%s\"", p.uninstallerExe);
-    wsprintfW(silentCmd, L"\"%s\" /silent", p.uninstallerExe);
-    if (!write_file(p.appExe, payload, sizeof payload) || !CopyFileW(self, p.uninstallerExe, FALSE) ||
+    wsprintfW(cmd, L"\"%s\"", p.uninstallExe);
+    wsprintfW(silentCmd, L"\"%s\" /silent", p.uninstallExe);
+    if (!write_file(p.appExe, payload, sizeof payload) || !CopyFileW(self, p.uninstallExe, FALSE) ||
         !make_shortcut(p.lnk, p.appExe, silentCmd))
     {
         MessageBoxW(nullptr, L"Installation failed.", APP_NAME, MB_ICONERROR);
@@ -150,7 +150,13 @@ static UINT install(const Paths &p)
         RegSetValueExW(k, L"Category", 0, REG_DWORD, reinterpret_cast<const BYTE *>(&productivity), sizeof productivity);
         RegCloseKey(k);
     }
-    ShellExecuteW(nullptr, L"open", p.appExe, nullptr, p.startup, SW_SHOWNORMAL);
+    // Add to startup
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, STARTUP_KEY, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
+    {
+        RegSetValueExW(k, APP_NAME, 0, REG_SZ, reinterpret_cast<const BYTE *>(p.appExe), static_cast<DWORD>((lstrlenW(p.appExe) + 1) * static_cast<int>(sizeof(wchar_t))));
+        RegCloseKey(k);
+    }
+    ShellExecuteW(nullptr, L"open", p.appExe, nullptr, p.dir, SW_SHOWNORMAL);
     return 0;
 }
 
@@ -162,9 +168,17 @@ static UINT uninstall(const Paths &p)
     RegDeleteKeyW(HKEY_CURRENT_USER, UNINSTALL_KEY);
     RegDeleteKeyW(HKEY_CURRENT_USER, TILE_KEY);
     RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
+    {
+        HKEY k;
+        if (RegCreateKeyExW(HKEY_CURRENT_USER, STARTUP_KEY, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
+        {
+            RegDeleteValueW(k, APP_NAME);
+            RegCloseKey(k);
+        }
+    }
     // The running uninstall.exe can't delete itself; let a detached cmd do it after we exit.
     wchar_t cmd[3 * MAX_PATH];
-    wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.uninstallerExe, p.dir);
+    wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.uninstallExe, p.dir);
     STARTUPINFOW si;
     zero_memory(si);
     si.cb = sizeof si;
