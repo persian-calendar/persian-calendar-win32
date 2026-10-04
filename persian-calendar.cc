@@ -337,12 +337,6 @@ constexpr int window_width = 6;
 constexpr int window_height = 4;
 constexpr int table_height_ratio = 2;
 
-// In remembrance of old era Windows color/chroma keying,
-// * https://devblogs.microsoft.com/oldnewthing/20251014-00/?p=111681
-// * https://learn.microsoft.com/en-us/windows/win32/directshow/overlay-mixer-filter#:~:text=magenta%20for%20older%20256%2Dcolor%20cards
-// Derived from the original magenta color to solve click-through issues
-#define APP_LWA_COLORKEY (RGB(0xFE, 0x01, 0xFD))
-
 static void update_layout(HWND hWnd, unsigned width, unsigned height)
 {
     HFONT hFont = get_system_font(MulDiv(static_cast<int>(height), 8, 25 * table_height_ratio));
@@ -853,7 +847,7 @@ static auto CALLBACK converter_window_procedure(HWND hWnd, UINT msg, WPARAM wPar
         HDC hdc = BeginPaint(hWnd, &ps);
 
         {
-            HBRUSH brush = CreateSolidBrush(has_composition() ? APP_LWA_COLORKEY : GetSysColor(COLOR_BTNFACE));
+            HBRUSH brush = CreateSolidBrush(has_composition() ? colorKey : GetSysColor(COLOR_BTNFACE));
             FillRect(hdc, &ps.rcPaint, brush);
             DeleteObject(brush);
         }
@@ -954,7 +948,7 @@ static void open_converter_dialog(HWND parent)
         static_cast<int>(window_width * dpi),
         static_cast<int>(window_height * dpi),
         parent, nullptr, hInst, nullptr);
-    set_layered_window_attributes(hWnd, APP_LWA_COLORKEY, 0, LWA_COLORKEY);
+    set_layered_window_attributes(hWnd, colorKey, 0, LWA_COLORKEY);
     ShowWindow(hWnd, SW_SHOW);
     SetForegroundWindow(hWnd);
 }

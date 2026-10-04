@@ -41,7 +41,7 @@ static void wait_and_close(SHELLEXECUTEINFOW &sei)
     CloseHandle(sei.hProcess);
 }
 
-// Asks the tray window to run its "Exit" menu command (id 1011), falling back to taskkill.
+// Asks the tray window to run its "Exit" menu command, falling back to taskkill.
 static void kill_app()
 {
     if (HWND w = FindWindowW(APP_ID, nullptr))
@@ -258,8 +258,6 @@ static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
     dialog_state_t state;
     zero_memory(state);
     state.dark = is_dark_mode_active();
-    // GDI text doesn't write alpha, so over glass it's invisible; a color key keeps it opaque.
-    constexpr COLORREF colorKey = RGB(0xFE, 0x01, 0xFD);
     state.background = CreateSolidBrush(colorKey);
 
     WNDCLASSW wc;
