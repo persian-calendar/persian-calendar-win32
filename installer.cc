@@ -35,37 +35,20 @@ static bool write_file(const wchar_t *path, const void *data, DWORD size)
     return ok;
 }
 
-static void wait_and_close(SHELLEXECUTEINFOW &sei)
-{
-    WaitForSingleObject(sei.hProcess, 5000);
-    CloseHandle(sei.hProcess);
-}
-
-// Asks the tray window to run its "Exit" menu command, falling back to taskkill.
 static void kill_app()
 {
-    if (HWND w = FindWindowW(APP_ID, nullptr))
-    {
-        DWORD pid = 0;
-        GetWindowThreadProcessId(w, &pid);
-        HANDLE proc = OpenProcess(SYNCHRONIZE, FALSE, pid);
-        PostMessageW(w, WM_COMMAND, exit_id, 0);
-        if (proc)
-        {
-            WaitForSingleObject(proc, 3000);
-            CloseHandle(proc);
-        }
-    }
     SHELLEXECUTEINFOW sei;
-    for (volatile char *b = reinterpret_cast<volatile char *>(&sei); b < reinterpret_cast<volatile char *>(&sei + 1); b++)
-        *b = 0;
+    zero_memory(sei);
     sei.cbSize = sizeof sei;
     sei.fMask = SEE_MASK_NOCLOSEPROCESS;
     sei.lpFile = L"taskkill.exe";
     sei.lpParameters = L"/f /im " APP_EXE;
     sei.nShow = SW_HIDE;
     if (ShellExecuteExW(&sei) && sei.hProcess)
-        wait_and_close(sei);
+    {
+        WaitForSingleObject(sei.hProcess, 5000);
+        CloseHandle(sei.hProcess);
+    }
 }
 
 struct Paths
@@ -186,8 +169,7 @@ static UINT uninstall(const Paths &p)
     static wchar_t cmd[3 * MAX_PATH];
     wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.setupExe, p.dir);
     STARTUPINFOW si;
-    for (volatile char *b = reinterpret_cast<volatile char *>(&si); b < reinterpret_cast<volatile char *>(&si + 1); b++)
-        *b = 0;
+    zero_memory(si);
     si.cb = sizeof si;
     si.dwFlags = STARTF_USESHOWWINDOW;
     si.wShowWindow = SW_HIDE;
