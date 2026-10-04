@@ -127,7 +127,7 @@ static UINT install(const Paths &p)
     wchar_t self[MAX_PATH], cmd[MAX_PATH + 16], silentCmd[MAX_PATH + 32];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
     wsprintfW(cmd, L"\"%s\" /uninstall", p.setupExe);
-    wsprintfW(silentCmd, L"\"%s\" /silent-uninstall", p.setupExe);
+    wsprintfW(silentCmd, L"\"%s\" /silent /uninstall", p.setupExe);
     if (!write_file(p.appExe, payload, sizeof payload) || !CopyFileW(self, p.setupExe, FALSE) ||
         !make_shortcut(p.lnk, p.appExe, silentCmd))
     {
@@ -166,7 +166,7 @@ static UINT uninstall(const Paths &p)
     RegDeleteKeyW(HKEY_CURRENT_USER, TILE_KEY);
     RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
     // The running setup.exe can't delete itself; let a detached cmd do it after we exit.
-    static wchar_t cmd[3 * MAX_PATH];
+    wchar_t cmd[3 * MAX_PATH];
     wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.setupExe, p.dir);
     STARTUPINFOW si;
     zero_memory(si);
@@ -317,37 +317,23 @@ void start()
 {
     enable_hidpi();
     enable_dark_mode_support();
-    UINT code = 1;
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    static Paths p;
-    if (get_paths(p))
-    {
-        const wchar_t *args = GetCommandLineW();
-        bool installed = GetFileAttributesW(p.appExe) != INVALID_FILE_ATTRIBUTES;
-        bool silent = StrStrW(args, L"/silent") != nullptr;
 
-        // Checked first because "/silent-uninstall" also contains "/silent".
-        if (StrStrW(args, L"/silent-uninstall"))
+    Paths p;
+    if (!get_paths(p)) ExitProcess(1);
+    bool isInstalled = GetFileAttributesW(p.appExe) != INVALID_FILE_ATTRIBUTES;
+
+    const wchar_t *args = GetCommandLineW();
+    bool isSilent = StrStrW(args, L"/silent") != nullptr;
+    bool isUninstall = StrStrW(args, L"/uninstall") != nullptr;
+
+    UINT code = 0;
+    if (isUninstall || isInstalled)
+    {
+        if (isSilent || ask(L"آیا می‌خواهید تقویم فارسی را حذف نصب کنید؟", L"حذف نصب"))
             code = uninstall(p);
-        else if (StrStrW(args, L"/uninstall") || installed)
-        {
-            code = 0;
-            if (silent && !StrStrW(args, L"/uninstall"))
-                code = install(p);
-            else if (ask(installed ? L"تقویم فارسی از قبل نصب شده است. آیا می‌‌خواهید آن را حذف کنید؟"
-                                   : L"آیا می‌خواهید تقویم فارسی را حذف نصب کنید؟",
-                         L"حذف نصب"))
-                code = uninstall(p);
-        }
-        else if (silent || ask(L"آیا می‌خواهید تقویم فارسی را نصب کنید؟", L"نصب"))
-            code = install(p);
-        else if (confirm(L"تقویم فارسی",
-                         installed ? L"تقویم فارسی از قبل نصب شده است. آیا می‌‌خواهید آن را حذف کنید؟"
-                                   : L"آیا می‌خواهید تقویم فارسی را حذف نصب کنید؟",
-                         L"حذف نصب", L"خیر"))
-            code = uninstall(p);
-        else
-            code = 0;
     }
+    else if (isSilent || ask(L"آیا می‌خواهید تقویم فارسی را نصب کنید؟", L"نصب"))
+        code = install(p);
     ExitProcess(code);
 }
