@@ -107,9 +107,7 @@ static bool make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar
 
 static void set_str(HKEY k, const wchar_t *name, const wchar_t *v)
 {
-    DWORD n = 0;
-    while (v[n])
-        n++;
+    DWORD n = (DWORD)lstrlenW(v);
     RegSetValueExW(k, name, 0, REG_SZ, (const BYTE *)v, (n + 1) * sizeof(wchar_t));
 }
 
