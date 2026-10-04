@@ -43,22 +43,28 @@ public:
 inline void enable_hidpi()
 {
     LibraryLoader user32("user32");
-    auto pSetProcessDpiAwarenessContext = user32.getProcedure<BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT value)>(
-        "SetProcessDpiAwarenessContext");
-    if (pSetProcessDpiAwarenessContext)
+    if (auto pSetProcessDpiAwarenessContext = user32.getProcedure<BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT value)>(
+            "SetProcessDpiAwarenessContext"))
         pSetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    else
-    {
-        auto pSetProcessDPIAware = user32.getProcedure<BOOL(WINAPI *)()>("SetProcessDPIAware");
-        if (pSetProcessDPIAware)
-            pSetProcessDPIAware();
-    }
+    else if (auto pSetProcessDPIAware = user32.getProcedure<BOOL(WINAPI *)()>("SetProcessDPIAware"))
+        pSetProcessDPIAware();
 }
 
 template <typename T>
 inline void zero_memory(T &ptr, size_t size = sizeof(T))
 {
     SecureZeroMemory(&ptr, size);
+}
+
+// This isn't always accurate in multimonitor with different DPIs setups
+inline auto get_system_dpi() -> UINT
+{
+    HDC hdc = GetDC(nullptr);
+    if (!hdc)
+        return 96;
+    int dpi = GetDeviceCaps(hdc, LOGPIXELSX);
+    ReleaseDC(nullptr, hdc);
+    return static_cast<UINT>(dpi);
 }
 
 inline auto get_build_number() -> DWORD

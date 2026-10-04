@@ -213,7 +213,36 @@ struct dialog_state_t
             set_theme(noButton, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
         }
     }
+
+    void updateLayout(int dpi)
+    {
+        auto px = [dpi](int v)
+        { return MulDiv(v, dpi, 96); };
+        MoveWindow(label, px(20), px(20), px(360), px(56), TRUE);
+        MoveWindow(yesButton, px(195), px(88), px(90), px(28), TRUE);
+        MoveWindow(noButton, px(295), px(88), px(90), px(28), TRUE);
+        NONCLIENTMETRICSW ncm;
+        zero_memory(ncm);
+        ncm.cbSize = sizeof ncm;
+        SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0);
+        ncm.lfMessageFont.lfWeight = FW_NORMAL;
+        {
+            ncm.lfMessageFont.lfHeight = px(16);
+            HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
+            SendMessageW(yesButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+            SendMessageW(noButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+        }
+        {
+            // Antialiased edges would blend with the magenta color key.
+            ncm.lfMessageFont.lfQuality = NONANTIALIASED_QUALITY;
+            ncm.lfMessageFont.lfHeight = px(18);
+            HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
+            SendMessageW(label, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+        }
+    }
 };
+
+#define WM_DPICHANGED 0x02E0
 
 static LRESULT CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -232,6 +261,9 @@ static LRESULT CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wPa
             DestroyWindow(hwnd);
             return 0;
         }
+        break;
+    case WM_DPICHANGED:
+        state->updateLayout(HIWORD(wParam));
         break;
     case WM_CTLCOLORSTATIC:
         SetTextColor(reinterpret_cast<HDC>(wParam), state->dark ? RGB(255, 255, 255) : RGB(0, 0, 0));
@@ -262,14 +294,12 @@ static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
     wc.lpszClassName = L"InstallerConfirm";
     RegisterClassW(&wc);
 
-    HDC screen = GetDC(nullptr);
-    const int dpi = GetDeviceCaps(screen, LOGPIXELSX);
-    ReleaseDC(nullptr, screen);
+    const int dpi = static_cast<int>(get_system_dpi());
     auto px = [dpi](int v)
     { return MulDiv(v, dpi, 96); };
 
     const DWORD style = WS_CAPTION | WS_SYSMENU;
-    const DWORD exStyle = WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_COMPOSITED;
+    const DWORD exStyle = WS_EX_DLGMODALFRAME | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_LAYERED | WS_EX_COMPOSITED;
     RECT rc = {0, 0, px(400), px(130)};
     AdjustWindowRectEx(&rc, style, FALSE, exStyle);
     HWND hwnd = CreateWindowExW(exStyle, wc.lpszClassName, title, style, CW_USEDEFAULT, CW_USEDEFAULT,
@@ -277,29 +307,10 @@ static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
     SetLayeredWindowAttributes(hwnd, colorKey, 0, LWA_COLORKEY);
 
-    state.label = CreateWindowExW(0, L"STATIC", text, WS_CHILD | WS_VISIBLE | SS_LEFT, px(20), px(20), px(360), px(56), hwnd, nullptr, wc.hInstance, nullptr);
-    state.yesButton = CreateWindowExW(0, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, px(120), px(88), px(120), px(28), hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
-    state.noButton = CreateWindowExW(0, L"BUTTON", no, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, px(260), px(88), px(120), px(28), hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDNO)), wc.hInstance, nullptr);
-    {
-        NONCLIENTMETRICSW ncm;
-        zero_memory(ncm);
-        ncm.cbSize = sizeof ncm;
-        SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0);
-        ncm.lfMessageFont.lfWeight = FW_NORMAL;
-        {
-            ncm.lfMessageFont.lfHeight = px(16);
-            HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
-            SendMessageW(state.yesButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-            SendMessageW(state.noButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-        }
-        {
-            // Antialiased edges would blend with the magenta color key.
-            ncm.lfMessageFont.lfQuality = NONANTIALIASED_QUALITY;
-            ncm.lfMessageFont.lfHeight = px(18);
-            HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
-            SendMessageW(state.label, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-        }
-    }
+    state.label = CreateWindowExW(0, L"STATIC", text, WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, hwnd, nullptr, wc.hInstance, nullptr);
+    state.yesButton = CreateWindowExW(WS_EX_COMPOSITED, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
+    state.noButton = CreateWindowExW(WS_EX_COMPOSITED, L"BUTTON", no, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDNO)), wc.hInstance, nullptr);
+    state.updateLayout(dpi);
     glass_window(hwnd);
     state.darkModeUpdate(hwnd);
     SetFocus(state.noButton);
@@ -337,10 +348,10 @@ void start()
     UINT code = 0;
     if (GetFileAttributesW(p.appExe) != INVALID_FILE_ATTRIBUTES)
     {
-        if (isSilent || ask(L"آیا می‌خواهید تقویم فارسی را حذف نصب کنید؟", L"حذف نصب"))
+        if (isSilent || ask(L"مایلید تقویم فارسی را حذف نصب کنید؟", L"حذف نصب"))
             code = uninstall(p);
     }
-    else if (isSilent || ask(L"آیا می‌خواهید تقویم فارسی را نصب کنید؟", L"نصب"))
+    else if (isSilent || ask(L"مایلید تقویم فارسی را نصب کنید؟", L"نصب"))
         code = install(p);
 
     ExitProcess(code);

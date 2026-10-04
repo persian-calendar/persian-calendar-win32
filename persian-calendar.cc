@@ -89,16 +89,6 @@ constexpr static const int widgetTimerId = 2;
 constexpr static const wchar_t *widgetClassName = L"WgtDlg";
 constexpr static const wchar_t *converterClassName = L"CnvDlg";
 
-static auto get_system_dpi() -> UINT
-{
-    HDC hdc = GetDC(nullptr);
-    if (!hdc)
-        return 96;
-    int dpi = GetDeviceCaps(hdc, LOGPIXELSX);
-    ReleaseDC(nullptr, hdc);
-    return static_cast<UINT>(dpi);
-}
-
 struct app_state_t
 {
     NOTIFYICONDATAW *notify_icon_data;
