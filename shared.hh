@@ -8,6 +8,7 @@ IB_WARNING_DISABLE_CLANG_PUSH("-Wnonportable-system-include-path")
 IB_WARNING_DISABLE_CLANG_POP
 #include <shellapi.h>
 #include <dwmapi.h>
+#include <Shlwapi.h>
 
 #define APP_ID L"PersianCalendarWin32"
 

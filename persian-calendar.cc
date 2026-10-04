@@ -1096,28 +1096,12 @@ static void enable_visual_styles()
     pActivateActCtx(pCreateActCtxA(&actCtx), &ulpActivationCookie);
 }
 
-IB_WARNING_DISABLE_CLANG_PUSH("-Wunsafe-buffer-usage")
-template <size_t N>
-static auto has_string_suffix(const wchar_t *str, const wchar_t (&suffix)[N]) -> bool
-{
-    auto str_len = static_cast<size_t>(lstrlenW(str));
-    constexpr size_t suffix_len = static_cast<size_t>(N) - 1;
-    if (str_len < suffix_len)
-        return false;
-    for (size_t i = 0; i < suffix_len; ++i)
-        if (str[str_len - suffix_len + i] != suffix[i])
-            return false;
-    return true;
-}
-IB_WARNING_DISABLE_CLANG_POP
-
 extern "C" [[noreturn]] void start();
 void start()
 {
-    bool is_portable = has_string_suffix(GetCommandLineW(), L"/p");
-
     HANDLE mutex = CreateMutexW(nullptr, 0, APP_ID);
-    is_portable |= !mutex || GetLastError() == ERROR_ALREADY_EXISTS;
+    bool is_portable = StrStrW(GetCommandLineW(), L"/portable") != nullptr ||
+        !mutex || GetLastError() == ERROR_ALREADY_EXISTS;
 
     {
         WNDCLASSEXW wc;
