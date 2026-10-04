@@ -53,7 +53,7 @@ static void kill_app()
 struct Paths
 {
     wchar_t startup[MAX_PATH], programs[MAX_PATH], dir[MAX_PATH];
-    wchar_t appExe[MAX_PATH], setupExe[MAX_PATH], lnk[MAX_PATH];
+    wchar_t appExe[MAX_PATH], uninstallerExe[MAX_PATH], lnk[MAX_PATH];
 };
 
 static bool get_paths(Paths &p)
@@ -64,7 +64,7 @@ static bool get_paths(Paths &p)
         return false;
     wsprintfW(p.dir, L"%s\\" APP_ID, local);
     wsprintfW(p.appExe, L"%s\\" APP_EXE, p.startup);
-    wsprintfW(p.setupExe, L"%s\\setup.exe", p.dir);
+    wsprintfW(p.uninstallerExe, L"%s\\unins000.exe", p.dir);
     wsprintfW(p.lnk, L"%s\\" APP_NAME L".lnk", p.programs);
     return true;
 }
@@ -123,9 +123,9 @@ static UINT install(const Paths &p)
     CreateDirectoryW(p.dir, nullptr);
     wchar_t self[MAX_PATH], cmd[MAX_PATH + 16], silentCmd[MAX_PATH + 32];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
-    wsprintfW(cmd, L"\"%s\"", p.setupExe);
-    wsprintfW(silentCmd, L"\"%s\" /silent", p.setupExe);
-    if (!write_file(p.appExe, payload, sizeof payload) || !CopyFileW(self, p.setupExe, FALSE) ||
+    wsprintfW(cmd, L"\"%s\"", p.uninstallerExe);
+    wsprintfW(silentCmd, L"\"%s\" /silent", p.uninstallerExe);
+    if (!write_file(p.appExe, payload, sizeof payload) || !CopyFileW(self, p.uninstallerExe, FALSE) ||
         !make_shortcut(p.lnk, p.appExe, silentCmd))
     {
         MessageBoxW(nullptr, L"Installation failed.", APP_NAME, MB_ICONERROR);
@@ -162,9 +162,9 @@ static UINT uninstall(const Paths &p)
     RegDeleteKeyW(HKEY_CURRENT_USER, UNINSTALL_KEY);
     RegDeleteKeyW(HKEY_CURRENT_USER, TILE_KEY);
     RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
-    // The running setup.exe can't delete itself; let a detached cmd do it after we exit.
+    // The running unins000.exe can't delete itself; let a detached cmd do it after we exit.
     wchar_t cmd[3 * MAX_PATH];
-    wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.setupExe, p.dir);
+    wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.uninstallerExe, p.dir);
     STARTUPINFOW si;
     zero_memory(si);
     si.cb = sizeof si;
