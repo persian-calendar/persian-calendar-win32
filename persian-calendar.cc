@@ -12,7 +12,7 @@ IB_WARNING_DISABLE_CLANG_POP
 static auto get_system_font(LONG size, bool disable_antialiasing = false) -> HFONT
 {
     NONCLIENTMETRICSW ncm;
-    ncm.cbSize = sizeof(NONCLIENTMETRICSW);
+    ncm.cbSize = sizeof ncm;
     if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0))
     {
         ncm.lfMessageFont.lfHeight = size;
@@ -121,7 +121,7 @@ static void create_menu(app_state_t *state, wchar_t *date)
     HMENU menu = CreatePopupMenu();
     MENUITEMINFOW menu_item;
     zero_memory(menu_item);
-    menu_item.cbSize = sizeof(MENUITEMINFOW);
+    menu_item.cbSize = sizeof menu_item;
     menu_item.fMask = MIIM_ID | MIIM_TYPE | MIIM_STATE | MIIM_DATA;
     {
         menu_item.fState = MFS_DISABLED;
@@ -370,7 +370,7 @@ static void update_window_visual_styles(HWND hWnd)
             if (pGetComboBoxInfo)
             {
                 COMBOBOXINFO cbi;
-                cbi.cbSize = sizeof(cbi);
+                cbi.cbSize = sizeof cbi;
                 if (pGetComboBoxInfo(item, &cbi))
                     pSetWindowTheme(cbi.hwndList, darkMode ? L"DarkMode_Explorer" : L"Explorer", nullptr);
             }
@@ -402,7 +402,7 @@ struct Registry
         if (!key)
             return;
         DWORD value = 0;
-        DWORD size = sizeof(DWORD);
+        DWORD size = sizeof value;
         DWORD type = 0;
 
         if (RegQueryValueExW(key, local_digits_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS && type == REG_DWORD)
@@ -458,7 +458,7 @@ struct Registry
         if (!key)
             return;
         DWORD value = 0;
-        DWORD value_size = sizeof(DWORD);
+        DWORD value_size = sizeof value;
         DWORD type = 0;
 
         if (RegQueryValueExW(key, widget_left_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &value_size) == ERROR_SUCCESS && type == REG_DWORD)
@@ -488,7 +488,7 @@ private:
             0,
             REG_DWORD,
             reinterpret_cast<const BYTE *>(&value),
-            sizeof(DWORD));
+            sizeof value);
     }
 
     constexpr static const wchar_t *local_digits_key = L"LocalDigits";
@@ -550,7 +550,7 @@ static void handle_widget(HWND hWnd, app_state_t *app_state)
                         widgetHwnd,
                         DWMWA_WINDOW_CORNER_PREFERENCE,
                         &preference,
-                        sizeof(preference));
+                        sizeof preference);
             }
         }
         handle_widget_movability(widgetHwnd, app_state);
@@ -660,7 +660,7 @@ static auto CALLBACK widget_window_procedure(HWND hWnd, UINT msg, WPARAM wParam,
     {
         InvalidateRect(hWnd, nullptr, FALSE);
         WINDOWPLACEMENT wp;
-        wp.length = sizeof(WINDOWPLACEMENT);
+        wp.length = sizeof wp;
         if (GetWindowPlacement(hWnd, &wp))
             Registry().set_widget_position(wp.rcNormalPosition.left, wp.rcNormalPosition.top, wp.rcNormalPosition.right - wp.rcNormalPosition.left);
         break;
@@ -1087,7 +1087,7 @@ static void enable_visual_styles()
     GetSystemDirectoryA(dir, MAX_PATH);
     ACTCTXA actCtx;
     zero_memory(actCtx);
-    actCtx.cbSize = sizeof(actCtx);
+    actCtx.cbSize = sizeof actCtx;
     actCtx.dwFlags = ACTCTX_FLAG_RESOURCE_NAME_VALID | ACTCTX_FLAG_SET_PROCESS_DEFAULT | ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID;
     actCtx.lpSource = "shell32.dll";
     actCtx.lpAssemblyDirectory = dir;
@@ -1109,7 +1109,7 @@ void start()
         if (is_portable)
             wc.hIcon = LoadIconW(nullptr, IDI_ASTERISK);
         wc.hInstance = hInst;
-        wc.cbSize = sizeof(WNDCLASSEXW);
+        wc.cbSize = sizeof wc;
         wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
         // Tray Menu's class
         wc.lpfnWndProc = tray_window_procedure;
@@ -1134,7 +1134,7 @@ void start()
     NOTIFYICONDATAW notify_icon_data;
     {
         zero_memory(notify_icon_data);
-        notify_icon_data.cbSize = sizeof(NOTIFYICONDATAW);
+        notify_icon_data.cbSize = sizeof notify_icon_data;
         notify_icon_data.uCallbackMessage = notifyClickId;
         notify_icon_data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         notify_icon_data.hWnd = hWnd;
