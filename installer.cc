@@ -6,11 +6,11 @@
 #include <propkey.h>
 
 static const unsigned char payload[] = {
-#embed "persian-calendar.exe"
+#embed "PersianCalendar.exe"
 };
 
 #define APP_NAME L"Persian Calendar"
-#define APP_EXE L"persian-calendar.exe"
+#define APP_EXE L"PersianCalendar.exe"
 #define UNINSTALL_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32"
 #define TILE_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Start\\TileProperties\\W~" APP_ID
 

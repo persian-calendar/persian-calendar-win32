@@ -1,12 +1,12 @@
-persian-calendar.exe
-persian-calendar.gcc.exe
-persian-calendar.llvm.exe
+PersianCalendar.exe
+PersianCalendar.gcc.exe
+PersianCalendar.llvm.exe
 Crinkler.exe
 test.exe
-installer.exe
+PersianCalendarInstaller.exe
 .vscode/
 .DS_Store
-persian-calendar.obj
+PersianCalendar.obj
 test.obj
 
 # Xmake cache

@@ -102,7 +102,7 @@ jobs:
             gh release create latest --title "Latest build" --notes "" --target $env:GITHUB_SHA --prerelease
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh release upload latest persian-calendar.exe installer.exe --clobber
+          gh release upload latest PersianCalendar.exe PersianCalendarInstaller.exe --clobber
 
       - name: Publish daily stable release
         if: github.event_name == 'schedule'
@@ -125,4 +125,4 @@ jobs:
             gh release create $tagName --title "$tagName" --notes "" --target $env:GITHUB_SHA
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh release upload $tagName persian-calendar.exe installer.exe --clobber
+          gh release upload $tagName PersianCalendar.exe PersianCalendarInstaller.exe --clobber

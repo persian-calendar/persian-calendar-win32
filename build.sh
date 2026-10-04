@@ -1,5 +1,5 @@
 clang --target=i686-w64-mingw32 --sysroot=$(brew --prefix mingw-w64)/toolchain-i686 \
-    persian-calendar.cc -o persian-calendar.exe \
+    persian-calendar.cc -o PersianCalendar.exe \
     -Weverything -Wall -Wextra -Wpedantic -Werror -Weffc++ \
     -Wno-c++98-compat-pedantic -Wno-c++17-attribute-extensions \
     -fno-exceptions -fno-rtti -fsafe-buffer-usage-suggestions -flto \
@@ -7,4 +7,4 @@ clang --target=i686-w64-mingw32 --sysroot=$(brew --prefix mingw-w64)/toolchain-i
     -nostdlib -nodefaultlibs -nostartfiles -fuse-ld=lld \
     -Wl,-e,start -Wl,-subsystem,windows \
     -Wl,--disable-reloc-section -Wl,--build-id=none \
-    && ./postlink.py && wine persian-calendar.exe
+    && ./postlink.py && wine PersianCalendar.exe

@@ -2,7 +2,7 @@
 import pefile
 from pathlib import Path
 
-for exe_file in ['persian-calendar.exe', 'installer.exe']:
+for exe_file in ['PersianCalendar.exe', 'PersianCalendarInstaller.exe']:
     with open(exe_file, 'rb') as f:
         pe_data = f.read()
     pe = pefile.PE(data=pe_data)
