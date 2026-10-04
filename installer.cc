@@ -209,40 +209,114 @@ static UINT uninstall(const Paths &p)
     return 0;
 }
 
-static HRESULT CALLBACK show_dialog_callback(HWND hwnd, UINT msg, WPARAM, LPARAM, LONG_PTR)
+static bool g_dark;
+static bool g_confirmed;
+static HBRUSH g_background;
+
+static LRESULT CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (msg == TDN_CREATED)
+    switch (msg)
     {
-        ShowWindow(hwnd, SW_SHOW);
-        SetForegroundWindow(hwnd);
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDYES || LOWORD(wParam) == IDNO || LOWORD(wParam) == IDCANCEL)
+        {
+            g_confirmed = LOWORD(wParam) == IDYES;
+            DestroyWindow(hwnd);
+            return 0;
+        }
+        break;
+    case WM_CTLCOLORSTATIC:
+        SetTextColor(reinterpret_cast<HDC>(wParam), g_dark ? RGB(255, 255, 255) : RGB(0, 0, 0));
+        SetBkMode(reinterpret_cast<HDC>(wParam), TRANSPARENT);
+        return reinterpret_cast<LRESULT>(g_background);
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
+    default:
+        break;
     }
-    return S_OK;
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
+}
+
+static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *yes, const wchar_t *no)
+{
+    g_dark = is_dark_mode_active();
+    // GDI text doesn't write alpha, so over glass it's invisible; a color key keeps it opaque.
+    constexpr COLORREF colorKey = RGB(0xFE, 0x01, 0xFD);
+    g_background = CreateSolidBrush(colorKey);
+
+    WNDCLASSW wc;
+    zero_memory(wc);
+    wc.lpfnWndProc = confirm_window_procedure;
+    wc.hInstance = GetModuleHandleW(nullptr);
+    wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    wc.hbrBackground = g_background;
+    wc.lpszClassName = L"InstallerConfirm";
+    RegisterClassW(&wc);
+
+    HDC screen = GetDC(nullptr);
+    const int dpi = GetDeviceCaps(screen, LOGPIXELSX);
+    ReleaseDC(nullptr, screen);
+    auto px = [dpi](int v) { return MulDiv(v, dpi, 96); };
+
+    const DWORD style = WS_CAPTION | WS_SYSMENU;
+    const DWORD exStyle = WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_COMPOSITED;
+    RECT rc = {0, 0, px(400), px(130)};
+    AdjustWindowRectEx(&rc, style, FALSE, exStyle);
+    HWND hwnd = CreateWindowExW(exStyle, wc.lpszClassName, title, style, CW_USEDEFAULT, CW_USEDEFAULT,
+                                rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, wc.hInstance, nullptr);
+    SetLayeredWindowAttributes(hwnd, colorKey, 0, LWA_COLORKEY);
+
+    NONCLIENTMETRICSW ncm;
+    zero_memory(ncm);
+    ncm.cbSize = sizeof ncm;
+    SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0);
+    // Antialiased edges would blend with the magenta color key.
+    ncm.lfMessageFont.lfQuality = NONANTIALIASED_QUALITY;
+    ncm.lfMessageFont.lfWeight = FW_BOLD;
+    ncm.lfMessageFont.lfHeight = px(17);
+    HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
+
+    HWND label = CreateWindowExW(0, L"STATIC", text, WS_CHILD | WS_VISIBLE | SS_LEFT, px(20), px(20), px(360), px(56), hwnd, nullptr, wc.hInstance, nullptr);
+    HWND yesButton = CreateWindowExW(0, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, px(120), px(88), px(120), px(28), hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
+    HWND noButton = CreateWindowExW(0, L"BUTTON", no, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, px(260), px(88), px(120), px(28), hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDNO)), wc.hInstance, nullptr);
+    HWND controls[] = {label, yesButton, noButton};
+    for (HWND h : controls)
+        SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+    SetFocus(noButton);
+
+    BOOL dark = g_dark;
+    if (auto set_attribute = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD)>("DwmSetWindowAttribute"))
+        set_attribute(hwnd, 20 /*DWMWA_USE_IMMERSIVE_DARK_MODE*/, &dark, sizeof dark);
+    if (auto set_theme = LibraryLoader("uxtheme.dll").getProcedure<HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR)>("SetWindowTheme"))
+        for (HWND h : controls)
+            set_theme(h, g_dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+
+    glass_window(hwnd, g_dark);
+
+    ShowWindow(hwnd, SW_SHOW);
+    SetForegroundWindow(hwnd);
+
+    MSG m;
+    while (GetMessageW(&m, nullptr, 0, 0) > 0)
+        if (!IsDialogMessageW(hwnd, &m))
+        {
+            TranslateMessage(&m);
+            DispatchMessageW(&m);
+        }
+    return g_confirmed;
 }
 
 static bool ask(const wchar_t *text, const wchar_t *yes)
 {
-    TASKDIALOG_BUTTON customButtons[] = {
-        {IDYES, yes},
-        {IDNO, L"خیر"}};
-    TASKDIALOGCONFIG tdc;
-    zero_memory(tdc);
-    tdc.cbSize = sizeof(TASKDIALOGCONFIG);
-    tdc.pszWindowTitle = L"تقویم فارسی";
-    tdc.pszMainInstruction = text;
-    tdc.pButtons = customButtons;
-    tdc.pfCallback = show_dialog_callback;
-    tdc.cButtons = ARRAYSIZE(customButtons);
-    tdc.nDefaultButton = IDNO;
-    tdc.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_RTL_LAYOUT;
-    tdc.pszMainIcon = TD_INFORMATION_ICON;
-    int nButton = 0;
-    return SUCCEEDED(TaskDialogIndirect(&tdc, &nButton, nullptr, nullptr)) && nButton == IDYES;
+    return confirm(L"تقویم فارسی", text, yes, L"خیر");
 }
 
 extern "C" [[noreturn]] void start();
 void start()
 {
     enable_hidpi();
+    enable_dark_mode_support();
     UINT code = 1;
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     static Paths p;
@@ -267,6 +341,11 @@ void start()
         }
         else if (silent || ask(L"آیا می‌خواهید تقویم فارسی را نصب کنید؟", L"نصب"))
             code = install(p);
+        else if (confirm(L"تقویم فارسی",
+                         installed ? L"تقویم فارسی از قبل نصب شده است. آیا می‌‌خواهید آن را حذف کنید؟"
+                                   : L"آیا می‌خواهید تقویم فارسی را حذف نصب کنید؟",
+                         L"حذف نصب", L"خیر"))
+            code = uninstall(p);
         else
             code = 0;
     }

@@ -23,31 +23,9 @@ static auto get_system_font(LONG size, bool disable_antialiasing = false) -> HFO
     return reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
 }
 
-static auto get_build_number() -> DWORD
-{
-    auto pRtlGetVersion = LibraryLoader("ntdll.dll").getProcedure<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>("RtlGetVersion");
-    if (pRtlGetVersion)
-    {
-        RTL_OSVERSIONINFOW rovi;
-        rovi.dwOSVersionInfoSize = sizeof(rovi);
-        if (pRtlGetVersion(&rovi) == 0)
-            return rovi.dwBuildNumber;
-    }
-    return 0;
-}
-
 static auto is_in_wine() -> bool
 {
     return !!LibraryLoader("ntdll.dll").getProcedure<const char *(CDECL *)()>("wine_get_version");
-}
-
-static auto is_dark_mode_active() -> bool
-{
-    // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
-    if (get_build_number() < 17763)
-        return false;
-    auto pShouldAppsUseDarkMode = LibraryLoader("uxtheme.dll").getProcedure<bool(WINAPI *)()>(MAKEINTRESOURCEA(132)); // undocumented ShouldAppsUseDarkMode
-    return pShouldAppsUseDarkMode && pShouldAppsUseDarkMode();
 }
 
 static auto is_system_in_dark_mode() -> bool
@@ -406,27 +384,7 @@ static void update_window_visual_styles(HWND hWnd)
                 }
             }
     }
-
-    LibraryLoader dwmapi("dwmapi.dll");
-    {
-        auto pDwmExtendFrameIntoClientArea = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND, const MARGINS *)>(
-            "DwmExtendFrameIntoClientArea");
-        if (pDwmExtendFrameIntoClientArea)
-        {
-            MARGINS margins = {.cxLeftWidth = -1, .cxRightWidth = -1, .cyTopHeight = -1, .cyBottomHeight = -1};
-            pDwmExtendFrameIntoClientArea(hWnd, &margins);
-        }
-    }
-    {
-        auto pDwmSetWindowAttribute = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND hWnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>(
-            "DwmSetWindowAttribute");
-        if (pDwmSetWindowAttribute)
-        {
-            pDwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
-            int backdropType = DWMSBT_TRANSIENTWINDOW; // instead of Mica's DWMSBT_MAINWINDOW
-            pDwmSetWindowAttribute(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
-        }
-    }
+    glass_window(hWnd, darkMode);
 }
 
 struct Registry
@@ -1119,37 +1077,6 @@ static auto CALLBACK tray_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, L
         break;
     }
     return DefWindowProcW(hWnd, msg, wParam, lParam);
-}
-
-static void enable_dark_mode_support()
-{
-    // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
-    DWORD build_number = get_build_number();
-    if (build_number < 17763)
-        return;
-    LibraryLoader uxtheme("uxtheme.dll");
-    if (build_number < 18362)
-    {
-        auto pAllowDarkModeForApp = uxtheme.getProcedure<bool(WINAPI *)(bool allow)>(
-            MAKEINTRESOURCEA(135)); // undocumented AllowDarkModeForApp
-        if (pAllowDarkModeForApp)
-            pAllowDarkModeForApp(true);
-    }
-    else
-    {
-        enum class PreferredAppMode : INT
-        {
-            Default,
-            AllowDark,
-            ForceDark,
-            ForceLight,
-            Max
-        };
-        auto pSetPreferredAppMode = uxtheme.getProcedure<INT(WINAPI *)(PreferredAppMode value)>(
-            MAKEINTRESOURCEA(135)); // undocumented SetPreferredAppMode
-        if (pSetPreferredAppMode)
-            pSetPreferredAppMode(PreferredAppMode::AllowDark);
-    }
 }
 
 // https://stackoverflow.com/a/10444161
