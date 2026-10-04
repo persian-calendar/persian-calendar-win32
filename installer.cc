@@ -62,7 +62,7 @@ static bool get_paths(Paths &p)
     if (!known_folder(FOLDERID_Startup, p.startup) || !known_folder(FOLDERID_Programs, p.programs) ||
         !known_folder(FOLDERID_LocalAppData, local))
         return false;
-    wsprintfW(p.dir, L"%s\\PersianCalendar", local);
+    wsprintfW(p.dir, L"%s\\" APP_ID, local);
     wsprintfW(p.appExe, L"%s\\" APP_EXE, p.startup);
     wsprintfW(p.setupExe, L"%s\\setup.exe", p.dir);
     wsprintfW(p.lnk, L"%s\\" APP_NAME L".lnk", p.programs);
