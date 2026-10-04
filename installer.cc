@@ -12,6 +12,7 @@ static const unsigned char payload[] = {
 #define APP_NAME L"Persian Calendar"
 #define APP_EXE L"persian-calendar.exe"
 #define UNINSTALL_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32"
+#define TILE_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Start\\TileProperties\\W~" APP_ID
 
 // Appends s to d and returns the new end, so calls chain without a CRT.
 static wchar_t *put(wchar_t *d, const wchar_t *s)
@@ -168,6 +169,13 @@ static UINT install(const Paths &p)
         set_one(k, L"NoRepair");
         RegCloseKey(k);
     }
+    // Category 2 is Productivity in the Start menu's "All apps" grouping.
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, TILE_KEY, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
+    {
+        DWORD productivity = 2;
+        RegSetValueExW(k, L"Category", 0, REG_DWORD, reinterpret_cast<const BYTE *>(&productivity), sizeof productivity);
+        RegCloseKey(k);
+    }
     ShellExecuteW(nullptr, L"open", p.appExe, nullptr, p.startup, SW_SHOWNORMAL);
     return 0;
 }
@@ -178,6 +186,7 @@ static UINT uninstall(const Paths &p)
     DeleteFileW(p.appExe);
     DeleteFileW(p.lnk);
     RegDeleteKeyW(HKEY_CURRENT_USER, UNINSTALL_KEY);
+    RegDeleteKeyW(HKEY_CURRENT_USER, TILE_KEY);
     RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
     // The running setup.exe can't delete itself; let a detached cmd do it after we exit.
     static wchar_t cmd[3 * MAX_PATH];
