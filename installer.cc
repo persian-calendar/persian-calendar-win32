@@ -267,22 +267,31 @@ static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
                                 rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, wc.hInstance, nullptr);
     SetLayeredWindowAttributes(hwnd, colorKey, 0, LWA_COLORKEY);
 
-    NONCLIENTMETRICSW ncm;
-    zero_memory(ncm);
-    ncm.cbSize = sizeof ncm;
-    SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0);
-    // Antialiased edges would blend with the magenta color key.
-    ncm.lfMessageFont.lfQuality = NONANTIALIASED_QUALITY;
-    ncm.lfMessageFont.lfWeight = FW_BOLD;
-    ncm.lfMessageFont.lfHeight = px(17);
-    HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
-
     HWND label = CreateWindowExW(0, L"STATIC", text, WS_CHILD | WS_VISIBLE | SS_LEFT, px(20), px(20), px(360), px(56), hwnd, nullptr, wc.hInstance, nullptr);
     HWND yesButton = CreateWindowExW(0, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, px(120), px(88), px(120), px(28), hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
     HWND noButton = CreateWindowExW(0, L"BUTTON", no, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, px(260), px(88), px(120), px(28), hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDNO)), wc.hInstance, nullptr);
+    {
+        NONCLIENTMETRICSW ncm;
+        zero_memory(ncm);
+        ncm.cbSize = sizeof ncm;
+        SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0);
+        {
+            ncm.lfMessageFont.lfWeight = FW_NORMAL;
+            ncm.lfMessageFont.lfHeight = px(16);
+            HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
+            SendMessageW(yesButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+            SendMessageW(noButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+        }
+        {
+            // Antialiased edges would blend with the magenta color key.
+            ncm.lfMessageFont.lfQuality = NONANTIALIASED_QUALITY;
+            ncm.lfMessageFont.lfWeight = FW_BOLD;
+            ncm.lfMessageFont.lfHeight = px(17);
+            HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
+            SendMessageW(label, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+        }
+    }
     HWND controls[] = {label, yesButton, noButton};
-    for (HWND h : controls)
-        SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
     SetFocus(noButton);
 
     BOOL dark = g_dark;
