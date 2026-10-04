@@ -64,7 +64,7 @@ static bool get_paths(Paths &p)
         return false;
     wsprintfW(p.dir, L"%s\\" APP_ID, local);
     wsprintfW(p.appExe, L"%s\\" APP_EXE, p.startup);
-    wsprintfW(p.uninstallerExe, L"%s\\unins000.exe", p.dir);
+    wsprintfW(p.uninstallerExe, L"%s\\uninstall.exe", p.dir);
     wsprintfW(p.lnk, L"%s\\" APP_NAME L".lnk", p.programs);
     return true;
 }
@@ -162,7 +162,7 @@ static UINT uninstall(const Paths &p)
     RegDeleteKeyW(HKEY_CURRENT_USER, UNINSTALL_KEY);
     RegDeleteKeyW(HKEY_CURRENT_USER, TILE_KEY);
     RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
-    // The running unins000.exe can't delete itself; let a detached cmd do it after we exit.
+    // The running uninstall.exe can't delete itself; let a detached cmd do it after we exit.
     wchar_t cmd[3 * MAX_PATH];
     wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.uninstallerExe, p.dir);
     STARTUPINFOW si;
