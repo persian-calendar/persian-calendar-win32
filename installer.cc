@@ -126,8 +126,8 @@ static UINT install(const Paths &p)
     CreateDirectoryW(p.dir, nullptr);
     wchar_t self[MAX_PATH], cmd[MAX_PATH + 16], silentCmd[MAX_PATH + 32];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
-    wsprintfW(cmd, L"\"%s\" /uninstall", p.setupExe);
-    wsprintfW(silentCmd, L"\"%s\" /silent /uninstall", p.setupExe);
+    wsprintfW(cmd, L"\"%s\"", p.setupExe);
+    wsprintfW(silentCmd, L"\"%s\" /silent", p.setupExe);
     if (!write_file(p.appExe, payload, sizeof payload) || !CopyFileW(self, p.setupExe, FALSE) ||
         !make_shortcut(p.lnk, p.appExe, silentCmd))
     {
@@ -274,8 +274,8 @@ static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
         zero_memory(ncm);
         ncm.cbSize = sizeof ncm;
         SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0);
+        ncm.lfMessageFont.lfWeight = FW_NORMAL;
         {
-            ncm.lfMessageFont.lfWeight = FW_NORMAL;
             ncm.lfMessageFont.lfHeight = px(16);
             HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
             SendMessageW(state.yesButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
@@ -284,8 +284,7 @@ static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
         {
             // Antialiased edges would blend with the magenta color key.
             ncm.lfMessageFont.lfQuality = NONANTIALIASED_QUALITY;
-            ncm.lfMessageFont.lfWeight = FW_BOLD;
-            ncm.lfMessageFont.lfHeight = px(17);
+            ncm.lfMessageFont.lfHeight = px(18);
             HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
             SendMessageW(state.label, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
         }
@@ -321,19 +320,16 @@ void start()
 
     Paths p;
     if (!get_paths(p)) ExitProcess(1);
-    bool isInstalled = GetFileAttributesW(p.appExe) != INVALID_FILE_ATTRIBUTES;
 
-    const wchar_t *args = GetCommandLineW();
-    bool isSilent = StrStrW(args, L"/silent") != nullptr;
-    bool isUninstall = StrStrW(args, L"/uninstall") != nullptr;
-
+    bool isSilent = StrStrW(GetCommandLineW(), L"/silent") != nullptr;
     UINT code = 0;
-    if (isUninstall || isInstalled)
+    if (GetFileAttributesW(p.appExe) != INVALID_FILE_ATTRIBUTES)
     {
         if (isSilent || ask(L"آیا می‌خواهید تقویم فارسی را حذف نصب کنید؟", L"حذف نصب"))
             code = uninstall(p);
     }
     else if (isSilent || ask(L"آیا می‌خواهید تقویم فارسی را نصب کنید؟", L"نصب"))
         code = install(p);
+
     ExitProcess(code);
 }

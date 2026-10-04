@@ -360,25 +360,21 @@ static void update_layout(HWND hWnd, unsigned width, unsigned height)
 static void update_window_visual_styles(HWND hWnd)
 {
     BOOL darkMode = is_dark_mode_active();
-
-    {
-        auto pSetWindowTheme = LibraryLoader("uxtheme.dll").getProcedure<HRESULT(WINAPI *)(HWND hWnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList)>("SetWindowTheme");
-        auto pGetComboBoxInfo = LibraryLoader("user32.dll").getProcedure<BOOL(WINAPI *)(HWND hWndCombo, PCOMBOBOXINFO pcbi)>("GetComboBoxInfo");
-        if (pSetWindowTheme)
-            for (unsigned id = dlg_persian_day_combo_id; id <= dlg_gregorian_year_combo_id; ++id)
-            {
-                HWND item = GetDlgItem(hWnd, static_cast<int>(id));
-                pSetWindowTheme(item, darkMode ? L"DarkMode_CFD" : L"Explorer", nullptr);
-                if (pGetComboBoxInfo)
-                {
-                    COMBOBOXINFO cbi;
-                    cbi.cbSize = sizeof(cbi);
-                    if (pGetComboBoxInfo(item, &cbi))
-                        pSetWindowTheme(cbi.hwndList, darkMode ? L"DarkMode_Explorer" : L"Explorer", nullptr);
-                }
-            }
-    }
     set_immersive_dark_mode(hWnd, darkMode);
+    auto pGetComboBoxInfo = LibraryLoader("user32.dll").getProcedure<BOOL(WINAPI *)(HWND hWndCombo, PCOMBOBOXINFO pcbi)>("GetComboBoxInfo");
+    if (auto pSetWindowTheme = LibraryLoader("uxtheme.dll").getProcedure<HRESULT(WINAPI *)(HWND hWnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList)>("SetWindowTheme"))
+        for (unsigned id = dlg_persian_day_combo_id; id <= dlg_gregorian_year_combo_id; ++id)
+        {
+            HWND item = GetDlgItem(hWnd, static_cast<int>(id));
+            pSetWindowTheme(item, darkMode ? L"DarkMode_CFD" : L"Explorer", nullptr);
+            if (pGetComboBoxInfo)
+            {
+                COMBOBOXINFO cbi;
+                cbi.cbSize = sizeof(cbi);
+                if (pGetComboBoxInfo(item, &cbi))
+                    pSetWindowTheme(cbi.hwndList, darkMode ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+            }
+        }
 }
 
 struct Registry

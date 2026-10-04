@@ -10,6 +10,7 @@ REM https://github.com/llvm/llvm-project/releases Install from the Windows insta
 
 "C:\Program Files\LLVM\bin\clang" installer.cc -o PersianCalendarInstaller.exe ^
     -Weverything -Wall -Wextra -Wpedantic -Werror -Weffc++ -std=c++23 -Wno-c23-extensions ^
+    -mno-stack-arg-probe ^
     -Wno-c++98-compat-pedantic ^
     -Wno-unsafe-buffer-usage -Wno-old-style-cast ^
     -fno-exceptions -fno-rtti -fno-builtin ^
