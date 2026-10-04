@@ -319,7 +319,8 @@ void start()
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
     Paths p;
-    if (!get_paths(p)) ExitProcess(1);
+    if (!get_paths(p))
+        ExitProcess(1);
 
     bool isSilent = StrStrW(GetCommandLineW(), L"/silent") != nullptr;
     UINT code = 0;
