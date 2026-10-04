@@ -1052,6 +1052,8 @@ static auto CALLBACK tray_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, L
         }
         else if (lParam == WM_LBUTTONDBLCLK)
             open_converter_dialog(hWnd);
+        else if (lParam == WM_LBUTTONUP && state->show_widget && state->widget_hwnd)
+            SetForegroundWindow(state->widget_hwnd);
         return 0;
 
     case WM_COMMAND:
