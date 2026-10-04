@@ -14,20 +14,12 @@ static const unsigned char payload[] = {
 #define UNINSTALL_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32"
 #define TILE_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Start\\TileProperties\\W~" APP_ID
 
-// Appends s to d and returns the new end, so calls chain without a CRT.
-static wchar_t *put(wchar_t *d, const wchar_t *s)
-{
-    while ((*d = *s++))
-        d++;
-    return d;
-}
-
 static bool known_folder(const KNOWNFOLDERID &id, wchar_t *out)
 {
     PWSTR p = nullptr;
     if (FAILED(SHGetKnownFolderPath(id, 0, nullptr, &p)))
         return false;
-    put(out, p);
+    lstrcpyW(out, p);
     CoTaskMemFree(p);
     return true;
 }
@@ -88,10 +80,10 @@ static bool get_paths(Paths &p)
     if (!known_folder(FOLDERID_Startup, p.startup) || !known_folder(FOLDERID_Programs, p.programs) ||
         !known_folder(FOLDERID_LocalAppData, local))
         return false;
-    put(put(p.dir, local), L"\\PersianCalendar");
-    put(put(put(p.appExe, p.startup), L"\\"), APP_EXE);
-    put(put(p.setupExe, p.dir), L"\\setup.exe");
-    put(put(put(p.lnk, p.programs), L"\\"), APP_NAME L".lnk");
+    wsprintfW(p.dir, L"%s\\PersianCalendar", local);
+    wsprintfW(p.appExe, L"%s\\" APP_EXE, p.startup);
+    wsprintfW(p.setupExe, L"%s\\setup.exe", p.dir);
+    wsprintfW(p.lnk, L"%s\\" APP_NAME L".lnk", p.programs);
     return true;
 }
 
@@ -151,8 +143,8 @@ static UINT install(const Paths &p)
     CreateDirectoryW(p.dir, nullptr);
     wchar_t self[MAX_PATH], cmd[MAX_PATH + 16], silentCmd[MAX_PATH + 32];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
-    put(put(put(cmd, L"\""), p.setupExe), L"\" /uninstall");
-    put(put(put(silentCmd, L"\""), p.setupExe), L"\" /silent-uninstall");
+    wsprintfW(cmd, L"\"%s\" /uninstall", p.setupExe);
+    wsprintfW(silentCmd, L"\"%s\" /silent-uninstall", p.setupExe);
     if (!write_file(p.appExe, payload, sizeof payload) || !CopyFileW(self, p.setupExe, FALSE) ||
         !make_shortcut(p.lnk, p.appExe, silentCmd))
     {
@@ -192,9 +184,7 @@ static UINT uninstall(const Paths &p)
     RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
     // The running setup.exe can't delete itself; let a detached cmd do it after we exit.
     static wchar_t cmd[3 * MAX_PATH];
-    wchar_t *e = put(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"");
-    e = put(put(e, p.setupExe), L"\" & rmdir \"");
-    put(put(e, p.dir), L"\"");
+    wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.setupExe, p.dir);
     STARTUPINFOW si;
     for (volatile char *b = reinterpret_cast<volatile char *>(&si); b < reinterpret_cast<volatile char *>(&si + 1); b++)
         *b = 0;
