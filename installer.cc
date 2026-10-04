@@ -149,11 +149,12 @@ static UINT install(const Paths &p)
 {
     kill_app();
     CreateDirectoryW(p.dir, nullptr);
-    wchar_t self[MAX_PATH], cmd[MAX_PATH + 16];
+    wchar_t self[MAX_PATH], cmd[MAX_PATH + 16], silentCmd[MAX_PATH + 32];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
     put(put(put(cmd, L"\""), p.setupExe), L"\" /uninstall");
+    put(put(put(silentCmd, L"\""), p.setupExe), L"\" /silent-uninstall");
     if (!write_file(p.appExe, payload, sizeof payload) || !CopyFileW(self, p.setupExe, FALSE) ||
-        !make_shortcut(p.lnk, p.appExe, cmd))
+        !make_shortcut(p.lnk, p.appExe, silentCmd))
     {
         MessageBoxW(nullptr, L"Installation failed.", APP_NAME, MB_ICONERROR);
         return 1;
@@ -163,6 +164,7 @@ static UINT install(const Paths &p)
     {
         set_str(k, L"DisplayName", APP_NAME);
         set_str(k, L"UninstallString", cmd);
+        set_str(k, L"QuietUninstallString", silentCmd);
         set_str(k, L"DisplayIcon", p.appExe);
         set_str(k, L"InstallLocation", p.dir);
         set_one(k, L"NoModify");
@@ -217,6 +219,26 @@ static HRESULT CALLBACK show_dialog_callback(HWND hwnd, UINT msg, WPARAM, LPARAM
     return S_OK;
 }
 
+static bool ask(const wchar_t *text, const wchar_t *yes)
+{
+    TASKDIALOG_BUTTON customButtons[] = {
+        {IDYES, yes},
+        {IDNO, L"خیر"}};
+    TASKDIALOGCONFIG tdc;
+    zero_memory(tdc);
+    tdc.cbSize = sizeof(TASKDIALOGCONFIG);
+    tdc.pszWindowTitle = L"تقویم فارسی";
+    tdc.pszMainInstruction = text;
+    tdc.pButtons = customButtons;
+    tdc.pfCallback = show_dialog_callback;
+    tdc.cButtons = ARRAYSIZE(customButtons);
+    tdc.nDefaultButton = IDNO;
+    tdc.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_RTL_LAYOUT;
+    tdc.pszMainIcon = TD_INFORMATION_ICON;
+    int nButton = 0;
+    return SUCCEEDED(TaskDialogIndirect(&tdc, &nButton, nullptr, nullptr)) && nButton == IDYES;
+}
+
 extern "C" [[noreturn]] void start();
 void start()
 {
@@ -226,36 +248,27 @@ void start()
     static Paths p;
     if (get_paths(p))
     {
+        const wchar_t *args = GetCommandLineW();
         bool installed = GetFileAttributesW(p.appExe) != INVALID_FILE_ATTRIBUTES;
+        bool silent = StrStrW(args, L"/silent") != nullptr;
 
-        if (!installed && !StrStrW(GetCommandLineW(), L"/uninstall"))
+        // Checked first because "/silent-uninstall" also contains "/silent".
+        if (StrStrW(args, L"/silent-uninstall"))
+            code = uninstall(p);
+        else if (StrStrW(args, L"/uninstall") || installed)
+        {
+            code = 0;
+            if (silent && !StrStrW(args, L"/uninstall"))
+                code = install(p);
+            else if (ask(installed ? L"تقویم فارسی از قبل نصب شده است. آیا می‌‌خواهید آن را حذف کنید؟"
+                                   : L"آیا می‌خواهید تقویم فارسی را حذف نصب کنید؟",
+                         L"حذف نصب"))
+                code = uninstall(p);
+        }
+        else if (silent || ask(L"آیا می‌خواهید تقویم فارسی را نصب کنید؟", L"نصب"))
             code = install(p);
         else
-        {
-            TASKDIALOG_BUTTON customButtons[] = {
-                {IDYES, L"حذف نصب"},
-                {IDNO, L"خیر"}};
-            TASKDIALOGCONFIG tdc;
-            zero_memory(tdc);
-            tdc.cbSize = sizeof(TASKDIALOGCONFIG);
-            tdc.hwndParent = nullptr;
-            tdc.pszWindowTitle = L"تقویم فارسی";
-            tdc.pszMainInstruction =
-                installed
-                    ? L"تقویم فارسی از قبل نصب شده است. آیا می‌‌خواهید آن را حذف کنید؟"
-                    : L"آیا می‌خواهید تقویم فارسی را حذف نصب کنید؟";
-            tdc.pButtons = customButtons;
-            tdc.pfCallback = show_dialog_callback;
-            tdc.cButtons = ARRAYSIZE(customButtons);
-            tdc.nDefaultButton = IDNO;
-            tdc.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_RTL_LAYOUT;
-            tdc.pszMainIcon = TD_INFORMATION_ICON;
-            int nButton = 0;
-            if (SUCCEEDED(TaskDialogIndirect(&tdc, &nButton, nullptr, nullptr)) && nButton == IDYES)
-                code = uninstall(p);
-            else
-                code = 0;
-        }
+            code = 0;
     }
     ExitProcess(code);
 }
