@@ -339,7 +339,7 @@ void start()
     enable_hidpi();
     enable_dark_mode_support();
     HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    int code = 1;
+    UINT code = 1;
     if (SUCCEEDED(hr))
     {
         Paths p;
