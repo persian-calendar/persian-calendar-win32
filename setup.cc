@@ -185,7 +185,12 @@ static auto uninstall(const Paths &p) -> UINT
     si.dwFlags = STARTF_USESHOWWINDOW;
     si.wShowWindow = SW_HIDE;
     PROCESS_INFORMATION pi;
-    if (CreateProcessW(nullptr, cmd, nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
+
+    wchar_t tempPath[MAX_PATH];
+    if (GetTempPathW(MAX_PATH, tempPath) == 0)
+        lstrcpyW(tempPath, L"C:\\");
+
+    if (CreateProcessW(nullptr, cmd, nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, tempPath, &si, &pi))
     {
         CloseHandle(pi.hThread);
         CloseHandle(pi.hProcess);
