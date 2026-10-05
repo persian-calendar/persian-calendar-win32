@@ -178,7 +178,7 @@ static auto uninstall(const Paths &p) -> UINT
     }
     // The running setup.exe can't delete itself; let a detached cmd do it after we exit.
     wchar_t cmd[3 * MAX_PATH];
-    wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.uninstallExe, p.dir);
+    wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir /s /q \"%s\"", p.uninstallExe, p.dir);
     STARTUPINFOW si;
     zero_memory(si);
     si.cb = sizeof si;
