@@ -14,7 +14,7 @@ static const unsigned char payload[] = {
 #define TILE_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Start\\TileProperties\\W~" APP_ID
 #define STARTUP_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
-static bool known_folder(const KNOWNFOLDERID &id, wchar_t *out)
+static auto known_folder(const KNOWNFOLDERID &id, wchar_t *out) -> bool
 {
     PWSTR p = nullptr;
     if (FAILED(SHGetKnownFolderPath(id, 0, nullptr, &p)))
@@ -24,7 +24,7 @@ static bool known_folder(const KNOWNFOLDERID &id, wchar_t *out)
     return true;
 }
 
-static bool write_file(const wchar_t *path, const void *data, DWORD size)
+static auto write_file(const wchar_t *path, const void *data, DWORD size) -> bool
 {
     HANDLE f = CreateFileW(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (f == INVALID_HANDLE_VALUE)
@@ -56,7 +56,7 @@ struct Paths
     wchar_t dir[MAX_PATH], appExe[MAX_PATH], uninstallExe[MAX_PATH], lnk[MAX_PATH];
 };
 
-static bool get_paths(Paths &p)
+static auto get_paths(Paths &p) -> bool
 {
     wchar_t local[MAX_PATH];
     wchar_t programs[MAX_PATH];
@@ -79,7 +79,7 @@ static void set_prop(IPropertyStore *ps, DWORD pid, const wchar_t *v)
     ps->SetValue(key, pv);
 }
 
-static bool make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar_t *uninstCmd)
+static auto make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar_t *uninstCmd) -> bool
 {
     IShellLinkW *sl = nullptr;
     if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, reinterpret_cast<void **>(&sl))))
@@ -117,7 +117,7 @@ static void set_one(HKEY k, const wchar_t *name)
     RegSetValueExW(k, name, 0, REG_DWORD, reinterpret_cast<const BYTE *>(&one), sizeof one);
 }
 
-static UINT install(const Paths &p)
+static auto install(const Paths &p) -> UINT
 {
     kill_app();
     CreateDirectoryW(p.dir, nullptr);
@@ -160,7 +160,7 @@ static UINT install(const Paths &p)
     return 0;
 }
 
-static UINT uninstall(const Paths &p)
+static auto uninstall(const Paths &p) -> UINT
 {
     kill_app();
     DeleteFileW(p.appExe);
@@ -244,7 +244,7 @@ struct dialog_state_t
 
 #define WM_DPICHANGED 0x02E0
 
-static LRESULT CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static auto CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) -> LRESULT
 {
     auto *state = reinterpret_cast<dialog_state_t *>(
         GetWindowLongPtrW(hwnd, GWLP_USERDATA));
@@ -278,7 +278,7 @@ static LRESULT CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wPa
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
-static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *yes, const wchar_t *no)
+static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *yes, const wchar_t *no) -> bool
 {
     dialog_state_t state;
     zero_memory(state);
@@ -328,7 +328,7 @@ static bool confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
     return state.confirmed;
 }
 
-static bool ask(const wchar_t *text, const wchar_t *yes)
+static auto ask(const wchar_t *text, const wchar_t *yes) -> bool
 {
     return confirm(L"تقویم فارسی", text, yes, L"خیر");
 }

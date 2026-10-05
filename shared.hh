@@ -73,7 +73,7 @@ inline auto get_build_number() -> DWORD
     if (pRtlGetVersion)
     {
         RTL_OSVERSIONINFOW rovi;
-        rovi.dwOSVersionInfoSize = sizeof(rovi);
+        rovi.dwOSVersionInfoSize = sizeof rovi;
         if (pRtlGetVersion(&rovi) == 0)
             return rovi.dwBuildNumber;
     }
@@ -139,7 +139,7 @@ inline void glass_window(HWND hWnd)
             "DwmSetWindowAttribute"))
     {
         int backdropType = DWMSBT_TRANSIENTWINDOW; // instead of Mica's DWMSBT_MAINWINDOW
-        pDwmSetWindowAttribute(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
+        pDwmSetWindowAttribute(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof backdropType);
     }
 }
 
