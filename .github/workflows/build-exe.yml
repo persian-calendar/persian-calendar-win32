@@ -24,29 +24,28 @@ jobs:
           fetch-depth: 0
       - name: Check for changes since the latest stable release
         id: check
-        shell: pwsh
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          if ($env:GITHUB_EVENT_NAME -ne 'schedule') {
-            "should_publish=true" >> $env:GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
             exit 0
-          }
+          fi
 
-          $stableTag = gh release list --exclude-drafts --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName // empty'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if ([string]::IsNullOrWhiteSpace($stableTag)) {
-            "should_publish=true" >> $env:GITHUB_OUTPUT
+          stable_tag=$(gh release list --exclude-drafts --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName // empty')
+          if [ -z "$stable_tag" ]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
             exit 0
-          }
+          fi
 
-          $stableCommit = git rev-list -n 1 $stableTag
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git diff --quiet $stableCommit $env:GITHUB_SHA --
-          $diffExitCode = $LASTEXITCODE
-          if ($diffExitCode -gt 1) { exit $diffExitCode }
-          $shouldPublish = if ($diffExitCode -eq 1) { 'true' } else { 'false' }
-          "should_publish=$shouldPublish" >> $env:GITHUB_OUTPUT
+          stable_commit=$(git rev-list -n 1 "$stable_tag")
+          if git diff --quiet "$stable_commit" "$GITHUB_SHA" --; then
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
 
   upload-exe:
     needs: check-changes
