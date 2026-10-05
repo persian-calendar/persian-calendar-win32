@@ -118,10 +118,8 @@ jobs:
           $tagName = "v$shortYear.$month.$day"
 
           gh release view $tagName *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release edit $tagName --title "$tagName"
-          } else {
-            gh release create $tagName --title "$tagName" --notes "" --target $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tagName --title "$tagName" --notes "$tagName" --target $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            gh release upload $tagName PersianCalendar.exe PersianCalendarInstaller.exe --clobber
           }
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh release upload $tagName PersianCalendar.exe PersianCalendarInstaller.exe --clobber
