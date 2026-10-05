@@ -53,7 +53,7 @@ static void kill_app()
 
 struct Paths
 {
-    wchar_t dir[MAX_PATH], appExe[MAX_PATH], uninstallExe[MAX_PATH], lnk[MAX_PATH];
+    wchar_t dir[MAX_PATH], appExe[MAX_PATH], uninstallExe[MAX_PATH], self[MAX_PATH], lnk[MAX_PATH];
 };
 
 static auto get_paths(Paths &p) -> bool
@@ -62,6 +62,7 @@ static auto get_paths(Paths &p) -> bool
     wchar_t programs[MAX_PATH];
     if (!known_folder(FOLDERID_Programs, programs) || !known_folder(FOLDERID_LocalAppData, local))
         return false;
+    GetModuleFileNameW(nullptr, p.self, MAX_PATH);
     wsprintfW(p.dir, L"%s\\" APP_ID, local);
     wsprintfW(p.appExe, L"%s\\" APP_EXE, p.dir);
     wsprintfW(p.uninstallExe, L"%s\\uninstall.exe", p.dir);
@@ -121,11 +122,10 @@ static auto install(const Paths &p) -> UINT
 {
     kill_app();
     CreateDirectoryW(p.dir, nullptr);
-    wchar_t self[MAX_PATH], cmd[MAX_PATH + 16], silentCmd[MAX_PATH + 32];
-    GetModuleFileNameW(nullptr, self, MAX_PATH);
+    wchar_t cmd[MAX_PATH + 16], silentCmd[MAX_PATH + 32];
     wsprintfW(cmd, L"\"%s\"", p.uninstallExe);
     wsprintfW(silentCmd, L"\"%s\" /silent", p.uninstallExe);
-    if (!write_file(p.appExe, payload, sizeof payload) || !CopyFileW(self, p.uninstallExe, FALSE) ||
+    if (!write_file(p.appExe, payload, sizeof payload) || !CopyFileW(p.self, p.uninstallExe, FALSE) ||
         !make_shortcut(p.lnk, p.appExe, silentCmd))
     {
         MessageBoxW(nullptr, L"Installation failed.", APP_NAME, MB_ICONERROR);
@@ -338,16 +338,22 @@ void start()
 {
     enable_hidpi();
     enable_dark_mode_support();
-    HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)))
+        ExitProcess(1);
     UINT code = 1;
-    if (SUCCEEDED(hr))
+    Paths p;
+    if (get_paths(p))
     {
-        Paths p;
-        if (get_paths(p))
+        bool isInstalled = GetFileAttributesW(p.uninstallExe) != INVALID_FILE_ATTRIBUTES;
+        bool isSelfUninstaller = CompareStringW(LOCALE_INVARIANT, NORM_IGNORECASE,
+                                                p.self, -1, p.uninstallExe, -1) == CSTR_EQUAL;
+        if (isInstalled && !isSelfUninstaller)
+            ShellExecuteW(nullptr, L"open", p.uninstallExe, nullptr, p.dir, SW_SHOWNORMAL);
+        else
         {
-            bool isSilent = StrStrW(GetCommandLineW(), L"/silent") != nullptr;
             code = 0;
-            if (GetFileAttributesW(p.appExe) != INVALID_FILE_ATTRIBUTES)
+            bool isSilent = StrStrW(GetCommandLineW(), L"/silent") != nullptr;
+            if (isInstalled)
             {
                 if (isSilent || ask(L"مایلید تقویم فارسی را حذف نصب کنید؟", L"حذف نصب"))
                     code = uninstall(p);
@@ -355,7 +361,7 @@ void start()
             else if (isSilent || ask(L"مایلید تقویم فارسی را نصب کنید؟", L"نصب"))
                 code = install(p);
         }
-        CoUninitialize();
     }
+    CoUninitialize();
     ExitProcess(code);
 }
