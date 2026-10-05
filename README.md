@@ -14,8 +14,8 @@ Installation
 ------------
 
 The easier way:
-* Download `PersianCalendarInstaller.exe` from https://github.com/persian-calendar/persian-calendar-win32/releases/latest
-(and for uninstallation just double click the installer.exe again or use another traditional ways)
+* Download `setup.exe` from https://github.com/persian-calendar/persian-calendar-win32/releases/latest
+(and for uninstallation just double click the setup.exe again or use another traditional ways)
 
 Or the manual way:
 * Find the `PersianCalendar.exe` from the latest version of https://github.com/persian-calendar/persian-calendar-win32/releases

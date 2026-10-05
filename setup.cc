@@ -65,7 +65,7 @@ static auto get_paths(Paths &p) -> bool
     GetModuleFileNameW(nullptr, p.self, MAX_PATH);
     wsprintfW(p.dir, L"%s\\" APP_ID, local);
     wsprintfW(p.appExe, L"%s\\" APP_EXE, p.dir);
-    wsprintfW(p.uninstallExe, L"%s\\uninstall.exe", p.dir);
+    wsprintfW(p.uninstallExe, L"%s\\setup.exe", p.dir);
     wsprintfW(p.lnk, L"%s\\" APP_NAME L".lnk", programs);
     return true;
 }
@@ -176,7 +176,7 @@ static auto uninstall(const Paths &p) -> UINT
             RegCloseKey(k);
         }
     }
-    // The running uninstall.exe can't delete itself; let a detached cmd do it after we exit.
+    // The running setup.exe can't delete itself; let a detached cmd do it after we exit.
     wchar_t cmd[3 * MAX_PATH];
     wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.uninstallExe, p.dir);
     STARTUPINFOW si;

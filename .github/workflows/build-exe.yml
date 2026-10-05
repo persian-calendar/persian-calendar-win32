@@ -88,6 +88,27 @@ jobs:
           pip install pefile
           python postlink.py
 
+      - name: Cache UPX
+        id: cache-crinkler
+        uses: actions/cache@v4
+        with:
+          path: upx-5.2.1-win32.zip
+          key: upx-5.2.1-win32
+      - name: Download Crinkler
+        if: steps.cache-crinkler.outputs.cache-hit != 'true'
+        run: |
+          curl -L -o upx-5.2.1-win32.zip https://github.com/upx/upx/releases/download/v5.2.1/upx-5.2.1-win32.zip
+      - name: Extract UPX
+        shell: pwsh
+        run: |
+          Expand-Archive upx-5.2.1-win32.zip -DestinationPath upx_tmp -Force
+          Get-ChildItem -Recurse upx_tmp -Filter upx.exe | Select-Object -First 1 | Copy-Item -Destination .
+          Remove-Item upx_tmp -Recurse -Force
+      - name: Build UPX EXE
+        shell: cmd
+        run: |
+          upx.exe setup.exe
+
       - name: Publish latest prerelease
         if: github.event_name != 'pull_request'
         shell: pwsh
@@ -101,7 +122,7 @@ jobs:
             gh release create latest --title "Latest build" --notes "" --target $env:GITHUB_SHA --prerelease
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh release upload latest PersianCalendar.exe PersianCalendarInstaller.exe --clobber
+          gh release upload latest PersianCalendar.exe setup.exe --clobber
 
       - name: Publish daily stable release
         if: github.event_name == 'schedule'
@@ -121,5 +142,5 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             gh release create $tagName --title "$tagName" --notes "$tagName" --target $env:GITHUB_SHA
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            gh release upload $tagName PersianCalendar.exe PersianCalendarInstaller.exe --clobber
+            gh release upload $tagName PersianCalendar.exe setup.exe --clobber
           }

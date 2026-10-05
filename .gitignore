@@ -1,9 +1,9 @@
 PersianCalendar.exe
 PersianCalendar.gcc.exe
 PersianCalendar.llvm.exe
-Crinkler.exe
+upx.exe
 test.exe
-PersianCalendarInstaller.exe
+setup.exe
 .vscode/
 .DS_Store
 PersianCalendar.obj
