@@ -532,16 +532,13 @@ static void handle_widget(HWND hWnd, app_state_t *app_state)
                 size, size,
                 hWnd, nullptr, hInst, nullptr);
             SetTimer(widgetHwnd, widgetTimerId, 60000, nullptr);
-            {
-                DWM_WINDOW_CORNER_PREFERENCE preference = DWMWCP_ROUND;
-                auto pDwmSetWindowAttribute = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(HWND hWnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>("DwmSetWindowAttribute");
-                if (pDwmSetWindowAttribute)
-                    pDwmSetWindowAttribute(
-                        widgetHwnd,
-                        DWMWA_WINDOW_CORNER_PREFERENCE,
-                        &preference,
-                        sizeof preference);
-            }
+            DWM_WINDOW_CORNER_PREFERENCE preference = DWMWCP_ROUND;
+            if (auto pDwmSetWindowAttribute = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(HWND hWnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute)>("DwmSetWindowAttribute"))
+                pDwmSetWindowAttribute(
+                    widgetHwnd,
+                    DWMWA_WINDOW_CORNER_PREFERENCE,
+                    &preference,
+                    sizeof preference);
         }
         handle_widget_movability(widgetHwnd, app_state);
         handle_widget_always_on_top(widgetHwnd, app_state);
@@ -569,8 +566,7 @@ static auto get_month_days(unsigned year, unsigned month) -> unsigned
 
 static auto has_composition() -> bool
 {
-    auto pDwmIsCompositionEnabled = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(BOOL * pfEnabled)>("DwmIsCompositionEnabled");
-    if (pDwmIsCompositionEnabled)
+    if (auto pDwmIsCompositionEnabled = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(BOOL * pfEnabled)>("DwmIsCompositionEnabled"))
     {
         BOOL result;
         pDwmIsCompositionEnabled(&result);
@@ -634,10 +630,8 @@ static void draw_table(
 
 static void set_layered_window_attributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
 {
-    LibraryLoader user32("user32");
-    auto pSetLayeredWindowAttributes = user32.getProcedure<BOOL(WINAPI *)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)>(
-        "SetLayeredWindowAttributes");
-    if (pSetLayeredWindowAttributes)
+    if (auto pSetLayeredWindowAttributes = LibraryLoader("user32").getProcedure<BOOL(WINAPI *)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)>(
+            "SetLayeredWindowAttributes"))
         pSetLayeredWindowAttributes(hwnd, crKey, bAlpha, dwFlags);
 }
 
@@ -1091,7 +1085,7 @@ void start()
 {
     HANDLE mutex = CreateMutexW(nullptr, 0, APP_ID);
     bool is_portable = StrStrW(GetCommandLineW(), L"/portable") != nullptr ||
-        !mutex || GetLastError() == ERROR_ALREADY_EXISTS;
+                       !mutex || GetLastError() == ERROR_ALREADY_EXISTS;
 
     {
         WNDCLASSEXW wc;

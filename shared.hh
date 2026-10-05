@@ -69,8 +69,7 @@ inline auto get_system_dpi() -> UINT
 
 inline auto get_build_number() -> DWORD
 {
-    auto pRtlGetVersion = LibraryLoader("ntdll.dll").getProcedure<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>("RtlGetVersion");
-    if (pRtlGetVersion)
+    if (auto pRtlGetVersion = LibraryLoader("ntdll.dll").getProcedure<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>("RtlGetVersion"))
     {
         RTL_OSVERSIONINFOW rovi;
         rovi.dwOSVersionInfoSize = sizeof rovi;
