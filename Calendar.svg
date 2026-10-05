@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <filter id="calendar-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.15" />
+    </filter>
+
+    <filter id="binders-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.15" />
+    </filter>
+
+    <filter id="days-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.1" />
+    </filter>
+  </defs>
+
+  <rect filter="url(#calendar-shadow)" x="28" y="40" width="200" height="190" rx="16" fill="#3EA5E8" />
+
+  <!-- Top header -->
+  <path d="M 44 40 L 212 40 A 16 16 0 0 1 228 56 L 228 85 L 28 85 L 28 56 A 16 16 0 0 1 44 40 Z" fill="#10498B" />
+
+  <rect filter="url(#binders-shadow)" x="48" y="20" width="26" height="40" rx="13" fill="#4CC5EF" />
+  <rect filter="url(#binders-shadow)" x="182" y="20" width="26" height="40" rx="13" fill="#4CC5EF" />
+
+  <g filter="url(#days-shadow)">
+    <rect x="95" y="106" width="28" height="28" rx="6" fill="#FFFFFF" />
+    <rect x="133" y="106" width="28" height="28" rx="6" fill="#FFFFFF" />
+    <rect x="171" y="106" width="28" height="28" rx="6" fill="#FFFFFF" />
+
+    <rect x="57" y="144" width="28" height="28" rx="6" fill="#FFFFFF" />
+    <rect x="95" y="144" width="28" height="28" rx="6" fill="#FFFFFF" />
+    <rect x="133" y="144" width="28" height="28" rx="6" fill="#FFFFFF" />
+    <rect x="171" y="144" width="28" height="28" rx="6" fill="#FFFFFF" />
+
+    <rect x="57" y="182" width="28" height="28" rx="6" fill="#FFFFFF" />
+    <rect x="95" y="182" width="28" height="28" rx="6" fill="#FFFFFF" />
+    <rect x="133" y="182" width="28" height="28" rx="6" fill="#FFFFFF" />
+  </g>
+</svg>

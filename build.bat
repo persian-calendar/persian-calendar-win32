@@ -8,7 +8,9 @@ REM https://github.com/llvm/llvm-project/releases Install from the Windows insta
     -Wl,/entry:start -Wl,/subsystem:windows -Wl,/fixed -Wl,/merge:.rdata=.text ^
     -lkernel32 -luser32 -lshell32 -lgdi32 -ladvapi32 -lshlwapi
 
-"C:\Program Files\LLVM\bin\clang" setup.cc -o setup.exe ^
+"C:\Program Files\LLVM\bin\llvm-rc" setup.rc
+
+"C:\Program Files\LLVM\bin\clang" setup.cc setup.res -o setup.exe ^
     -Weverything -Wall -Wextra -Wpedantic -Werror -Weffc++ -std=c++23 ^
     -Wno-c++98-compat-pedantic ^
     -fno-exceptions -fno-rtti -fsafe-buffer-usage-suggestions -flto -Oz ^

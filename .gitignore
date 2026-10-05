@@ -4,6 +4,7 @@ PersianCalendar.llvm.exe
 upx.exe
 test.exe
 setup.exe
+setup.res
 .vscode/
 .DS_Store
 PersianCalendar.obj

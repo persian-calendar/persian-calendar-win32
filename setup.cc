@@ -4,7 +4,7 @@
 #include <propsys.h>
 #include <propkey.h>
 
-static const unsigned char payload[] = {
+static const unsigned char appExe[] = {
 #embed "PersianCalendar.exe"
 };
 
@@ -46,7 +46,7 @@ static void kill_app()
     sei.nShow = SW_HIDE;
     if (ShellExecuteExW(&sei) && sei.hProcess)
     {
-        WaitForSingleObject(sei.hProcess, 5000);
+        WaitForSingleObject(sei.hProcess, 500);
         CloseHandle(sei.hProcess);
     }
 }
@@ -80,11 +80,12 @@ static void set_prop(IPropertyStore *ps, DWORD pid, const wchar_t *v)
     ps->SetValue(key, pv);
 }
 
-static auto make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar_t *uninstCmd) -> bool
+static auto make_shortcut(const wchar_t *lnk, const wchar_t *iconPath, const wchar_t *target, const wchar_t *uninstCmd) -> bool
 {
     IShellLinkW *sl = nullptr;
     if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, reinterpret_cast<void **>(&sl))))
         return false;
+    sl->SetIconLocation(iconPath, 0);
     sl->SetPath(target);
     sl->SetDescription(APP_NAME);
     IPropertyStore *ps = nullptr;
@@ -125,8 +126,9 @@ static auto install(const Paths &p) -> UINT
     wchar_t cmd[MAX_PATH + 16], silentCmd[MAX_PATH + 32];
     wsprintfW(cmd, L"\"%s\"", p.uninstallExe);
     wsprintfW(silentCmd, L"\"%s\" /silent", p.uninstallExe);
-    if (!write_file(p.appExe, payload, sizeof payload) || !CopyFileW(p.self, p.uninstallExe, FALSE) ||
-        !make_shortcut(p.lnk, p.appExe, silentCmd))
+    if (!write_file(p.appExe, appExe, sizeof appExe) ||
+        !CopyFileW(p.self, p.uninstallExe, FALSE) ||
+        !make_shortcut(p.lnk, p.uninstallExe, p.appExe, silentCmd))
     {
         MessageBoxW(nullptr, L"Installation failed.", APP_NAME, MB_ICONERROR);
         return 1;
@@ -137,7 +139,7 @@ static auto install(const Paths &p) -> UINT
         set_str(k, L"DisplayName", APP_NAME);
         set_str(k, L"UninstallString", cmd);
         set_str(k, L"QuietUninstallString", silentCmd);
-        set_str(k, L"DisplayIcon", p.appExe);
+        set_str(k, L"DisplayIcon", p.uninstallExe);
         set_str(k, L"InstallLocation", p.dir);
         set_one(k, L"NoModify");
         set_one(k, L"NoRepair");
@@ -153,7 +155,7 @@ static auto install(const Paths &p) -> UINT
     // Add to startup
     if (RegCreateKeyExW(HKEY_CURRENT_USER, STARTUP_KEY, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
     {
-        RegSetValueExW(k, APP_NAME, 0, REG_SZ, reinterpret_cast<const BYTE *>(p.appExe), static_cast<DWORD>((lstrlenW(p.appExe) + 1) * static_cast<int>(sizeof(wchar_t))));
+        RegSetValueExW(k, APP_ID, 0, REG_SZ, reinterpret_cast<const BYTE *>(p.appExe), static_cast<DWORD>((lstrlenW(p.appExe) + 1) * static_cast<int>(sizeof(wchar_t))));
         RegCloseKey(k);
     }
     ShellExecuteW(nullptr, L"open", p.appExe, nullptr, p.dir, SW_SHOWNORMAL);
@@ -178,7 +180,7 @@ static auto uninstall(const Paths &p) -> UINT
     }
     // The running setup.exe can't delete itself; let a detached cmd do it after we exit.
     wchar_t cmd[3 * MAX_PATH];
-    wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir /s /q \"%s\"", p.uninstallExe, p.dir);
+    wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.uninstallExe, p.dir);
     STARTUPINFOW si;
     zero_memory(si);
     si.cb = sizeof si;
