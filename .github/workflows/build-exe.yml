@@ -107,7 +107,7 @@ jobs:
       - name: Build UPX EXE
         shell: cmd
         run: |
-          upx.exe setup.exe
+          upx.exe --ultra-brute setup.exe
 
       - name: Publish latest prerelease
         if: github.event_name != 'pull_request'
