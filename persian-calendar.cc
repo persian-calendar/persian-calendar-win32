@@ -106,7 +106,7 @@ struct app_state_t
     BOOL always_on_top_widget{false};
     HWND widget_hwnd{nullptr};
 
-    app_state_t(NOTIFYICONDATAW * LIFETIME_BOUND notify_icon_data_) :
+    app_state_t(NOTIFYICONDATAW *notify_icon_data_ LIFETIME_BOUND) :
         notify_icon_data(notify_icon_data_),
         black_background(get_build_number() < 18362)
     {
