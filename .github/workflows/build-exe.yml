@@ -103,12 +103,12 @@ jobs:
           $rcPath = "setup.rc"
           $content = Get-Content $rcPath -Raw
 
-          $content = $content -replace 'FILEVERSION\s+[\d,]+', "FILEVERSION    $commaVer"
-          $content = $content -replace 'PRODUCTVERSION\s+[\d,]+', "PRODUCTVERSION $commaVer"
-          $content = $content -replace 'VALUE "FileVersion",\s+"[\d\.]+"', "VALUE \"FileVersion\",     \"$ver\""
-          $content = $content -replace 'VALUE "ProductVersion",\s+"[\d\.]+"', "VALUE \"ProductVersion\",  \"$ver\""
+          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'FILEVERSION\s+[\d,]+', "FILEVERSION    $commaVer")
+          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'PRODUCTVERSION\s+[\d,]+', "PRODUCTVERSION $commaVer")
+          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "FileVersion",\s+"[\d\.]+"', "VALUE ""FileVersion"",     ""$ver""")
+          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "ProductVersion",\s+"[\d\.]+"', "VALUE ""ProductVersion"",  ""$ver""")
 
-          Set-Content -Path $rcPath -Value $content
+          Set-Content -Path $rcPath -Value $content -NoNewline
           Write-Host "Updated $rcPath to version $ver"
 
       - name: Build EXE
