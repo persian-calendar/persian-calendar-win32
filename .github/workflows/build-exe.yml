@@ -127,13 +127,13 @@ jobs:
           python postlink.py
 
       - name: Cache UPX
-        id: cache-crinkler
+        id: cache-upx
         uses: actions/cache@v4
         with:
           path: upx-5.2.1-win32.zip
           key: upx-5.2.1-win32
-      - name: Download Crinkler
-        if: steps.cache-crinkler.outputs.cache-hit != 'true'
+      - name: Download UPX
+        if: steps.cache-upx.outputs.cache-hit != 'true'
         run: |
           curl -L -o upx-5.2.1-win32.zip https://github.com/upx/upx/releases/download/v5.2.1/upx-5.2.1-win32.zip
       - name: Extract UPX
