@@ -9,7 +9,7 @@ on:
       - main
   workflow_dispatch:
   schedule:
-    - cron: '0 12 * * *'
+    - cron: '0 1 * * *'
   pull_request:
 
 jobs:
@@ -73,6 +73,44 @@ jobs:
         run: |
           "C:\\Program Files\\LLVM\\bin\\clang" test.cc -m32 -fno-exceptions -D_CRT_SECURE_NO_WARNINGS -o test.exe && test.exe
 
+      - name: Determine Version
+        id: version
+        shell: pwsh
+        run: |
+          $persianCalendar = [System.Globalization.PersianCalendar]::new()
+          $now = [DateTime]::UtcNow
+          $year = $persianCalendar.GetYear($now)
+          $month = $persianCalendar.GetMonth($now)
+          $day = $persianCalendar.GetDayOfMonth($now)
+          $shortYear = $year % 100
+
+          if ("${{ github.event_name }}" -eq "schedule") {
+            $v = "$shortYear.$month.$day.0"
+            $tagName = "v$shortYear.$month.$day"
+          } else {
+            $v = "$shortYear.$month.$day.1"
+            $tagName = "latest"
+          }
+          echo "VERSION=$v" >> $env:GITHUB_OUTPUT
+          echo "TAG_NAME=$tagName" >> $env:GITHUB_OUTPUT
+
+      - name: Update Resource File Version
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.version.outputs.VERSION }}"
+          $commaVer = $ver -replace '\.', ','
+
+          $rcPath = "setup.rc"
+          $content = Get-Content $rcPath -Raw
+
+          $content = $content -replace 'FILEVERSION\s+[\d,]+', "FILEVERSION    $commaVer"
+          $content = $content -replace 'PRODUCTVERSION\s+[\d,]+', "PRODUCTVERSION $commaVer"
+          $content = $content -replace 'VALUE "FileVersion",\s+"[\d\.]+"', "VALUE \"FileVersion\",     \"$ver\""
+          $content = $content -replace 'VALUE "ProductVersion",\s+"[\d\.]+"', "VALUE \"ProductVersion\",  \"$ver\""
+
+          Set-Content -Path $rcPath -Value $content
+          Write-Host "Updated $rcPath to version $ver"
+
       - name: Build EXE
         shell: cmd
         run: |
@@ -109,38 +147,40 @@ jobs:
         run: |
           upx.exe --ultra-brute setup.exe
 
-      - name: Publish latest prerelease
-        if: github.event_name != 'pull_request'
+      - name: Commit and Push Updated Resource File
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view latest *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release edit latest --title "Latest build" --prerelease
-          } else {
-            gh release create latest --title "Latest build" --notes "" --target $env:GITHUB_SHA --prerelease
+          $tagName = "${{ steps.version.outputs.TAG_NAME }}"
+          if ($tagName -ne "latest") {
+            git config --local user.name "github-actions[bot]"
+            git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add setup.rc
+            git diff --staged --quiet
+            if ($LASTEXITCODE -ne 0) {
+              git commit -m "Update setup.rc version to ${{ steps.version.outputs.VERSION }}"
+              git pull --rebase origin main
+              git push
+            }
           }
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh release upload latest PersianCalendar.exe setup.exe --clobber
 
-      - name: Publish daily stable release
-        if: github.event_name == 'schedule'
+      - name: Publish Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $persianCalendar = [System.Globalization.PersianCalendar]::new()
-          $now = [DateTime]::UtcNow
-          $year = $persianCalendar.GetYear($now)
-          $month = $persianCalendar.GetMonth($now)
-          $day = $persianCalendar.GetDayOfMonth($now)
-          $shortYear = $year % 100
-          $tagName = "v$shortYear.$month.$day"
+          $tagName = "${{ steps.version.outputs.TAG_NAME }}"
 
           gh release view $tagName *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tagName --title "$tagName" --notes "$tagName" --target $env:GITHUB_SHA
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            gh release upload $tagName PersianCalendar.exe setup.exe --clobber
+          if ($LASTEXITCODE -eq 0) {
+            if ($tagName -eq "latest") {
+              gh release edit latest --title "Latest build" --prerelease
+            }
+          } else {
+            if ($tagName -eq "latest") {
+              gh release create latest --title "Latest build" --notes "" --target $env:GITHUB_SHA --prerelease
+            } else {
+              gh release create $tagName --title "$tagName" --notes "$tagName" --target $env:GITHUB_SHA
+            }
           }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release upload $tagName PersianCalendar.exe setup.exe --clobber
