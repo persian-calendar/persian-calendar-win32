@@ -170,6 +170,7 @@ jobs:
           upx.exe --ultra-brute setup.exe
 
       - name: Commit and Publish Release
+        if: github.event_name != 'pull_request'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
