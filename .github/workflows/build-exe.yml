@@ -127,8 +127,8 @@ jobs:
 
           $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'FILEVERSION\s+[\d,]+', "FILEVERSION    $commaVer")
           $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'PRODUCTVERSION\s+[\d,]+', "PRODUCTVERSION $commaVer")
-          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "FileVersion",\s+"[\d\.]+"', "VALUE ""FileVersion"",     ""$ver""")
-          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "ProductVersion",\s+"[\d\.]+"', "VALUE ""ProductVersion"",  ""$ver""")
+          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "FileVersion",\s+"[\d\.]+"', "VALUE ""FileVersion"",      ""$ver""")
+          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "ProductVersion",\s+"[\d\.]+"', "VALUE ""ProductVersion"",   ""$ver""")
 
           Set-Content -Path $rcPath -Value $content -NoNewline
           Write-Host "Updated $rcPath to version $ver"
@@ -179,7 +179,7 @@ jobs:
             git add setup.rc
             git diff --staged --quiet
             if ($LASTEXITCODE -ne 0) {
-              git commit -m "Update setup.rc version to ${{ steps.version.outputs.VERSION }}"
+              git commit -m "v${{ steps.version.outputs.VERSION }}"
               git pull --rebase origin main
               git push
             }
