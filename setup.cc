@@ -58,12 +58,12 @@ struct Paths
 
 static auto get_paths(Paths &p) -> bool
 {
-    wchar_t local[MAX_PATH];
+    wchar_t userprograms[MAX_PATH];
     wchar_t programs[MAX_PATH];
-    if (!known_folder(FOLDERID_Programs, programs) || !known_folder(FOLDERID_UserProgramFiles, local))
+    if (!known_folder(FOLDERID_Programs, programs) || !known_folder(FOLDERID_UserProgramFiles, userprograms))
         return false;
     GetModuleFileNameW(nullptr, p.self, MAX_PATH);
-    wsprintfW(p.dir, L"%s\\" APP_ID, local);
+    wsprintfW(p.dir, L"%s\\" APP_ID, userprograms);
     wsprintfW(p.appExe, L"%s\\" APP_EXE, p.dir);
     wsprintfW(p.uninstallExe, L"%s\\setup.exe", p.dir);
     wsprintfW(p.lnk, L"%s\\" APP_NAME L".lnk", programs);
@@ -347,6 +347,24 @@ void start()
     enable_dark_mode_support();
     if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)))
         ExitProcess(1);
+    // Get rid of this sometime later
+    {
+        wchar_t localappdata[MAX_PATH];
+        if (!known_folder(FOLDERID_LocalAppData, localappdata))
+        {
+            CoUninitialize();
+            ExitProcess(1);
+        }
+        wchar_t legacyuninstall[MAX_PATH];
+        wsprintfW(legacyuninstall, L"%s\\" APP_ID "\\setup.exe", localappdata);
+        bool isInstalled = GetFileAttributesW(legacyuninstall) != INVALID_FILE_ATTRIBUTES;
+        if (isInstalled)
+        {
+            ShellExecuteW(nullptr, L"open", legacyuninstall, nullptr, localappdata, SW_SHOWNORMAL);
+            CoUninitialize();
+            ExitProcess(1);
+        }
+    }
     UINT code = 1;
     Paths p;
     if (get_paths(p))
