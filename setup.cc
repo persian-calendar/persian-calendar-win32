@@ -11,7 +11,6 @@ static const unsigned char appExe[] = {
 #define APP_NAME L"Persian Calendar"
 #define APP_EXE L"PersianCalendar.exe"
 #define UNINSTALL_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32"
-#define TILE_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Start\\TileProperties\\W~" APP_ID
 #define STARTUP_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
 static auto known_folder(const KNOWNFOLDERID &id, wchar_t *out) -> bool
@@ -145,13 +144,6 @@ static auto install(const Paths &p) -> UINT
         set_one(k, L"NoRepair");
         RegCloseKey(k);
     }
-    // Category 2 is Productivity in the Start menu's "All apps" grouping.
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, TILE_KEY, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
-    {
-        DWORD productivity = 2;
-        RegSetValueExW(k, L"Category", 0, REG_DWORD, reinterpret_cast<const BYTE *>(&productivity), sizeof productivity);
-        RegCloseKey(k);
-    }
     // Add to startup
     if (RegCreateKeyExW(HKEY_CURRENT_USER, STARTUP_KEY, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
     {
@@ -168,7 +160,6 @@ static auto uninstall(const Paths &p) -> UINT
     DeleteFileW(p.appExe);
     DeleteFileW(p.lnk);
     RegDeleteKeyW(HKEY_CURRENT_USER, UNINSTALL_KEY);
-    RegDeleteKeyW(HKEY_CURRENT_USER, TILE_KEY);
     RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
     {
         HKEY k;
