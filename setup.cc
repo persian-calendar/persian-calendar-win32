@@ -60,7 +60,7 @@ static auto get_paths(Paths &p) -> bool
 {
     wchar_t local[MAX_PATH];
     wchar_t programs[MAX_PATH];
-    if (!known_folder(FOLDERID_Programs, programs) || !known_folder(FOLDERID_LocalAppData, local))
+    if (!known_folder(FOLDERID_Programs, programs) || !known_folder(FOLDERID_UserProgramFiles, local))
         return false;
     GetModuleFileNameW(nullptr, p.self, MAX_PATH);
     wsprintfW(p.dir, L"%s\\" APP_ID, local);
