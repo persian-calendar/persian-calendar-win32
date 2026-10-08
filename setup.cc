@@ -347,24 +347,6 @@ void start()
     enable_dark_mode_support();
     if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)))
         ExitProcess(1);
-    // Get rid of this sometime later
-    {
-        wchar_t localappdata[MAX_PATH];
-        if (!known_folder(FOLDERID_LocalAppData, localappdata))
-        {
-            CoUninitialize();
-            ExitProcess(1);
-        }
-        wchar_t legacyuninstall[MAX_PATH];
-        wsprintfW(legacyuninstall, L"%s\\" APP_ID "\\setup.exe", localappdata);
-        bool isInstalled = GetFileAttributesW(legacyuninstall) != INVALID_FILE_ATTRIBUTES;
-        if (isInstalled)
-        {
-            ShellExecuteW(nullptr, L"open", legacyuninstall, nullptr, localappdata, SW_SHOWNORMAL);
-            CoUninitialize();
-            ExitProcess(1);
-        }
-    }
     UINT code = 1;
     Paths p;
     if (get_paths(p))
@@ -372,6 +354,27 @@ void start()
         bool isInstalled = GetFileAttributesW(p.uninstallExe) != INVALID_FILE_ATTRIBUTES;
         bool isSelfUninstaller = CompareStringW(LOCALE_INVARIANT, NORM_IGNORECASE,
                                                 p.self, -1, p.uninstallExe, -1) == CSTR_EQUAL;
+
+        // Get rid of this in some day
+        if (!isInstalled && !isSelfUninstaller)
+        {
+            wchar_t localappdata[MAX_PATH];
+            if (known_folder(FOLDERID_LocalAppData, localappdata))
+            {
+                wchar_t oldDir[2 * MAX_PATH], oldUninstall[2 * MAX_PATH];
+                wsprintfW(oldDir, L"%s\\" APP_ID, localappdata);
+                wsprintfW(oldUninstall, L"%s\\setup.exe", oldDir);
+                if (GetFileAttributesW(oldUninstall) != INVALID_FILE_ATTRIBUTES &&
+                    CompareStringW(LOCALE_INVARIANT, NORM_IGNORECASE,
+                                   p.self, -1, oldUninstall, -1) != CSTR_EQUAL)
+                {
+                    ShellExecuteW(nullptr, L"open", oldUninstall, nullptr, oldDir, SW_SHOWNORMAL);
+                    CoUninitialize();
+                    ExitProcess(0);
+                }
+            }
+        }
+
         if (isInstalled && !isSelfUninstaller)
             ShellExecuteW(nullptr, L"open", p.uninstallExe, nullptr, p.dir, SW_SHOWNORMAL);
         else
