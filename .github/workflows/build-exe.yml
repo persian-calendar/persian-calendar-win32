@@ -185,7 +185,7 @@ jobs:
             git add setup.rc
             git diff --staged --quiet
             if ($LASTEXITCODE -ne 0) {
-              git commit -m "v${{ steps.version.outputs.VERSION }}"
+              git commit -m "${{ steps.version.outputs.TAG_NAME }}"
               git pull --rebase origin main
               git push
               $targetSha = (git rev-parse HEAD).Trim()
