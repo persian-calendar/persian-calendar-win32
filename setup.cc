@@ -150,7 +150,6 @@ static auto install(const Paths &p) -> UINT
         RegSetValueExW(k, APP_ID, 0, REG_SZ, reinterpret_cast<const BYTE *>(p.appExe), static_cast<DWORD>((lstrlenW(p.appExe) + 1) * static_cast<int>(sizeof(wchar_t))));
         RegCloseKey(k);
     }
-    ShellExecuteW(nullptr, L"open", p.appExe, nullptr, p.dir, SW_SHOWNORMAL);
     return 0;
 }
 
@@ -169,7 +168,7 @@ static auto uninstall(const Paths &p) -> UINT
             RegCloseKey(k);
         }
     }
-    // The running setup.exe can't delete itself; let a detached cmd do it after we exit.
+    // The running setup.exe can't delete itself; let a helper cmd do it after we exit.
     wchar_t cmd[3 * MAX_PATH];
     wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.uninstallExe, p.dir);
     STARTUPINFOW si;
@@ -185,6 +184,7 @@ static auto uninstall(const Paths &p) -> UINT
 
     if (CreateProcessW(nullptr, cmd, nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, tempPath, &si, &pi))
     {
+        WaitForSingleObject(pi.hProcess, 5000);
         CloseHandle(pi.hThread);
         CloseHandle(pi.hProcess);
     }
@@ -338,7 +338,7 @@ void start()
     enable_dark_mode_support();
     if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)))
         ExitProcess(1);
-    UINT code = 1;
+    UINT code = 0;
     Paths p;
     if (get_paths(p))
     {
@@ -370,7 +370,6 @@ void start()
             ShellExecuteW(nullptr, L"open", p.uninstallExe, nullptr, p.dir, SW_SHOWNORMAL);
         else
         {
-            code = 0;
             bool isSilent = StrStrW(GetCommandLineW(), L"/silent") != nullptr;
             if (isInstalled)
             {
@@ -378,7 +377,11 @@ void start()
                     code = uninstall(p);
             }
             else if (isSilent || ask(L"مایلید تقویم فارسی را نصب کنید؟", L"نصب"))
+            {
                 code = install(p);
+                if (code == 0 && !isSilent)
+                    ShellExecuteW(nullptr, L"open", p.appExe, nullptr, p.dir, SW_SHOWNORMAL);
+            }
         }
     }
     CoUninitialize();
