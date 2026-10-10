@@ -228,7 +228,7 @@ struct dialog_state_t
     {
         if (!icon)
             return;
-        const int size = MulDiv(32, dpi, 96);
+        const int size = MulDiv(64, dpi, 96);
         HICON fresh = static_cast<HICON>(
             LoadImageW(GetModuleHandleW(nullptr),
                        MAKEINTRESOURCEW(IDI_APP_ICON),
@@ -239,7 +239,7 @@ struct dialog_state_t
             DestroyIcon(hIcon);
         hIcon = fresh;
         SendMessageW(icon, STM_SETICON, reinterpret_cast<WPARAM>(hIcon), 0);
-        MoveWindow(icon, MulDiv(20, dpi, 96), MulDiv(24, dpi, 96), size, size, TRUE);
+        MoveWindow(icon, MulDiv(16, dpi, 96), MulDiv(16, dpi, 96), size, size, TRUE);
     }
 
     void updateLayout(int dpi)
@@ -248,7 +248,7 @@ struct dialog_state_t
         { return MulDiv(v, dpi, 96); };
 
         reloadIcon(dpi);
-        MoveWindow(label, px(64), px(20), px(316), px(56), TRUE);
+        MoveWindow(label, px(96), px(20), px(284), px(56), TRUE);
         MoveWindow(yesButton, px(195), px(88), px(90), px(28), TRUE);
         MoveWindow(noButton, px(295), px(88), px(90), px(28), TRUE);
         NONCLIENTMETRICSW ncm;
