@@ -199,6 +199,7 @@ static auto uninstall(const Paths &p) -> UINT
 struct dialog_state_t
 {
     HBRUSH background;
+    HBRUSH buttonBackground;
     BOOL dark;
     BOOL confirmed;
     HWND label;
@@ -211,6 +212,10 @@ struct dialog_state_t
     {
         dark = is_dark_mode_active();
         set_immersive_dark_mode(hwnd, dark);
+        if (buttonBackground)
+            DeleteObject(buttonBackground);
+        buttonBackground = CreateSolidBrush(dark ? RGB(0x2B, 0x2B, 0x2B)
+                                                 : RGB(0xF3, 0xF3, 0xF3));
         if (auto set_theme = LibraryLoader("uxtheme.dll").getProcedure<HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR)>("SetWindowTheme"))
         {
             set_theme(label, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
@@ -294,6 +299,10 @@ static auto CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         SetTextColor(reinterpret_cast<HDC>(wParam), state->dark ? RGB(255, 255, 255) : RGB(0, 0, 0));
         SetBkMode(reinterpret_cast<HDC>(wParam), TRANSPARENT);
         return reinterpret_cast<LRESULT>(state->background);
+    case WM_CTLCOLORBTN:
+        SetTextColor(reinterpret_cast<HDC>(wParam), state->dark ? RGB(255, 255, 255) : RGB(0, 0, 0));
+        SetBkMode(reinterpret_cast<HDC>(wParam), TRANSPARENT);
+        return reinterpret_cast<LRESULT>(state->buttonBackground);
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
@@ -356,6 +365,8 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
 
     if (state.hIcon)
         DestroyIcon(state.hIcon);
+    if (state.buttonBackground)
+        DeleteObject(state.buttonBackground);
 
     return state.confirmed;
 }
