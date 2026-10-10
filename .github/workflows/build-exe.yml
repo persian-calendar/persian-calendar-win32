@@ -167,7 +167,7 @@ jobs:
       - name: Build UPX EXE
         shell: cmd
         run: |
-          upx.exe --ultra-brute setup.exe
+          upx.exe --ultra-brute PersianCalendarSetup.exe
 
       - name: Commit and Publish Release
         if: github.event_name != 'pull_request'
@@ -208,4 +208,4 @@ jobs:
             }
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh release upload $tagName PersianCalendar.exe setup.exe --clobber
+          gh release upload $tagName PersianCalendar.exe PersianCalendarSetup.exe --clobber

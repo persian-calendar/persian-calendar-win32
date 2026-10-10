@@ -3,7 +3,7 @@ taskkill /IM PersianCalendar.exe /FI "STATUS eq RUNNING" ^
     && "C:\Program Files\LLVM\bin\clang" test.cc -D_CRT_SECURE_NO_WARNINGS -o test.exe && test.exe ^
     && build.bat && python postlink.py ^
     && python -c "d=open('PersianCalendar.exe', 'rb').read(); print(f'PersianCalendar.exe: {len(d)}-{len(d) - len(d.rstrip(b'\xcc'))}')" ^
-    && python -c "d=open('setup.exe', 'rb').read(); print(f'setup.exe: {len(d)}-{len(d) - len(d.rstrip(b'\xcc'))}')" ^
+    && python -c "d=open('PersianCalendarSetup.exe', 'rb').read(); print(f'PersianCalendarSetup.exe: {len(d)}-{len(d) - len(d.rstrip(b'\xcc'))}')" ^
     && start /b PersianCalendar.exe ^
     && pause && taskkill /IM PersianCalendar.exe /FI "STATUS eq RUNNING"
 REM dumpbin /DISASM persian-calendar.exe

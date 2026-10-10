@@ -64,7 +64,7 @@ static auto get_paths(Paths &p) -> bool
     GetModuleFileNameW(nullptr, p.self, MAX_PATH);
     wsprintfW(p.dir, L"%s\\" APP_ID, userprograms);
     wsprintfW(p.appExe, L"%s\\" APP_EXE, p.dir);
-    wsprintfW(p.uninstallExe, L"%s\\setup.exe", p.dir);
+    wsprintfW(p.uninstallExe, L"%s\\PersianCalendarSetup.exe", p.dir);
     wsprintfW(p.lnk, L"%s\\" APP_NAME L".lnk", programs);
     return true;
 }
@@ -168,7 +168,7 @@ static auto uninstall(const Paths &p) -> UINT
             RegCloseKey(k);
         }
     }
-    // The running setup.exe can't delete itself; let a helper cmd do it after we exit.
+    // The running PersianCalendarSetup.exe can't delete itself; let a helper cmd do it after we exit.
     wchar_t cmd[3 * MAX_PATH];
     wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.uninstallExe, p.dir);
     STARTUPINFOW si;
@@ -346,23 +346,19 @@ void start()
         bool isSelfUninstaller = CompareStringW(LOCALE_INVARIANT, NORM_IGNORECASE,
                                                 p.self, -1, p.uninstallExe, -1) == CSTR_EQUAL;
 
-        // Get rid of this in some day
+        // Get rid of this some day
         if (!isInstalled && !isSelfUninstaller)
         {
-            wchar_t localappdata[MAX_PATH];
-            if (known_folder(FOLDERID_LocalAppData, localappdata))
+            wchar_t oldDir[2 * MAX_PATH], oldUninstall[2 * MAX_PATH];
+            wsprintfW(oldDir, L"%s\\" APP_ID, p.dir);
+            wsprintfW(oldUninstall, L"%s\\setup.exe", oldDir);
+            if (GetFileAttributesW(oldUninstall) != INVALID_FILE_ATTRIBUTES &&
+                CompareStringW(LOCALE_INVARIANT, NORM_IGNORECASE,
+                               p.self, -1, oldUninstall, -1) != CSTR_EQUAL)
             {
-                wchar_t oldDir[2 * MAX_PATH], oldUninstall[2 * MAX_PATH];
-                wsprintfW(oldDir, L"%s\\" APP_ID, localappdata);
-                wsprintfW(oldUninstall, L"%s\\setup.exe", oldDir);
-                if (GetFileAttributesW(oldUninstall) != INVALID_FILE_ATTRIBUTES &&
-                    CompareStringW(LOCALE_INVARIANT, NORM_IGNORECASE,
-                                   p.self, -1, oldUninstall, -1) != CSTR_EQUAL)
-                {
-                    ShellExecuteW(nullptr, L"open", oldUninstall, nullptr, oldDir, SW_SHOWNORMAL);
-                    CoUninitialize();
-                    ExitProcess(0);
-                }
+                ShellExecuteW(nullptr, L"open", oldUninstall, nullptr, oldDir, SW_SHOWNORMAL);
+                CoUninitialize();
+                ExitProcess(0);
             }
         }
 

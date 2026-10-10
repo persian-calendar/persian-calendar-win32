@@ -3,7 +3,7 @@ PersianCalendar.gcc.exe
 PersianCalendar.llvm.exe
 upx.exe
 test.exe
-setup.exe
+PersianCalendarSetup.exe
 setup.res
 .vscode/
 .DS_Store

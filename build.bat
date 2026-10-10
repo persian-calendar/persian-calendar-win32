@@ -10,7 +10,7 @@ REM https://github.com/llvm/llvm-project/releases Install from the Windows insta
 
 "C:\Program Files\LLVM\bin\llvm-rc" setup.rc
 
-"C:\Program Files\LLVM\bin\clang" setup.cc setup.res -o setup.exe ^
+"C:\Program Files\LLVM\bin\clang" setup.cc setup.res -o PersianCalendarSetup.exe ^
     -Weverything -Wall -Wextra -Wpedantic -Werror -Weffc++ -std=c++23 ^
     -Wno-c++98-compat-pedantic ^
     -fno-exceptions -fno-rtti -fsafe-buffer-usage-suggestions -flto -Oz ^
