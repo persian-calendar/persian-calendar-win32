@@ -36,22 +36,6 @@ static auto write_file(const wchar_t *path, const void *data, DWORD size) -> boo
     return ok;
 }
 
-static void kill_app()
-{
-    SHELLEXECUTEINFOW sei;
-    zero_memory(sei);
-    sei.cbSize = sizeof sei;
-    sei.fMask = SEE_MASK_NOCLOSEPROCESS;
-    sei.lpFile = L"taskkill.exe";
-    sei.lpParameters = L"/f /im " APP_EXE;
-    sei.nShow = SW_HIDE;
-    if (ShellExecuteExW(&sei) && sei.hProcess)
-    {
-        WaitForSingleObject(sei.hProcess, 2500);
-        CloseHandle(sei.hProcess);
-    }
-}
-
 struct Paths
 {
     wchar_t dir[MAX_PATH], appExe[MAX_PATH], uninstallExe[MAX_PATH], self[MAX_PATH], lnk[MAX_PATH];
@@ -122,7 +106,6 @@ static void set_one(HKEY k, const wchar_t *name)
 
 static auto install(const Paths &p) -> UINT
 {
-    kill_app();
     CreateDirectoryW(p.dir, nullptr);
     wchar_t cmd[MAX_PATH + 16], silentCmd[MAX_PATH + 32];
     wsprintfW(cmd, L"\"%s\"", p.uninstallExe);
@@ -157,39 +140,59 @@ static auto install(const Paths &p) -> UINT
 
 static auto uninstall(const Paths &p) -> UINT
 {
-    kill_app();
-    DeleteFileW(p.appExe);
-    DeleteFileW(p.lnk);
-    RegDeleteKeyW(HKEY_CURRENT_USER, UNINSTALL_KEY);
-    RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
+    auto run_hidden = [](const wchar_t *cmd, bool wait)
     {
-        HKEY k;
-        if (RegCreateKeyExW(HKEY_CURRENT_USER, STARTUP_KEY, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
+        STARTUPINFOW si;
+        zero_memory(si);
+        si.cb = sizeof si;
+        si.dwFlags = STARTF_USESHOWWINDOW;
+        si.wShowWindow = SW_HIDE;
+
+        PROCESS_INFORMATION pi;
+        zero_memory(pi);
+        if (CreateProcessW(nullptr, const_cast<LPWSTR>(cmd), nullptr, nullptr,
+                           FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
         {
-            RegDeleteValueW(k, APP_NAME);
-            RegCloseKey(k);
+            if (wait)
+                WaitForSingleObject(pi.hProcess, 3000);
+            CloseHandle(pi.hThread);
+            CloseHandle(pi.hProcess);
         }
-    }
-    // The running PersianCalendarSetup.exe can't delete itself; let a helper cmd do it after we exit.
-    wchar_t cmd[3 * MAX_PATH];
-    wsprintfW(cmd, L"cmd.exe /c ping -n 3 127.0.0.1 >nul & del /f /q \"%s\" & rmdir \"%s\"", p.uninstallExe, p.dir);
-    STARTUPINFOW si;
-    zero_memory(si);
-    si.cb = sizeof si;
-    si.dwFlags = STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
-    PROCESS_INFORMATION pi;
+    };
 
-    wchar_t tempPath[MAX_PATH];
-    if (GetTempPathW(MAX_PATH, tempPath) == 0)
-        lstrcpyW(tempPath, L"C:\\");
+    wchar_t kill[MAX_PATH + 64];
+    if (wchar_t sysdir[MAX_PATH]; GetSystemDirectoryW(sysdir, MAX_PATH))
+        wsprintfW(kill, L"\"%s\\taskkill.exe\" /f /im " APP_EXE, sysdir);
+    else
+        lstrcpyW(kill, L"taskkill.exe /f /im " APP_EXE);
+    run_hidden(kill, /*wait=*/true);
 
-    if (CreateProcessW(nullptr, cmd, nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, tempPath, &si, &pi))
+    Sleep(150);
+
+    for (int i = 0, done = 0; i < 5 && !done; ++i)
     {
-        WaitForSingleObject(pi.hProcess, 5000);
-        CloseHandle(pi.hThread);
-        CloseHandle(pi.hProcess);
+        bool a = DeleteFileW(p.appExe) || GetLastError() == ERROR_FILE_NOT_FOUND;
+        bool b = DeleteFileW(p.lnk)    || GetLastError() == ERROR_FILE_NOT_FOUND;
+        done = a && b;
+        if (!done)
+            Sleep(150);
     }
+
+    RegDeleteTreeW(HKEY_CURRENT_USER, UNINSTALL_KEY);
+    RegDeleteTreeW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
+    if (HKEY k; RegOpenKeyExW(HKEY_CURRENT_USER, STARTUP_KEY, 0, KEY_SET_VALUE, &k) == ERROR_SUCCESS)
+    {
+        RegDeleteValueW(k, APP_ID);
+        RegCloseKey(k);
+    }
+
+    wchar_t cmd[4 * MAX_PATH];
+    wsprintfW(cmd,
+        L"cmd.exe /c ping -n 3 127.0.0.1 >nul & "
+        L"del /f /q \"%s\" & "
+        L"rmdir /q \"%s\"",
+        p.uninstallExe, p.dir);
+    run_hidden(cmd, /*wait=*/false);
     return 0;
 }
 
