@@ -1,6 +1,7 @@
 #include <winres.h>
+#include "setup-res.h"
 
-1 ICON "Calendar.ico"
+IDI_APP_ICON ICON "Calendar.ico"
 LANGUAGE LANG_PERSIAN, SUBLANG_NEUTRAL
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION    5,7,18,0

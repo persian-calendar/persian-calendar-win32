@@ -4,14 +4,16 @@
 #include <propsys.h>
 #include <propkey.h>
 
+#include "setup-res.h"
+
 static const unsigned char appExe[] = {
 #embed "PersianCalendar.exe"
 };
 
 #define APP_NAME L"Persian Calendar"
-#define APP_EXE L"PersianCalendar.exe"
+#define APP_EXE  L"PersianCalendar.exe"
 #define UNINSTALL_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32"
-#define STARTUP_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+#define STARTUP_KEY   L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
 static auto known_folder(const KNOWNFOLDERID &id, wchar_t *out) -> bool
 {
@@ -45,7 +47,7 @@ static void kill_app()
     sei.nShow = SW_HIDE;
     if (ShellExecuteExW(&sei) && sei.hProcess)
     {
-        WaitForSingleObject(sei.hProcess, 500);
+        WaitForSingleObject(sei.hProcess, 2500);
         CloseHandle(sei.hProcess);
     }
 }
@@ -197,6 +199,8 @@ struct dialog_state_t
     BOOL dark;
     BOOL confirmed;
     HWND label;
+    HWND icon;
+    HICON hIcon;
     HWND yesButton;
     HWND noButton;
 
@@ -212,11 +216,31 @@ struct dialog_state_t
         }
     }
 
+    void reloadIcon(int dpi)
+    {
+        if (!icon)
+            return;
+        const int size = MulDiv(32, dpi, 96);
+        HICON fresh = static_cast<HICON>(
+            LoadImageW(GetModuleHandleW(nullptr),
+                       MAKEINTRESOURCEW(IDI_APP_ICON),
+                       IMAGE_ICON, size, size, LR_DEFAULTCOLOR));
+        if (!fresh)
+            return;
+        if (hIcon)
+            DestroyIcon(hIcon);
+        hIcon = fresh;
+        SendMessageW(icon, STM_SETICON, reinterpret_cast<WPARAM>(hIcon), 0);
+        MoveWindow(icon, MulDiv(20, dpi, 96), MulDiv(24, dpi, 96), size, size, TRUE);
+    }
+
     void updateLayout(int dpi)
     {
         auto px = [dpi](int v)
         { return MulDiv(v, dpi, 96); };
-        MoveWindow(label, px(20), px(20), px(360), px(56), TRUE);
+
+        reloadIcon(dpi);
+        MoveWindow(label, px(64), px(20), px(316), px(56), TRUE);
         MoveWindow(yesButton, px(195), px(88), px(90), px(28), TRUE);
         MoveWindow(noButton, px(295), px(88), px(90), px(28), TRUE);
         NONCLIENTMETRICSW ncm;
@@ -306,6 +330,9 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
     SetLayeredWindowAttributes(hwnd, colorKey, 0, LWA_COLORKEY);
 
     state.label = CreateWindowExW(0, L"STATIC", text, WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, hwnd, nullptr, wc.hInstance, nullptr);
+    state.icon  = CreateWindowExW(0, L"STATIC", nullptr,
+                                  WS_CHILD | WS_VISIBLE | SS_ICON | SS_CENTERIMAGE,
+                                  0, 0, 0, 0, hwnd, nullptr, wc.hInstance, nullptr);
     state.yesButton = CreateWindowExW(WS_EX_COMPOSITED, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
     state.noButton = CreateWindowExW(WS_EX_COMPOSITED, L"BUTTON", no, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDNO)), wc.hInstance, nullptr);
     state.updateLayout(dpi);
@@ -323,6 +350,10 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
             TranslateMessage(&m);
             DispatchMessageW(&m);
         }
+
+    if (state.hIcon)
+        DestroyIcon(state.hIcon);
+
     return state.confirmed;
 }
 
