@@ -444,7 +444,7 @@ void start()
     }
     else
     {
-        MessageBoxW(nullptr, L"خطا در دریافت مسیرهای نصب", app_title, MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, L"Failed to retrieve paths", app_title, MB_OK | MB_ICONERROR);
         code = 1;
     }
     CoUninitialize();
