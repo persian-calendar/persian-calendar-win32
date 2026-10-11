@@ -40,7 +40,8 @@ public:
     }
 };
 
-inline void enable_hidpi()
+inline static auto
+enable_hidpi() -> void
 {
     LibraryLoader user32("user32");
     if (auto pSetProcessDpiAwarenessContext = user32.getProcedure<BOOL(WINAPI *)(DPI_AWARENESS_CONTEXT value)>(
@@ -51,13 +52,15 @@ inline void enable_hidpi()
 }
 
 template <typename T>
-inline void zero_memory(T &ptr, size_t size = sizeof(T))
+inline static auto
+zero_memory(T &ptr, size_t size = sizeof(T)) -> void
 {
     SecureZeroMemory(&ptr, size);
 }
 
 // This isn't always accurate in multimonitor with different DPIs setups
-inline auto get_system_dpi() -> UINT
+inline static auto
+get_system_dpi() -> UINT
 {
     HDC hdc = GetDC(nullptr);
     if (!hdc)
@@ -67,7 +70,8 @@ inline auto get_system_dpi() -> UINT
     return static_cast<UINT>(dpi);
 }
 
-inline auto get_build_number() -> DWORD
+inline static auto
+get_build_number() -> DWORD
 {
     if (auto pRtlGetVersion = LibraryLoader("ntdll.dll").getProcedure<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>("RtlGetVersion"))
     {
@@ -79,7 +83,8 @@ inline auto get_build_number() -> DWORD
     return 0;
 }
 
-inline auto is_dark_mode_active() -> bool
+inline static auto
+is_dark_mode_active() -> bool
 {
     // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
     if (get_build_number() < 17763)
@@ -88,7 +93,8 @@ inline auto is_dark_mode_active() -> bool
     return pShouldAppsUseDarkMode && pShouldAppsUseDarkMode();
 }
 
-inline void enable_dark_mode_support()
+inline static void
+enable_dark_mode_support()
 {
     // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
     DWORD build_number = get_build_number();
@@ -119,13 +125,15 @@ inline void enable_dark_mode_support()
     }
 }
 
-inline void set_immersive_dark_mode(HWND hWnd, BOOL darkMode)
+inline static auto
+set_immersive_dark_mode(HWND hWnd, BOOL darkMode) -> void
 {
     if (auto set_attribute = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD)>("DwmSetWindowAttribute"))
         set_attribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof darkMode);
 }
 
-inline void glass_window(HWND hWnd)
+inline static auto
+glass_window(HWND hWnd) -> void
 {
     LibraryLoader dwmapi("dwmapi.dll");
     if (auto pDwmExtendFrameIntoClientArea = dwmapi.getProcedure<HRESULT(WINAPI *)(HWND, const MARGINS *)>(
@@ -142,7 +150,8 @@ inline void glass_window(HWND hWnd)
     }
 }
 
-inline auto has_composition() -> bool
+inline static auto
+has_composition() -> bool
 {
     if (auto pDwmIsCompositionEnabled = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(BOOL * pfEnabled)>("DwmIsCompositionEnabled"))
     {
@@ -153,7 +162,8 @@ inline auto has_composition() -> bool
     return false;
 }
 
-inline void toggle_exstyle(HWND hWnd, bool enable, long flag)
+inline static auto
+toggle_exstyle(HWND hWnd, bool enable, long flag) -> void
 {
     if (!hWnd)
         return;
@@ -165,7 +175,8 @@ inline void toggle_exstyle(HWND hWnd, bool enable, long flag)
     SetWindowLongPtrW(hWnd, GWL_EXSTYLE, exStyle);
 }
 
-inline void set_layered_window_attributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
+inline static auto
+set_layered_window_attributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags) -> void
 {
     if (auto pSetLayeredWindowAttributes = LibraryLoader("user32").getProcedure<BOOL(WINAPI *)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)>(
             "SetLayeredWindowAttributes"))
