@@ -3,37 +3,59 @@ import struct, subprocess, sys, os
 
 svg, ico, styles = sys.argv[1], sys.argv[2], sys.argv[3]
 sb = styles.encode()
-p256, p32, b32 = ico + ".256.png", ico + ".32.png", ico + ".32.bmp"
+tmp = []
 
-def render(h, out):
-    subprocess.run(['rsvg-convert', svg, '-s', '/dev/stdin', '-o', out, '-h', str(h)],
+def render(h):
+    p = f"{ico}.{h}.png"; tmp.append(p)
+    subprocess.run(['rsvg-convert', svg, '-s', '/dev/stdin', '-o', p, '-h', str(h)],
                    input=sb, check=True)
+    return p
 
-def run(*args):
-    subprocess.run(args, check=True)
+def run(*a): subprocess.run(a, check=True)
+
+def and_mask(png, size):
+    pgm = png + ".pgm"; tmp.append(pgm)
+    run('magick', png, '-alpha', 'extract', '-depth', '8', pgm)
+    with open(pgm, 'rb') as f:
+        hdr = []
+        while len(hdr) < 4: hdr += f.readline().split()
+        alpha = f.read(size * size)
+    stride = ((size + 31) // 32) * 4
+    m = bytearray(stride * size)
+    for y in range(size):
+        for x in range(size):
+            if alpha[(size - 1 - y) * size + x] < 128:
+                m[y * stride + x // 8] |= 1 << (7 - (x % 8))
+    return bytes(m)
+
+def bmp_frame(size):
+    png = render(size)
+    run('pngquant', '--nofs', '8', '--speed', '1', '--output', png, '--force', png)
+    mask = and_mask(png, size)
+    b = png + ".bmp"; tmp.append(b)
+    run('magick', png, '-colors', '256', '-type', 'palette', '+dither', 'BMP3:' + b)
+    with open(b, 'rb') as f: d = bytearray(f.read()[14:])
+    struct.pack_into('<i', d, 8, struct.unpack_from('<i', d, 8)[0] * 2)
+    return size, size, 8, bytes(d) + mask
 
 try:
-    render(256, p256)
+    p256 = render(256)
     run('pngquant', '--nofs', '8', '--speed', '1', '--output', p256, '--force', p256)
     run('zopflipng', '-y', '--iterations=15', '--filters=01234mepb',
         '--lossy_8bit', '--lossy_transparent', p256, p256)
-
-    render(32, p32)
-    run('pngquant', '--nofs', '8', '--speed', '1', '--output', p32, '--force', p32)
-    run('magick', p32, '-colors', '256', '-type', 'palette', '+dither', 'BMP3:' + b32)
-
     with open(p256, 'rb') as f: png = f.read()
-    with open(b32, 'rb') as f: bmp = bytearray(f.read()[14:])
-    # ICO stores the DIB with biHeight = 2× real height (XOR pixels + AND mask)
-    struct.pack_into('<i', bmp, 8, struct.unpack_from('<i', bmp, 8)[0] * 2)
-    bmp += bytes((((32 + 31) // 32) * 4) * 32)
 
-    hdr = struct.pack('<HHH', 0, 1, 2)
-    off = 6 + 16 * 2
-    ents = struct.pack('<BBBBHHII', 0, 0, 0, 0, 1, 32, len(png), off)
-    ents += struct.pack('<BBBBHHII', 32, 32, 0, 0, 1, 8, len(bmp), off + len(png))
-    with open(ico, 'wb') as f: f.write(hdr + ents + png + bmp)
+    frames = [(256, 256, 32, png), bmp_frame(48)]
+
+    hdr = struct.pack('<HHH', 0, 1, len(frames))
+    off = 6 + 16 * len(frames)
+    ents, body = bytearray(), bytearray()
+    for w, h, bpp, d in frames:
+        ents += struct.pack('<BBBBHHII', 0 if w >= 256 else w, 0 if h >= 256 else h,
+                            0, 0, 1, bpp, len(d), off)
+        off += len(d); body += d
+
+    with open(ico, 'wb') as f: f.write(hdr + bytes(ents) + bytes(body))
 finally:
-    for f in (p256, p32, b32):
-        if os.path.exists(f):
-            os.remove(f)
+    for f in tmp:
+        if os.path.exists(f): os.remove(f)
