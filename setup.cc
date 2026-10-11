@@ -11,7 +11,7 @@ static const unsigned char appExe[] = {
 };
 
 #define APP_NAME L"Persian Calendar"
-#define APP_EXE  L"PersianCalendar.exe"
+#define APP_EXE L"PersianCalendar.exe"
 
 constexpr auto uninstall_key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32";
 constexpr auto startup_key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
@@ -35,12 +35,28 @@ struct Paths
 
 static auto known_folder(const KNOWNFOLDERID &id, wchar_t *out, DWORD flags = 0) -> bool
 {
-    PWSTR p = nullptr;
-    if (FAILED(SHGetKnownFolderPath(id, flags, nullptr, &p)))
+    using SHGetKnownFolderPath_t = HRESULT(WINAPI *)(const KNOWNFOLDERID &, DWORD, HANDLE, PWSTR *);
+    if (auto fn = LibraryLoader("shell32.dll").getProcedure<SHGetKnownFolderPath_t>("SHGetKnownFolderPath"))
+    {
+        PWSTR p = nullptr;
+        if (SUCCEEDED(fn(id, flags, nullptr, &p)))
+        {
+            lstrcpyW(out, p);
+            CoTaskMemFree(p);
+            return true;
+        }
+    }
+
+    // XP fallback
+    int csidl;
+    if (id.Data1 == FOLDERID_Programs.Data1)
+        csidl = CSIDL_PROGRAMS;
+    else if (id.Data1 == FOLDERID_LocalAppData.Data1)
+        csidl = CSIDL_LOCAL_APPDATA;
+    else
         return false;
-    lstrcpyW(out, p);
-    CoTaskMemFree(p);
-    return true;
+
+    return SUCCEEDED(SHGetFolderPathW(nullptr, csidl, nullptr, 0, out));
 }
 
 static auto get_paths(Paths &p) -> bool
@@ -189,14 +205,14 @@ static auto uninstall(const Paths &p) -> UINT
     for (int i = 0, done = 0; i < 5 && !done; ++i)
     {
         bool a = DeleteFileW(p.appExe) || GetLastError() == ERROR_FILE_NOT_FOUND;
-        bool b = DeleteFileW(p.lnk)    || GetLastError() == ERROR_FILE_NOT_FOUND;
+        bool b = DeleteFileW(p.lnk) || GetLastError() == ERROR_FILE_NOT_FOUND;
         done = a && b;
         if (!done)
             Sleep(150);
     }
 
-    RegDeleteTreeW(HKEY_CURRENT_USER, uninstall_key);
-    RegDeleteTreeW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
+    SHDeleteKeyW(HKEY_CURRENT_USER, uninstall_key);
+    SHDeleteKeyW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
     if (HKEY k; RegOpenKeyExW(HKEY_CURRENT_USER, startup_key, 0, KEY_SET_VALUE, &k) == ERROR_SUCCESS)
     {
         RegDeleteValueW(k, APP_ID);
@@ -205,10 +221,10 @@ static auto uninstall(const Paths &p) -> UINT
 
     wchar_t cmd[4 * MAX_PATH];
     wsprintfW(cmd,
-        L"cmd.exe /c ping -n 3 127.0.0.1 >nul & "
-        L"del /f /q \"%s\" & "
-        L"rmdir /q \"%s\"",
-        p.uninstallExe, p.dir);
+              L"cmd.exe /c ping -n 3 127.0.0.1 >nul & "
+              L"del /f /q \"%s\" & "
+              L"rmdir /q \"%s\"",
+              p.uninstallExe, p.dir);
     run_hidden(cmd, /*wait=*/false);
     return 0;
 }
@@ -297,7 +313,11 @@ static auto CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         GetWindowLongPtrW(hwnd, GWLP_USERDATA));
     switch (msg)
     {
+    case WM_CREATE:
+        toggle_exstyle(hwnd, has_composition(), WS_EX_LAYERED | WS_EX_COMPOSITED);
+        break;
     case WM_SETTINGCHANGE:
+        toggle_exstyle(hwnd, has_composition(), WS_EX_LAYERED | WS_EX_COMPOSITED);
         state->darkModeUpdate(hwnd);
         InvalidateRect(hwnd, nullptr, FALSE);
         break;
@@ -334,8 +354,7 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
     dialog_state_t state;
     zero_memory(state);
     state.dark = is_dark_mode_active();
-    state.background = CreateSolidBrush(colorKey);
-
+    state.background = CreateSolidBrush(has_composition() ? colorKey : GetSysColor(COLOR_BTNFACE));
     WNDCLASSW wc;
     zero_memory(wc);
     wc.lpfnWndProc = confirm_window_procedure;
@@ -350,18 +369,18 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
     { return MulDiv(v, dpi, 96); };
 
     const DWORD style = WS_CAPTION | WS_SYSMENU;
-    const DWORD exStyle = WS_EX_DLGMODALFRAME | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_LAYERED | WS_EX_COMPOSITED;
+    const DWORD exStyle = WS_EX_DLGMODALFRAME | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL;
     RECT rc = {0, 0, px(400), px(130)};
     AdjustWindowRectEx(&rc, style, FALSE, exStyle);
     HWND hwnd = CreateWindowExW(exStyle, wc.lpszClassName, title, style, CW_USEDEFAULT, CW_USEDEFAULT,
                                 rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, wc.hInstance, nullptr);
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
-    SetLayeredWindowAttributes(hwnd, colorKey, 0, LWA_COLORKEY);
+    set_layered_window_attributes(hwnd, colorKey, 0, LWA_COLORKEY);
 
     state.label = CreateWindowExW(0, L"STATIC", text, WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, hwnd, nullptr, wc.hInstance, nullptr);
-    state.icon  = CreateWindowExW(0, L"STATIC", nullptr,
-                                  WS_CHILD | WS_VISIBLE | SS_ICON | SS_CENTERIMAGE,
-                                  0, 0, 0, 0, hwnd, nullptr, wc.hInstance, nullptr);
+    state.icon = CreateWindowExW(0, L"STATIC", nullptr,
+                                 WS_CHILD | WS_VISIBLE | SS_ICON | SS_CENTERIMAGE,
+                                 0, 0, 0, 0, hwnd, nullptr, wc.hInstance, nullptr);
     state.yesButton = CreateWindowExW(WS_EX_COMPOSITED, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
     state.noButton = CreateWindowExW(WS_EX_COMPOSITED, L"BUTTON", no, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDNO)), wc.hInstance, nullptr);
     state.updateLayout(dpi);

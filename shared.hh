@@ -141,3 +141,33 @@ inline void glass_window(HWND hWnd)
         pDwmSetWindowAttribute(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof backdropType);
     }
 }
+
+inline auto has_composition() -> bool
+{
+    if (auto pDwmIsCompositionEnabled = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(BOOL * pfEnabled)>("DwmIsCompositionEnabled"))
+    {
+        BOOL result;
+        pDwmIsCompositionEnabled(&result);
+        return result;
+    }
+    return false;
+}
+
+inline void toggle_exstyle(HWND hWnd, bool enable, long flag)
+{
+    if (!hWnd)
+        return;
+    LONG_PTR exStyle = GetWindowLongPtrW(hWnd, GWL_EXSTYLE);
+    if (enable)
+        exStyle |= flag;
+    else
+        exStyle &= ~flag;
+    SetWindowLongPtrW(hWnd, GWL_EXSTYLE, exStyle);
+}
+
+inline void set_layered_window_attributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
+{
+    if (auto pSetLayeredWindowAttributes = LibraryLoader("user32").getProcedure<BOOL(WINAPI *)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)>(
+            "SetLayeredWindowAttributes"))
+        pSetLayeredWindowAttributes(hwnd, crKey, bAlpha, dwFlags);
+}

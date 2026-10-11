@@ -265,18 +265,6 @@ static auto today_in_days() -> unsigned
     return gregorian_to_days({.year = static_cast<unsigned>(st.wYear), .month = static_cast<unsigned>(st.wMonth), .day = static_cast<unsigned>(st.wDay)});
 }
 
-static void toggle_exstyle(HWND hWnd, bool enable, long flag)
-{
-    if (!hWnd)
-        return;
-    LONG_PTR exStyle = GetWindowLongPtrW(hWnd, GWL_EXSTYLE);
-    if (enable)
-        exStyle |= flag;
-    else
-        exStyle &= ~flag;
-    SetWindowLongPtrW(hWnd, GWL_EXSTYLE, exStyle);
-}
-
 enum class update_source_t
 {
     INIT,
@@ -583,17 +571,6 @@ static auto get_month_days(unsigned year, unsigned month) -> unsigned
     return persian_to_days({.year = month == 12 ? year + 1 : year, .month = month == 12 ? 1 : month + 1, .day = 1}) - persian_to_days({.year = year, .month = month, .day = 1});
 }
 
-static auto has_composition() -> bool
-{
-    if (auto pDwmIsCompositionEnabled = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(BOOL * pfEnabled)>("DwmIsCompositionEnabled"))
-    {
-        BOOL result;
-        pDwmIsCompositionEnabled(&result);
-        return result;
-    }
-    return false;
-}
-
 static void draw_table(
     const unsigned table_start, const unsigned table_top, const unsigned cell_size, HDC hdc, persian_date_t date,
     bool is_dark_mode, bool is_in_widget)
@@ -645,13 +622,6 @@ static void draw_table(
     }
     SelectObject(hdc, oldFont);
     DeleteObject(hFont2);
-}
-
-static void set_layered_window_attributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
-{
-    if (auto pSetLayeredWindowAttributes = LibraryLoader("user32").getProcedure<BOOL(WINAPI *)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)>(
-            "SetLayeredWindowAttributes"))
-        pSetLayeredWindowAttributes(hwnd, crKey, bAlpha, dwFlags);
 }
 
 static auto CALLBACK widget_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) -> LRESULT
