@@ -2,6 +2,7 @@
 import struct, subprocess, sys, os
 
 svg, ico, styles = sys.argv[1], sys.argv[2], sys.argv[3]
+png_out = sys.argv[4] if len(sys.argv) > 4 else None
 sb = styles.encode()
 tmp = []
 
@@ -54,6 +55,9 @@ try:
         off += len(d); body += d
 
     with open(ico, 'wb') as f: f.write(hdr + bytes(ents) + bytes(body))
+    if png_out:
+        with open(png_out, 'wb') as dst, open(p256, 'rb') as src:
+            dst.write(src.read())
 finally:
     for f in tmp:
         if os.path.exists(f): os.remove(f)
