@@ -1,29 +1,37 @@
 #!/usr/bin/env python3
 import struct, subprocess, sys, os
 
-svg, ico = sys.argv[1], sys.argv[2]
-styles = sys.argv[3]
-png = ico + ".png"
+svg, ico, styles = sys.argv[1], sys.argv[2], sys.argv[3]
+sb = styles.encode()
+p256, p32, b32 = ico + ".256.png", ico + ".32.png", ico + ".32.bmp"
+
+def render(h, out):
+    subprocess.run(['rsvg-convert', svg, '-s', '/dev/stdin', '-o', out, '-h', str(h)],
+                   input=sb, check=True)
+
+def run(*args):
+    subprocess.run(args, check=True)
+
 try:
-    h = 256
-    # Turning the SVG into a PNG
-    subprocess.run(
-        ['rsvg-convert', svg, '-s', '/dev/stdin', '-o', png, '-h', str(h)],
-        input=styles.encode('utf-8'),
-        check=True
-    )
-    # Quantizing the PNG to 8-bit
-    subprocess.run(['pngquant', '--nofs', '8', png, '--speed', '1', '--output', png, '--force'], check=True)
-    # Optimizing the PNG
-    subprocess.run(['zopflipng', '-y',
-                    '--iterations=15', '--filters=01234mepb',
-                    '--lossy_8bit', '--lossy_transparent',
-                    png, png], check=True)
-    # Turning the PNG into an ICO
-    data = open(png, 'rb').read()
-    s = 0 if h == 256 else h  # 256 -> 0
-    open(ico, 'wb').write(
-        struct.pack('<HHHBBBBHHII', 0, 1, 1, s, s, 0, 0, 1, 32, len(data), 22) + data)
+    render(256, p256)
+    run('pngquant', '--nofs', '8', '--speed', '1', '--output', p256, '--force', p256)
+    run('zopflipng', '-y', '--iterations=15', '--filters=01234mepb',
+        '--lossy_8bit', '--lossy_transparent', p256, p256)
+
+    render(32, p32)
+    run('pngquant', '--nofs', '8', '--speed', '1', '--output', p32, '--force', p32)
+    run('magick', p32, '-colors', '256', '-type', 'palette', '+dither', 'BMP3:' + b32)
+
+    with open(p256, 'rb') as f: png = f.read()
+    with open(b32, 'rb') as f: bmp = f.read()[14:] # strip 14-byte BMPFILEHEADER
+    bmp += bytes((((32 + 31) // 32) * 4) * 32)     # all-zero AND mask
+
+    hdr = struct.pack('<HHH', 0, 1, 2)
+    off = 6 + 16 * 2
+    ents = struct.pack('<BBBBHHII', 0, 0, 0, 0, 1, 32, len(png), off)
+    ents += struct.pack('<BBBBHHII', 32, 32, 0, 0, 1, 8, len(bmp), off + len(png))
+    with open(ico, 'wb') as f: f.write(hdr + ents + png + bmp)
 finally:
-    if os.path.exists(png):
-        os.remove(png)
+    for f in (p256, p32, b32):
+        if os.path.exists(f):
+            os.remove(f)
