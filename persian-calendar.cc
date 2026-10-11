@@ -113,6 +113,19 @@ struct app_state_t
     }
 };
 
+constexpr unsigned date_id = 1000;
+constexpr unsigned first_separator_id = 1001;
+constexpr unsigned local_digits_id = 1002;
+constexpr unsigned black_background_id = 1003;
+constexpr unsigned second_separator_id = 1004;
+constexpr unsigned show_widget_id = 1005;
+constexpr unsigned fixed_widget_placement_id = 1006;
+constexpr unsigned always_on_top_widget_id = 1007;
+constexpr unsigned third_separator_id = 1008;
+constexpr unsigned date_converter_id = 1009;
+constexpr unsigned fourth_separator_id = 1010;
+constexpr unsigned exit_id = 1011;
+
 static void create_menu(app_state_t *state, wchar_t *date)
 {
     HMENU menu = CreatePopupMenu();
