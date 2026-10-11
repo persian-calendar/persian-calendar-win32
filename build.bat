@@ -3,7 +3,7 @@ REM https://github.com/llvm/llvm-project/releases Install from the Windows insta
 
 "C:\Program Files\LLVM\bin\llvm-rc" persian-calendar.rc
 
-"C:\Program Files\LLVM\bin\clang" persian-calendar.cc -o PersianCalendar.exe ^
+"C:\Program Files\LLVM\bin\clang" persian-calendar.cc persian-calendar.res -o PersianCalendar.exe ^
     -Weverything -Wall -Wextra -Wpedantic -Werror -Weffc++ -std=c++23 ^
     -Wno-c++98-compat-pedantic ^
     -fno-exceptions -fno-rtti -fsafe-buffer-usage-suggestions -flto -Oz ^
