@@ -12,9 +12,9 @@ static const unsigned char appExe[] = {
 
 #define APP_NAME L"Persian Calendar"
 #define APP_EXE  L"PersianCalendar.exe"
-#define UNINSTALL_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32"
-#define STARTUP_KEY   L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
+constexpr auto uninstall_key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32";
+constexpr auto startup_key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 constexpr auto app_title = L"تقویم فارسی";
 
 static auto known_folder(const KNOWNFOLDERID &id, wchar_t *out, DWORD flags = 0) -> bool
@@ -135,7 +135,7 @@ static auto install(const Paths &p) -> UINT
         return 1;
     }
     HKEY k;
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, UNINSTALL_KEY, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, uninstall_key, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
     {
         set_str(k, L"DisplayName", APP_NAME);
         set_str(k, L"UninstallString", cmd);
@@ -147,7 +147,7 @@ static auto install(const Paths &p) -> UINT
         RegCloseKey(k);
     }
     // Add to startup
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, STARTUP_KEY, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, startup_key, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
     {
         RegSetValueExW(k, APP_ID, 0, REG_SZ, reinterpret_cast<const BYTE *>(p.appExe), static_cast<DWORD>((lstrlenW(p.appExe) + 1) * static_cast<int>(sizeof(wchar_t))));
         RegCloseKey(k);
@@ -195,9 +195,9 @@ static auto uninstall(const Paths &p) -> UINT
             Sleep(150);
     }
 
-    RegDeleteTreeW(HKEY_CURRENT_USER, UNINSTALL_KEY);
+    RegDeleteTreeW(HKEY_CURRENT_USER, uninstall_key);
     RegDeleteTreeW(HKEY_CURRENT_USER, L"Software\\" APP_ID);
-    if (HKEY k; RegOpenKeyExW(HKEY_CURRENT_USER, STARTUP_KEY, 0, KEY_SET_VALUE, &k) == ERROR_SUCCESS)
+    if (HKEY k; RegOpenKeyExW(HKEY_CURRENT_USER, startup_key, 0, KEY_SET_VALUE, &k) == ERROR_SUCCESS)
     {
         RegDeleteValueW(k, APP_ID);
         RegCloseKey(k);
