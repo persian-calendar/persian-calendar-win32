@@ -2,7 +2,6 @@
 #include "setup-rc.h"
 
 IDI_APP_ICON ICON "setup.ico"
-IDI_APP_PNG  RCDATA "setup.png"
 1 RT_MANIFEST "setup.manifest"
 LANGUAGE LANG_PERSIAN, SUBLANG_NEUTRAL
 VS_VERSION_INFO VERSIONINFO

@@ -231,18 +231,36 @@ static auto uninstall(const Paths &p) -> UINT
 
 static auto load_png_icon(int cx, int cy) -> HICON
 {
-    HRSRC rsrc = FindResourceW(nullptr, MAKEINTRESOURCEW(IDI_APP_PNG), RT_RCDATA);
-    if (!rsrc)
+    HRSRC group = FindResourceW(nullptr, MAKEINTRESOURCEW(IDI_APP_ICON), RT_GROUP_ICON);
+    if (!group)
         return nullptr;
-    DWORD size = SizeofResource(nullptr, rsrc);
-    HGLOBAL glob = LoadResource(nullptr, rsrc);
-    if (!glob)
+    HGLOBAL gh = LoadResource(nullptr, group);
+    if (!gh)
         return nullptr;
-    void *bytes = LockResource(glob);
+IB_WARNING_DISABLE_CLANG_PUSH("-Wunsafe-buffer-usage")
+    BYTE *dir = static_cast<BYTE *>(LockResource(gh));
+    if (!dir)
+        return nullptr;
+
+    WORD count = *reinterpret_cast<WORD *>(dir + 4);
+    if (count == 0)
+        return nullptr;
+    WORD iconId = *reinterpret_cast<WORD *>(dir + 6 + 12);
+IB_WARNING_DISABLE_CLANG_POP
+
+    HRSRC icon = FindResourceW(nullptr, MAKEINTRESOURCEW(iconId), RT_ICON);
+    if (!icon)
+        return nullptr;
+    DWORD size = SizeofResource(nullptr, icon);
+    HGLOBAL ih = LoadResource(nullptr, icon);
+    if (!ih)
+        return nullptr;
+    void *bytes = LockResource(ih);
     if (!bytes)
         return nullptr;
 
     LibraryLoader gdiplus("gdiplus.dll");
+
     struct GdiplusStartupInput
     {
         UINT32 GdiplusVersion;
@@ -278,7 +296,7 @@ static auto load_png_icon(int cx, int cy) -> HICON
 
     void *bitmap = nullptr;
     HICON big = nullptr;
-    if (fromStream(stream, &bitmap) == 0)
+    if (fromStream(stream, &bitmap) == 0 && bitmap)
     {
         toHicon(bitmap, &big);
         dispose(bitmap);
@@ -289,8 +307,6 @@ static auto load_png_icon(int cx, int cy) -> HICON
     if (!big)
         return nullptr;
 
-    // GdipCreateHICONFromBitmap uses the PNG's native 256x256 size; scale it
-    // down to what the dialog actually wants.
     HICON scaled = static_cast<HICON>(CopyImage(big, IMAGE_ICON, cx, cy, 0));
     DestroyIcon(big);
     return scaled;
