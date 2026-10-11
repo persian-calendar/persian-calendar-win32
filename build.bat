@@ -8,6 +8,9 @@ REM https://github.com/llvm/llvm-project/releases Install from the Windows insta
     -Wl,/entry:start -Wl,/subsystem:windows -Wl,/fixed -Wl,/merge:.rdata=.text ^
     -lkernel32 -luser32 -lshell32 -lgdi32 -ladvapi32 -lshlwapi
 
+REM Lower the executable's support for older Windows versions
+python postlink.py PersianCalendar.exe
+
 "C:\Program Files\LLVM\bin\llvm-rc" setup.rc
 
 "C:\Program Files\LLVM\bin\clang" setup.cc setup.res -o PersianCalendarSetup.exe ^
@@ -18,3 +21,6 @@ REM https://github.com/llvm/llvm-project/releases Install from the Windows insta
     -Wl,/entry:start -Wl,/subsystem:windows -Wl,/fixed -Wl,/merge:.rdata=.text ^
     -lkernel32 -luser32 -lshell32 -lgdi32 -ladvapi32 -lshlwapi -lole32 ^
     -Wno-c23-extensions -mno-stack-arg-probe
+
+REM Lower the executable's support for older Windows versions
+python postlink.py PersianCalendarSetup.exe

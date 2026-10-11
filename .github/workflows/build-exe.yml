@@ -133,11 +133,6 @@ jobs:
           Set-Content -Path $rcPath -Value $content -NoNewline
           Write-Host "Updated $rcPath to version $ver"
 
-      - name: Build EXE
-        shell: cmd
-        run: |
-          build.bat
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -146,7 +141,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pefile
-          python postlink.py
+
+      - name: Build EXE
+        shell: cmd
+        run: |
+          build.bat
 
       - name: Cache UPX
         id: cache-upx
