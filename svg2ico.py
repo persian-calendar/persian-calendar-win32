@@ -7,8 +7,8 @@ try:
     h = 256
     # Turning the SVG into a PNG
     subprocess.run(['rsvg-convert', svg, '-o', png, '-h', str(h)], check=True)
-    # Quantize to PNG-8
-    subprocess.run(['pngquant', png, '--speed', '1', '--output', png, '--force'], check=True)
+    # Quantizing the PNG to 8-bit
+    subprocess.run(['pngquant', '--nofs', '8', png, '--speed', '1', '--output', png, '--force'], check=True)
     # Optimizing the PNG
     subprocess.run(['zopflipng', '-y',
                     '--iterations=15', '--filters=01234mepb',

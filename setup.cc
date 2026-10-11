@@ -4,7 +4,7 @@
 #include <propsys.h>
 #include <propkey.h>
 
-#include "setup-res.h"
+#include "setup-rc.h"
 
 static const unsigned char appExe[] = {
 #embed "PersianCalendar.exe"

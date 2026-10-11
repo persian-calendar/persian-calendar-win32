@@ -1,5 +1,8 @@
 @echo off
 REM https://github.com/llvm/llvm-project/releases Install from the Windows installer, e.g. LLVM-22.1.8-win64.exe
+
+"C:\Program Files\LLVM\bin\llvm-rc" persian-calendar.rc
+
 "C:\Program Files\LLVM\bin\clang" persian-calendar.cc -o PersianCalendar.exe ^
     -Weverything -Wall -Wextra -Wpedantic -Werror -Weffc++ -std=c++23 ^
     -Wno-c++98-compat-pedantic ^
