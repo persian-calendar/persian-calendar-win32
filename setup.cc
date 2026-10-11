@@ -347,10 +347,6 @@ struct dialog_state_t
         const int size = MulDiv(64, dpi, 96);
         HICON fresh = load_png_icon(size, size);
         if (!fresh)
-            fresh = static_cast<HICON>(LoadImageW(GetModuleHandleW(nullptr),
-                                                  MAKEINTRESOURCEW(IDI_APP_ICON),
-                                                  IMAGE_ICON, size, size, LR_DEFAULTCOLOR));
-        if (!fresh)
             return;
         if (hIcon)
             DestroyIcon(hIcon);
