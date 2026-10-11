@@ -17,6 +17,4 @@ REM https://github.com/llvm/llvm-project/releases Install from the Windows insta
     -nostdlib -nodefaultlibs -nostartfiles -fuse-ld=lld-link -m32 ^
     -Wl,/entry:start -Wl,/subsystem:windows -Wl,/fixed -Wl,/merge:.rdata=.text ^
     -lkernel32 -luser32 -lshell32 -lgdi32 -ladvapi32 -lshlwapi -lole32 ^
-    -Wno-c23-extensions -mno-stack-arg-probe ^
-    -Wl,/manifest:embed "-Wl,/manifestuac:level='asInvoker' uiAccess='false'" ^
-    "-Wl,/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'"
+    -Wno-c23-extensions -mno-stack-arg-probe
