@@ -23,8 +23,10 @@ try:
     run('magick', p32, '-colors', '256', '-type', 'palette', '+dither', 'BMP3:' + b32)
 
     with open(p256, 'rb') as f: png = f.read()
-    with open(b32, 'rb') as f: bmp = f.read()[14:] # strip 14-byte BMPFILEHEADER
-    bmp += bytes((((32 + 31) // 32) * 4) * 32)     # all-zero AND mask
+    with open(b32, 'rb') as f: bmp = bytearray(f.read()[14:])
+    # ICO stores the DIB with biHeight = 2× real height (XOR pixels + AND mask)
+    struct.pack_into('<i', bmp, 8, struct.unpack_from('<i', bmp, 8)[0] * 2)
+    bmp += bytes((((32 + 31) // 32) * 4) * 32)
 
     hdr = struct.pack('<HHH', 0, 1, 2)
     off = 6 + 16 * 2
