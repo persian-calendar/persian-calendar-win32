@@ -15,10 +15,10 @@ static const unsigned char appExe[] = {
 #define UNINSTALL_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32"
 #define STARTUP_KEY   L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
-static auto known_folder(const KNOWNFOLDERID &id, wchar_t *out) -> bool
+static auto known_folder(const KNOWNFOLDERID &id, wchar_t *out, DWORD flags = 0) -> bool
 {
     PWSTR p = nullptr;
-    if (FAILED(SHGetKnownFolderPath(id, 0, nullptr, &p)))
+    if (FAILED(SHGetKnownFolderPath(id, flags, nullptr, &p)))
         return false;
     lstrcpyW(out, p);
     CoTaskMemFree(p);
@@ -45,8 +45,16 @@ static auto get_paths(Paths &p) -> bool
 {
     wchar_t userprograms[MAX_PATH];
     wchar_t programs[MAX_PATH];
-    if (!known_folder(FOLDERID_Programs, programs) || !known_folder(FOLDERID_UserProgramFiles, userprograms))
-        return false;
+
+    if (!known_folder(FOLDERID_UserProgramFiles, userprograms, KF_FLAG_CREATE))
+    {
+        wchar_t local[MAX_PATH];
+        if (!known_folder(FOLDERID_LocalAppData, local))
+            return false;
+        wsprintfW(userprograms, L"%s\\Programs", local);
+        CreateDirectoryW(userprograms, nullptr);
+    }
+
     GetModuleFileNameW(nullptr, p.self, MAX_PATH);
     wsprintfW(p.dir, L"%s\\" APP_ID, userprograms);
     wsprintfW(p.appExe, L"%s\\" APP_EXE, p.dir);
