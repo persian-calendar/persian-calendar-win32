@@ -94,12 +94,12 @@ static void set_prop(IPropertyStore *ps, DWORD pid, const wchar_t *v)
     ps->SetValue(key, pv);
 }
 
-static auto make_shortcut(const wchar_t *lnk, const wchar_t *iconPath, const wchar_t *target, const wchar_t *uninstCmd) -> bool
+static auto make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar_t *uninstCmd) -> bool
 {
     IShellLinkW *sl = nullptr;
     if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, reinterpret_cast<void **>(&sl))))
         return false;
-    sl->SetIconLocation(iconPath, 0);
+    sl->SetIconLocation(target, 0);
     sl->SetPath(target);
     sl->SetDescription(APP_NAME);
     IPropertyStore *ps = nullptr;
@@ -145,7 +145,7 @@ static auto install(const Paths &p) -> UINT
         MessageBoxW(nullptr, L"Failed to copy the files.", app_title, MB_ICONERROR);
         return 1;
     }
-    if (!make_shortcut(p.lnk, p.uninstallExe, p.appExe, silentCmd))
+    if (!make_shortcut(p.lnk, p.appExe, silentCmd))
     {
         MessageBoxW(nullptr, L"Failed to create shortcut.", app_title, MB_ICONERROR);
         return 1;

@@ -1,3 +1,3 @@
 #include <winres.h>
 
-IDI_APP_ICON ICON "Calendar.ico"
+IDI_APP_ICON ICON "persian-calendar.ico"

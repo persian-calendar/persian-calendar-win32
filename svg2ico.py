@@ -2,11 +2,16 @@
 import struct, subprocess, sys, os
 
 svg, ico = sys.argv[1], sys.argv[2]
-png = svg + ".png"
+styles = sys.argv[3]
+png = ico + ".png"
 try:
     h = 256
     # Turning the SVG into a PNG
-    subprocess.run(['rsvg-convert', svg, '-o', png, '-h', str(h)], check=True)
+    subprocess.run(
+        ['rsvg-convert', svg, '-s', '/dev/stdin', '-o', png, '-h', str(h)],
+        input=styles.encode('utf-8'),
+        check=True
+    )
     # Quantizing the PNG to 8-bit
     subprocess.run(['pngquant', '--nofs', '8', png, '--speed', '1', '--output', png, '--force'], check=True)
     # Optimizing the PNG
