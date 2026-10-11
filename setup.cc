@@ -229,6 +229,73 @@ static auto uninstall(const Paths &p) -> UINT
     return 0;
 }
 
+static auto load_png_icon(int cx, int cy) -> HICON
+{
+    HRSRC rsrc = FindResourceW(nullptr, MAKEINTRESOURCEW(IDI_APP_PNG), RT_RCDATA);
+    if (!rsrc)
+        return nullptr;
+    DWORD size = SizeofResource(nullptr, rsrc);
+    HGLOBAL glob = LoadResource(nullptr, rsrc);
+    if (!glob)
+        return nullptr;
+    void *bytes = LockResource(glob);
+    if (!bytes)
+        return nullptr;
+
+    LibraryLoader gdiplus("gdiplus.dll");
+    struct GdiplusStartupInput
+    {
+        UINT32 GdiplusVersion;
+        void *DebugEventCallback;
+        BOOL SuppressBackgroundThread;
+        BOOL SuppressExternalCodecs;
+    };
+
+    auto startup = gdiplus.getProcedure<int(WINAPI *)(ULONG_PTR *, const GdiplusStartupInput *, void *)>("GdiplusStartup");
+    auto shutdown = gdiplus.getProcedure<void(WINAPI *)(ULONG_PTR)>("GdiplusShutdown");
+    auto fromStream = gdiplus.getProcedure<int(WINAPI *)(IStream *, void **)>("GdipCreateBitmapFromStream");
+    auto toHicon = gdiplus.getProcedure<int(WINAPI *)(void *, HICON *)>("GdipCreateHICONFromBitmap");
+    auto dispose = gdiplus.getProcedure<int(WINAPI *)(void *)>("GdipDisposeImage");
+
+    if (!startup || !shutdown || !fromStream || !toHicon || !dispose)
+        return nullptr;
+
+    ULONG_PTR token = 0;
+    GdiplusStartupInput input{1, nullptr, FALSE, FALSE};
+    if (startup(&token, &input, nullptr) != 0)
+        return nullptr;
+
+    IStream *stream = nullptr;
+    if (FAILED(CreateStreamOnHGlobal(nullptr, TRUE, &stream)))
+    {
+        shutdown(token);
+        return nullptr;
+    }
+    ULONG written = 0;
+    stream->Write(bytes, size, &written);
+    LARGE_INTEGER zero{};
+    stream->Seek(zero, STREAM_SEEK_SET, nullptr);
+
+    void *bitmap = nullptr;
+    HICON big = nullptr;
+    if (fromStream(stream, &bitmap) == 0)
+    {
+        toHicon(bitmap, &big);
+        dispose(bitmap);
+    }
+    stream->Release();
+    shutdown(token);
+
+    if (!big)
+        return nullptr;
+
+    // GdipCreateHICONFromBitmap uses the PNG's native 256x256 size; scale it
+    // down to what the dialog actually wants.
+    HICON scaled = static_cast<HICON>(CopyImage(big, IMAGE_ICON, cx, cy, 0));
+    DestroyIcon(big);
+    return scaled;
+}
+
 struct dialog_state_t
 {
     HBRUSH background;
@@ -262,10 +329,11 @@ struct dialog_state_t
         if (!icon)
             return;
         const int size = MulDiv(64, dpi, 96);
-        HICON fresh = static_cast<HICON>(
-            LoadImageW(GetModuleHandleW(nullptr),
-                       MAKEINTRESOURCEW(IDI_APP_ICON),
-                       IMAGE_ICON, size, size, LR_DEFAULTCOLOR));
+        HICON fresh = load_png_icon(size, size);
+        if (!fresh)
+            fresh = static_cast<HICON>(LoadImageW(GetModuleHandleW(nullptr),
+                                                  MAKEINTRESOURCEW(IDI_APP_ICON),
+                                                  IMAGE_ICON, size, size, LR_DEFAULTCOLOR));
         if (!fresh)
             return;
         if (hIcon)
