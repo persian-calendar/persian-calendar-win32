@@ -13,30 +13,28 @@ def render(h):
 
 def run(*a): subprocess.run(a, check=True)
 
-def and_mask(png, size):
-    pgm = png + ".pgm"; tmp.append(pgm)
-    run('magick', png, '-alpha', 'extract', '-depth', '8', pgm)
-    with open(pgm, 'rb') as f:
-        hdr = []
-        while len(hdr) < 4: hdr += f.readline().split()
-        alpha = f.read(size * size)
-    stride = ((size + 31) // 32) * 4
-    m = bytearray(stride * size)
-    for y in range(size):
-        for x in range(size):
-            if alpha[(size - 1 - y) * size + x] < 128:
-                m[y * stride + x // 8] |= 1 << (7 - (x % 8))
-    return bytes(m)
-
 def bmp_frame(size):
     png = render(size)
     run('pngquant', '--nofs', '8', '--speed', '1', '--output', png, '--force', png)
-    mask = and_mask(png, size)
-    b = png + ".bmp"; tmp.append(b)
-    run('magick', png, '-colors', '256', '-type', 'palette', '+dither', 'BMP3:' + b)
-    with open(b, 'rb') as f: d = bytearray(f.read()[14:])
-    struct.pack_into('<i', d, 8, struct.unpack_from('<i', d, 8)[0] * 2)
-    return size, size, 8, bytes(d) + mask
+    rgba = subprocess.check_output(['magick', png, '-depth', '8', 'rgba:-'])
+    assert len(rgba) == size * size * 4, f"expected {size*size*4} bytes, got {len(rgba)}"
+
+    # BITMAPINFOHEADER, biHeight doubled to hold XOR + AND
+    bih = struct.pack('<IiiHHIIiiII', 40, size, size * 2, 1, 32, 0, 0, 0, 0, 0, 0)
+
+    bgra = bytearray(size * size * 4)
+    stride = ((size + 31) // 32) * 4
+    mask = bytearray(stride * size)
+    for y in range(size):
+        for x in range(size):
+            src = ((size - 1 - y) * size + x) * 4
+            dst = (y * size + x) * 4
+            r, g, b, a = rgba[src], rgba[src+1], rgba[src+2], rgba[src+3]
+            bgra[dst:dst+4] = bytes((b, g, r, a))
+            if a < 128:
+                mask[y * stride + x // 8] |= 1 << (7 - (x % 8))
+
+    return size, size, 32, bih + bytes(bgra) + bytes(mask)
 
 try:
     p256 = render(256)
@@ -45,7 +43,7 @@ try:
         '--lossy_8bit', '--lossy_transparent', p256, p256)
     with open(p256, 'rb') as f: png = f.read()
 
-    frames = [(256, 256, 32, png), bmp_frame(48)]
+    frames = [(256, 256, 32, png), bmp_frame(32)]
 
     hdr = struct.pack('<HHH', 0, 1, len(frames))
     off = 6 + 16 * len(frames)
