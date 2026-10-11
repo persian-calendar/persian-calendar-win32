@@ -15,6 +15,8 @@ static const unsigned char appExe[] = {
 #define UNINSTALL_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32"
 #define STARTUP_KEY   L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
+constexpr auto app_title = L"تقویم فارسی";
+
 static auto known_folder(const KNOWNFOLDERID &id, wchar_t *out, DWORD flags = 0) -> bool
 {
     PWSTR p = nullptr;
@@ -45,6 +47,9 @@ static auto get_paths(Paths &p) -> bool
 {
     wchar_t userprograms[MAX_PATH];
     wchar_t programs[MAX_PATH];
+
+    if (!known_folder(FOLDERID_Programs, programs))
+        return false;
 
     if (!known_folder(FOLDERID_UserProgramFiles, userprograms, KF_FLAG_CREATE))
     {
@@ -119,10 +124,14 @@ static auto install(const Paths &p) -> UINT
     wsprintfW(cmd, L"\"%s\"", p.uninstallExe);
     wsprintfW(silentCmd, L"\"%s\" /silent", p.uninstallExe);
     if (!write_file(p.appExe, appExe, sizeof appExe) ||
-        !CopyFileW(p.self, p.uninstallExe, FALSE) ||
-        !make_shortcut(p.lnk, p.uninstallExe, p.appExe, silentCmd))
+        !CopyFileW(p.self, p.uninstallExe, FALSE))
     {
-        MessageBoxW(nullptr, L"Installation failed.", APP_NAME, MB_ICONERROR);
+        MessageBoxW(nullptr, L"Failed to copy the files.", app_title, MB_ICONERROR);
+        return 1;
+    }
+    if (!make_shortcut(p.lnk, p.uninstallExe, p.appExe, silentCmd))
+    {
+        MessageBoxW(nullptr, L"Failed to create shortcut.", app_title, MB_ICONERROR);
         return 1;
     }
     HKEY k;
@@ -381,7 +390,7 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
 
 static auto ask(const wchar_t *text, const wchar_t *yes) -> bool
 {
-    return confirm(L"تقویم فارسی", text, yes, L"خیر");
+    return confirm(app_title, text, yes, L"خیر");
 }
 
 extern "C" [[noreturn]] void start();
@@ -432,6 +441,11 @@ void start()
                     ShellExecuteW(nullptr, L"open", p.appExe, nullptr, p.dir, SW_SHOWNORMAL);
             }
         }
+    }
+    else
+    {
+        MessageBoxW(nullptr, L"خطا در دریافت مسیرهای نصب", app_title, MB_OK | MB_ICONERROR);
+        code = 1;
     }
     CoUninitialize();
     ExitProcess(code);
