@@ -17,16 +17,6 @@ constexpr auto uninstall_key = L"Software\\Microsoft\\Windows\\CurrentVersion\\U
 constexpr auto startup_key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 constexpr auto app_title = L"تقویم فارسی";
 
-static auto known_folder(const KNOWNFOLDERID &id, wchar_t *out, DWORD flags = 0) -> bool
-{
-    PWSTR p = nullptr;
-    if (FAILED(SHGetKnownFolderPath(id, flags, nullptr, &p)))
-        return false;
-    lstrcpyW(out, p);
-    CoTaskMemFree(p);
-    return true;
-}
-
 static auto write_file(const wchar_t *path, const void *data, DWORD size) -> bool
 {
     HANDLE f = CreateFileW(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -42,6 +32,16 @@ struct Paths
 {
     wchar_t dir[MAX_PATH], appExe[MAX_PATH], uninstallExe[MAX_PATH], self[MAX_PATH], lnk[MAX_PATH];
 };
+
+static auto known_folder(const KNOWNFOLDERID &id, wchar_t *out, DWORD flags = 0) -> bool
+{
+    PWSTR p = nullptr;
+    if (FAILED(SHGetKnownFolderPath(id, flags, nullptr, &p)))
+        return false;
+    lstrcpyW(out, p);
+    CoTaskMemFree(p);
+    return true;
+}
 
 static auto get_paths(Paths &p) -> bool
 {
