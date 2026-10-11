@@ -18,7 +18,7 @@
   <rect x="120" y="162" width="28" height="28" rx="6" ry="6"/>
  </g>
  <circle fill="#19c5b1" cx="172.5" cy="172.5" r="57.5"/>
- <path fill="none" stroke="#fff"
+ <!-- <path fill="none" stroke="#fff"
   stroke-linecap="round" stroke-linejoin="round" stroke-width="16px"
-  d="m172.5 147.34v45.82m-25.16-19.76 25.16 25.16 25.16-25.16"/>
+  d="m172.5 147.34v45.82m-25.16-19.76 25.16 25.16 25.16-25.16"/> -->
 </svg>
