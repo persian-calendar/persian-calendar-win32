@@ -3,6 +3,7 @@
 #include <objbase.h>
 #include <propsys.h>
 #include <propkey.h>
+#include <gdiplus.h>
 
 #include "setup-rc.h"
 
@@ -237,7 +238,7 @@ static auto load_png_icon(int cx, int cy) -> HICON
     HGLOBAL gh = LoadResource(nullptr, group);
     if (!gh)
         return nullptr;
-IB_WARNING_DISABLE_CLANG_PUSH("-Wunsafe-buffer-usage")
+    IB_WARNING_DISABLE_CLANG_PUSH("-Wunsafe-buffer-usage")
     BYTE *dir = static_cast<BYTE *>(LockResource(gh));
     if (!dir)
         return nullptr;
@@ -246,7 +247,7 @@ IB_WARNING_DISABLE_CLANG_PUSH("-Wunsafe-buffer-usage")
     if (count == 0)
         return nullptr;
     WORD iconId = *reinterpret_cast<WORD *>(dir + 6 + 12);
-IB_WARNING_DISABLE_CLANG_POP
+    IB_WARNING_DISABLE_CLANG_POP
 
     HRSRC icon = FindResourceW(nullptr, MAKEINTRESOURCEW(iconId), RT_ICON);
     if (!icon)
@@ -259,50 +260,22 @@ IB_WARNING_DISABLE_CLANG_POP
     if (!bytes)
         return nullptr;
 
-    LibraryLoader gdiplus("gdiplus.dll");
-
-    struct GdiplusStartupInput
-    {
-        UINT32 GdiplusVersion;
-        void *DebugEventCallback;
-        BOOL SuppressBackgroundThread;
-        BOOL SuppressExternalCodecs;
-    };
-
-    auto startup = gdiplus.getProcedure<int(WINAPI *)(ULONG_PTR *, const GdiplusStartupInput *, void *)>("GdiplusStartup");
-    auto shutdown = gdiplus.getProcedure<void(WINAPI *)(ULONG_PTR)>("GdiplusShutdown");
-    auto fromStream = gdiplus.getProcedure<int(WINAPI *)(IStream *, void **)>("GdipCreateBitmapFromStream");
-    auto toHicon = gdiplus.getProcedure<int(WINAPI *)(void *, HICON *)>("GdipCreateHICONFromBitmap");
-    auto dispose = gdiplus.getProcedure<int(WINAPI *)(void *)>("GdipDisposeImage");
-
-    if (!startup || !shutdown || !fromStream || !toHicon || !dispose)
-        return nullptr;
-
-    ULONG_PTR token = 0;
-    GdiplusStartupInput input{1, nullptr, FALSE, FALSE};
-    if (startup(&token, &input, nullptr) != 0)
-        return nullptr;
-
     IStream *stream = nullptr;
     if (FAILED(CreateStreamOnHGlobal(nullptr, TRUE, &stream)))
-    {
-        shutdown(token);
         return nullptr;
-    }
     ULONG written = 0;
     stream->Write(bytes, size, &written);
     LARGE_INTEGER zero{};
     stream->Seek(zero, STREAM_SEEK_SET, nullptr);
 
-    void *bitmap = nullptr;
+    Gdiplus::GpBitmap *bitmap = nullptr;
     HICON big = nullptr;
-    if (fromStream(stream, &bitmap) == 0 && bitmap)
+    if (Gdiplus::DllExports::GdipCreateBitmapFromStream(stream, &bitmap) == 0 && bitmap)
     {
-        toHicon(bitmap, &big);
-        dispose(bitmap);
+        Gdiplus::DllExports::GdipCreateHICONFromBitmap(bitmap, &big);
+        Gdiplus::DllExports::GdipDisposeImage(bitmap);
     }
     stream->Release();
-    shutdown(token);
 
     if (!big)
         return nullptr;
@@ -323,6 +296,29 @@ struct dialog_state_t
     HICON hIcon;
     HWND yesButton;
     HWND noButton;
+    ULONG_PTR gdiplustoken = 0;
+
+    dialog_state_t()
+        : background(nullptr),
+          buttonBackground(nullptr),
+          dark(FALSE),
+          confirmed(FALSE),
+          label(nullptr),
+          icon(nullptr),
+          hIcon(nullptr),
+          yesButton(nullptr),
+          noButton(nullptr)
+    {
+        Gdiplus::GdiplusStartupInput input{};
+        if (Gdiplus::GdiplusStartup(&gdiplustoken, &input, nullptr) != 0)
+            gdiplustoken = 0;
+    }
+
+    ~dialog_state_t()
+    {
+        if (gdiplustoken)
+            Gdiplus::GdiplusShutdown(gdiplustoken);
+    }
 
     void darkModeUpdate(HWND hwnd)
     {
@@ -431,8 +427,7 @@ static auto CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
 
 static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *yes, const wchar_t *no) -> bool
 {
-    dialog_state_t state;
-    zero_memory(state);
+    dialog_state_t state{};
     state.dark = is_dark_mode_active();
     state.background = CreateSolidBrush(has_composition() ? colorKey : GetSysColor(COLOR_BTNFACE));
     WNDCLASSW wc;

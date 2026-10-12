@@ -22,7 +22,7 @@ python postlink.py PersianCalendar.exe
     -fno-exceptions -fno-rtti -fsafe-buffer-usage-suggestions -flto -Oz ^
     -nostdlib -nodefaultlibs -nostartfiles -fuse-ld=lld-link -m32 ^
     -Wl,/entry:start -Wl,/subsystem:windows -Wl,/fixed -Wl,/merge:.rdata=.text ^
-    -lkernel32 -luser32 -lshell32 -lgdi32 -ladvapi32 -lshlwapi -lole32 ^
+    -lkernel32 -luser32 -lshell32 -lgdi32 -ladvapi32 -lshlwapi -lole32 -lgdiplus ^
     -Wno-c23-extensions -mno-stack-arg-probe
 
 REM Lower the executable's support for older Windows versions
