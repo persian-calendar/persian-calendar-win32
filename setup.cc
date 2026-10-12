@@ -112,8 +112,41 @@ static void set_one(HKEY k, const wchar_t *name)
     RegSetValueExW(k, name, 0, REG_DWORD, reinterpret_cast<const BYTE *>(&one), sizeof one);
 }
 
+static void run_hidden(const wchar_t *cmd, bool wait)
+{
+    STARTUPINFOW si;
+    zero_memory(si);
+    si.cb = sizeof si;
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+
+    PROCESS_INFORMATION pi;
+    zero_memory(pi);
+    if (CreateProcessW(nullptr, const_cast<LPWSTR>(cmd), nullptr, nullptr,
+                       FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
+    {
+        if (wait)
+            WaitForSingleObject(pi.hProcess, 3000);
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+    }
+}
+
+static void kill_process(const wchar_t *exe_name)
+{
+    wchar_t sysdir[MAX_PATH];
+    if (!GetSystemDirectoryW(sysdir, MAX_PATH))
+        return;
+
+    wchar_t cmd[MAX_PATH + 64];
+    wsprintfW(cmd, L"\"%s\\taskkill.exe\" /f /im %s", sysdir, exe_name);
+    run_hidden(cmd, /*wait=*/true);
+    Sleep(150);
+}
+
 static auto install(const Paths &p) -> UINT
 {
+    kill_process(APP_EXE);
     CreateDirectoryW(p.dir, nullptr);
     wchar_t cmd[MAX_PATH + 16], silentCmd[MAX_PATH + 32];
     wsprintfW(cmd, L"\"%s\"", p.uninstallExe);
@@ -152,34 +185,7 @@ static auto install(const Paths &p) -> UINT
 
 static auto uninstall(const Paths &p) -> UINT
 {
-    auto run_hidden = [](const wchar_t *cmd, bool wait)
-    {
-        STARTUPINFOW si;
-        zero_memory(si);
-        si.cb = sizeof si;
-        si.dwFlags = STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_HIDE;
-
-        PROCESS_INFORMATION pi;
-        zero_memory(pi);
-        if (CreateProcessW(nullptr, const_cast<LPWSTR>(cmd), nullptr, nullptr,
-                           FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
-        {
-            if (wait)
-                WaitForSingleObject(pi.hProcess, 3000);
-            CloseHandle(pi.hThread);
-            CloseHandle(pi.hProcess);
-        }
-    };
-
-    wchar_t kill[MAX_PATH + 64];
-    if (wchar_t sysdir[MAX_PATH]; GetSystemDirectoryW(sysdir, MAX_PATH))
-        wsprintfW(kill, L"\"%s\\taskkill.exe\" /f /im " APP_EXE, sysdir);
-    else
-        lstrcpyW(kill, L"taskkill.exe /f /im " APP_EXE);
-    run_hidden(kill, /*wait=*/true);
-
-    Sleep(150);
+    kill_process(APP_EXE);
 
     for (int i = 0, done = 0; i < 5 && !done; ++i)
     {
