@@ -125,10 +125,10 @@ jobs:
           foreach ($rcPath in @("setup.rc", "persian-calendar.rc")) {
             $content = Get-Content $rcPath -Raw
 
-            $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'FILEVERSION\s+[\d,]+', "FILEVERSION    $commaVer")
-            $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'PRODUCTVERSION\s+[\d,]+', "PRODUCTVERSION $commaVer")
-            $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "FileVersion",\s+"[\d\.]+"', "VALUE ""FileVersion"",      ""$ver""")
-            $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "ProductVersion",\s+"[\d\.]+"', "VALUE ""ProductVersion"",   ""$ver""")
+            $content = [System.Text.RegularExpressions.Regex]::Replace($content, '(FILEVERSION)(\s+)[\d,]+', '${1}${2}' + $commaVer)
+            $content = [System.Text.RegularExpressions.Regex]::Replace($content, '(PRODUCTVERSION)(\s+)[\d,]+', '${1}${2}' + $commaVer)
+            $content = [System.Text.RegularExpressions.Regex]::Replace($content, '(VALUE "FileVersion",)(\s+)"[\d\.]+"', '${1}${2}"' + $ver + '"')
+            $content = [System.Text.RegularExpressions.Regex]::Replace($content, '(VALUE "ProductVersion",)(\s+)"[\d\.]+"', '${1}${2}"' + $ver + '"')
 
             Set-Content -Path $rcPath -Value $content -NoNewline
             Write-Host "Updated $rcPath to version $ver"
