@@ -63,14 +63,6 @@ struct Paths
     }
 };
 
-static void set_prop(IPropertyStore *ps, const PROPERTYKEY &key, const wchar_t *v)
-{
-    PROPVARIANT pv;
-    pv.vt = VT_LPWSTR;
-    pv.pwszVal = const_cast<LPWSTR>(v);
-    ps->SetValue(key, pv);
-}
-
 static auto make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar_t *uninstCmd) -> bool
 {
     IShellLinkW *sl = nullptr;
@@ -82,8 +74,16 @@ static auto make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar
     IPropertyStore *ps = nullptr;
     if (SUCCEEDED(sl->QueryInterface(IID_IPropertyStore, reinterpret_cast<void **>(&ps))))
     {
-        set_prop(ps, PKEY_AppUserModel_ID, APP_ID);
-        set_prop(ps, PKEY_AppUserModel_UninstallCommand, uninstCmd);
+        auto make_propvar = [](const wchar_t *v)
+        {
+            PROPVARIANT pv{};
+            zero_memory(pv);
+            pv.vt = VT_LPWSTR;
+            pv.pwszVal = const_cast<LPWSTR>(v);
+            return pv;
+        };
+        ps->SetValue(PKEY_AppUserModel_ID, make_propvar(APP_ID));
+        ps->SetValue(PKEY_AppUserModel_UninstallCommand, make_propvar(uninstCmd));
         ps->Commit();
         ps->Release();
     }
