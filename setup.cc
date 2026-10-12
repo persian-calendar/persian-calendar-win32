@@ -32,58 +32,36 @@ static auto write_file(const wchar_t *path, const void *data, DWORD size) -> boo
 struct Paths
 {
     wchar_t dir[MAX_PATH], appExe[MAX_PATH], uninstallExe[MAX_PATH], self[MAX_PATH], lnk[MAX_PATH];
-};
+    BOOL failed;
 
-static auto known_folder(const KNOWNFOLDERID &id, wchar_t *out, DWORD flags = 0) -> bool
-{
-    using SHGetKnownFolderPath_t = HRESULT(WINAPI *)(const KNOWNFOLDERID &, DWORD, HANDLE, PWSTR *);
-    if (auto fn = LibraryLoader("shell32.dll").getProcedure<SHGetKnownFolderPath_t>("SHGetKnownFolderPath"))
-    {
-        PWSTR p = nullptr;
-        if (SUCCEEDED(fn(id, flags, nullptr, &p)))
-        {
-            lstrcpyW(out, p);
-            CoTaskMemFree(p);
-            return true;
+    Paths() : dir{}, appExe{}, uninstallExe{}, self{}, lnk{}, failed(false) {
+        using SHGetFolderPathW_t = HRESULT(WINAPI *)(HWND, int, HANDLE, DWORD, LPWSTR);
+        // SHGetFolderPathW historically was in shfolder then moved to shell32 in XP
+        auto get_folder_path = LibraryLoader("shfolder.dll").getProcedure<SHGetFolderPathW_t>("SHGetFolderPathW");
+        if (!get_folder_path)
+            get_folder_path = LibraryLoader("shell32.dll").getProcedure<SHGetFolderPathW_t>("SHGetFolderPathW");
+        if (!get_folder_path) {
+            this->failed = true;
+            return;
         }
-    }
 
-    // XP fallback
-    int csidl;
-    if (id.Data1 == FOLDERID_Programs.Data1)
-        csidl = CSIDL_PROGRAMS;
-    else if (id.Data1 == FOLDERID_LocalAppData.Data1)
-        csidl = CSIDL_LOCAL_APPDATA;
-    else
-        return false;
+        wchar_t local[MAX_PATH], programs[MAX_PATH], userprograms[MAX_PATH];
+        if (FAILED(get_folder_path(nullptr, CSIDL_PROGRAMS, nullptr, 0, programs)) ||
+            FAILED(get_folder_path(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, local))) {
+            this->failed = true;
+            return;
+        }
 
-    return SUCCEEDED(SHGetFolderPathW(nullptr, csidl, nullptr, 0, out));
-}
-
-static auto get_paths(Paths &p) -> bool
-{
-    wchar_t userprograms[MAX_PATH];
-    wchar_t programs[MAX_PATH];
-
-    if (!known_folder(FOLDERID_Programs, programs))
-        return false;
-
-    if (!known_folder(FOLDERID_UserProgramFiles, userprograms, KF_FLAG_CREATE))
-    {
-        wchar_t local[MAX_PATH];
-        if (!known_folder(FOLDERID_LocalAppData, local))
-            return false;
-        wsprintfW(userprograms, L"%s\\Programs", local);
+        wsprintfW(userprograms, L"%s\\Programs", local); // Equivalent to FOLDERID_UserProgramFiles
         CreateDirectoryW(userprograms, nullptr);
-    }
 
-    GetModuleFileNameW(nullptr, p.self, MAX_PATH);
-    wsprintfW(p.dir, L"%s\\" APP_ID, userprograms);
-    wsprintfW(p.appExe, L"%s\\" APP_EXE, p.dir);
-    wsprintfW(p.uninstallExe, L"%s\\PersianCalendarSetup.exe", p.dir);
-    wsprintfW(p.lnk, L"%s\\" APP_NAME L".lnk", programs);
-    return true;
-}
+        GetModuleFileNameW(nullptr, this->self, MAX_PATH);
+        wsprintfW(this->dir, L"%s\\" APP_ID, userprograms);
+        wsprintfW(this->appExe, L"%s\\" APP_EXE, this->dir);
+        wsprintfW(this->uninstallExe, L"%s\\PersianCalendarSetup.exe", this->dir);
+        wsprintfW(this->lnk, L"%s\\" APP_NAME L".lnk", programs);
+    }
+};
 
 // System.AppUserModel.ID (5) and .UninstallCommand (37) make Start show an inline Uninstall that runs the command directly.
 static void set_prop(IPropertyStore *ps, DWORD pid, const wchar_t *v)
@@ -492,55 +470,39 @@ void start()
 {
     enable_hidpi();
     enable_dark_mode_support();
-    if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)))
-        ExitProcess(1);
-    UINT code = 0;
-    Paths p;
-    if (get_paths(p))
-    {
-        bool isInstalled = GetFileAttributesW(p.uninstallExe) != INVALID_FILE_ATTRIBUTES;
-        bool isSelfUninstaller = CompareStringW(LOCALE_INVARIANT, NORM_IGNORECASE,
-                                                p.self, -1, p.uninstallExe, -1) == CSTR_EQUAL;
-
-        // Get rid of this some day
-        if (!isInstalled && !isSelfUninstaller)
-        {
-            wchar_t oldDir[2 * MAX_PATH], oldUninstall[2 * MAX_PATH];
-            wsprintfW(oldDir, L"%s\\" APP_ID, p.dir);
-            wsprintfW(oldUninstall, L"%s\\setup.exe", oldDir);
-            if (GetFileAttributesW(oldUninstall) != INVALID_FILE_ATTRIBUTES &&
-                CompareStringW(LOCALE_INVARIANT, NORM_IGNORECASE,
-                               p.self, -1, oldUninstall, -1) != CSTR_EQUAL)
-            {
-                ShellExecuteW(nullptr, L"open", oldUninstall, nullptr, oldDir, SW_SHOWNORMAL);
-                CoUninitialize();
-                ExitProcess(0);
-            }
-        }
-
-        if (isInstalled && !isSelfUninstaller)
-            ShellExecuteW(nullptr, L"open", p.uninstallExe, nullptr, p.dir, SW_SHOWNORMAL);
-        else
-        {
-            bool isSilent = StrStrW(GetCommandLineW(), L"/silent") != nullptr;
-            if (isInstalled)
-            {
-                if (isSilent || ask(L"مایلید تقویم فارسی را حذف نصب کنید؟", L"حذف نصب"))
-                    code = uninstall(p);
-            }
-            else if (isSilent || ask(L"مایلید تقویم فارسی را نصب کنید؟", L"نصب"))
-            {
-                code = install(p);
-                if (code == 0 && !isSilent)
-                    ShellExecuteW(nullptr, L"open", p.appExe, nullptr, p.dir, SW_SHOWNORMAL);
-            }
-        }
-    }
-    else
+    Paths p{};
+    if (p.failed)
     {
         MessageBoxW(nullptr, L"Failed to retrieve paths", app_title, MB_OK | MB_ICONERROR);
-        code = 1;
+        ExitProcess(1);
     }
+
+    if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)))
+        ExitProcess(1);
+
+    UINT code = 0;
+    bool isInstalled = GetFileAttributesW(p.uninstallExe) != INVALID_FILE_ATTRIBUTES;
+    bool isSelfUninstaller = CompareStringW(LOCALE_INVARIANT, NORM_IGNORECASE,
+                                            p.self, -1, p.uninstallExe, -1) == CSTR_EQUAL;
+
+    if (isInstalled && !isSelfUninstaller)
+        ShellExecuteW(nullptr, L"open", p.uninstallExe, nullptr, p.dir, SW_SHOWNORMAL);
+    else
+    {
+        bool isSilent = StrStrW(GetCommandLineW(), L"/silent") != nullptr;
+        if (isInstalled)
+        {
+            if (isSilent || ask(L"مایلید تقویم فارسی را حذف نصب کنید؟", L"حذف نصب"))
+                code = uninstall(p);
+        }
+        else if (isSilent || ask(L"مایلید تقویم فارسی را نصب کنید؟", L"نصب"))
+        {
+            code = install(p);
+            if (code == 0 && !isSilent)
+                ShellExecuteW(nullptr, L"open", p.appExe, nullptr, p.dir, SW_SHOWNORMAL);
+        }
+    }
+
     CoUninitialize();
     ExitProcess(code);
 }
