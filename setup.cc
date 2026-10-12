@@ -438,15 +438,15 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
     state.icon = CreateWindowExW(0, L"STATIC", nullptr,
                                  WS_CHILD | WS_VISIBLE | SS_ICON | SS_CENTERIMAGE,
                                  0, 0, 0, 0, hwnd, nullptr, wc.hInstance, nullptr);
-    state.yesButton = CreateWindowExW(0, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
-    state.noButton = CreateWindowExW(0, L"BUTTON", no, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDNO)), wc.hInstance, nullptr);
+    state.yesButton = CreateWindowExW(0, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON , 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
+    state.noButton = CreateWindowExW(0, L"BUTTON", no, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDNO)), wc.hInstance, nullptr);
     state.updateLayout(dpi);
     glass_window(hwnd);
     state.darkModeUpdate(hwnd);
-    SetFocus(state.yesButton);
 
     ShowWindow(hwnd, SW_SHOW);
     SetForegroundWindow(hwnd);
+    SetFocus(state.yesButton);
 
     MSG m;
     while (GetMessageW(&m, nullptr, 0, 0) > 0)
