@@ -443,7 +443,7 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
     state.updateLayout(dpi);
     glass_window(hwnd);
     state.darkModeUpdate(hwnd);
-    SetFocus(state.noButton);
+    SetFocus(state.yesButton);
 
     ShowWindow(hwnd, SW_SHOW);
     SetForegroundWindow(hwnd);
