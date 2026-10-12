@@ -1,7 +1,7 @@
 name: Build EXE
 
 permissions:
-  contents: write
+  contents: read
 
 on:
   push:
@@ -15,6 +15,8 @@ on:
 jobs:
   check-changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       should_publish: ${{ steps.check.outputs.should_publish }}
     steps:
@@ -51,6 +53,8 @@ jobs:
     needs: check-changes
     if: needs.check-changes.outputs.should_publish == 'true'
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
 
