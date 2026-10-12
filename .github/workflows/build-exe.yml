@@ -122,16 +122,17 @@ jobs:
           $ver = "${{ steps.version.outputs.VERSION }}"
           $commaVer = $ver -replace '\.', ','
 
-          $rcPath = "setup.rc"
-          $content = Get-Content $rcPath -Raw
+          foreach ($rcPath in @("setup.rc", "persian-calendar.rc")) {
+            $content = Get-Content $rcPath -Raw
 
-          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'FILEVERSION\s+[\d,]+', "FILEVERSION    $commaVer")
-          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'PRODUCTVERSION\s+[\d,]+', "PRODUCTVERSION $commaVer")
-          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "FileVersion",\s+"[\d\.]+"', "VALUE ""FileVersion"",      ""$ver""")
-          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "ProductVersion",\s+"[\d\.]+"', "VALUE ""ProductVersion"",   ""$ver""")
+            $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'FILEVERSION\s+[\d,]+', "FILEVERSION    $commaVer")
+            $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'PRODUCTVERSION\s+[\d,]+', "PRODUCTVERSION $commaVer")
+            $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "FileVersion",\s+"[\d\.]+"', "VALUE ""FileVersion"",      ""$ver""")
+            $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'VALUE "ProductVersion",\s+"[\d\.]+"', "VALUE ""ProductVersion"",   ""$ver""")
 
-          Set-Content -Path $rcPath -Value $content -NoNewline
-          Write-Host "Updated $rcPath to version $ver"
+            Set-Content -Path $rcPath -Value $content -NoNewline
+            Write-Host "Updated $rcPath to version $ver"
+          }
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -181,7 +182,7 @@ jobs:
           if ($tagName -ne "latest") {
             git config --local user.name "github-actions[bot]"
             git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add setup.rc
+            git add setup.rc persian-calendar.rc
             git diff --staged --quiet
             if ($LASTEXITCODE -ne 0) {
               git commit -m "${{ steps.version.outputs.TAG_NAME }}"
