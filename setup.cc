@@ -63,10 +63,8 @@ struct Paths
     }
 };
 
-// System.AppUserModel.ID (5) and .UninstallCommand (37) make Start show an inline Uninstall that runs the command directly.
-static void set_prop(IPropertyStore *ps, DWORD pid, const wchar_t *v)
+static void set_prop(IPropertyStore *ps, const PROPERTYKEY &key, const wchar_t *v)
 {
-    const PROPERTYKEY key = {{0x9F4C2855, 0x9F79, 0x4B39, {0xA8, 0xD0, 0xE1, 0xD4, 0x2D, 0xE1, 0xD5, 0xF3}}, pid};
     PROPVARIANT pv;
     pv.vt = VT_LPWSTR;
     pv.pwszVal = const_cast<LPWSTR>(v);
@@ -84,8 +82,8 @@ static auto make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar
     IPropertyStore *ps = nullptr;
     if (SUCCEEDED(sl->QueryInterface(IID_IPropertyStore, reinterpret_cast<void **>(&ps))))
     {
-        set_prop(ps, 5, APP_ID);
-        set_prop(ps, 37, uninstCmd);
+        set_prop(ps, PKEY_AppUserModel_ID, APP_ID);
+        set_prop(ps, PKEY_AppUserModel_UninstallCommand, uninstCmd);
         ps->Commit();
         ps->Release();
     }
