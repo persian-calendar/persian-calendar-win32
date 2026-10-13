@@ -515,10 +515,10 @@ void start()
         bool isSilent = StrStrW(GetCommandLineW(), L"/silent") != nullptr;
         if (isInstalled)
         {
-            if (isSilent || ask(L"مایلید " APP_TITLE " را حذف نصب کنید؟", L"حذف نصب"))
+            if (isSilent || ask(L"مایلید " APP_TITLE L" را حذف نصب کنید؟", L"حذف نصب"))
                 code = uninstall(p);
         }
-        else if (isSilent || ask(L"مایلید " APP_TITLE " را نصب کنید؟", L"نصب"))
+        else if (isSilent || ask(L"مایلید " APP_TITLE L" را نصب کنید؟", L"نصب"))
         {
             code = install(p);
             if (code == 0 && !isSilent)
