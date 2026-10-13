@@ -34,20 +34,23 @@ struct Paths
     wchar_t dir[MAX_PATH], appExe[MAX_PATH], uninstallExe[MAX_PATH], self[MAX_PATH], lnk[MAX_PATH];
     BOOL failed;
 
-    Paths() : dir{}, appExe{}, uninstallExe{}, self{}, lnk{}, failed(false) {
+    Paths() : dir{}, appExe{}, uninstallExe{}, self{}, lnk{}, failed(false)
+    {
         using SHGetFolderPathW_t = HRESULT(WINAPI *)(HWND, int, HANDLE, DWORD, LPWSTR);
         // SHGetFolderPathW historically was in shfolder then moved to shell32 in XP
         auto get_folder_path = LibraryLoader("shfolder.dll").getProcedure<SHGetFolderPathW_t>("SHGetFolderPathW");
         if (!get_folder_path)
             get_folder_path = LibraryLoader("shell32.dll").getProcedure<SHGetFolderPathW_t>("SHGetFolderPathW");
-        if (!get_folder_path) {
+        if (!get_folder_path)
+        {
             this->failed = true;
             return;
         }
 
         wchar_t local[MAX_PATH], programs[MAX_PATH], userprograms[MAX_PATH];
         if (FAILED(get_folder_path(nullptr, CSIDL_PROGRAMS, nullptr, 0, programs)) ||
-            FAILED(get_folder_path(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, local))) {
+            FAILED(get_folder_path(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, local)))
+        {
             this->failed = true;
             return;
         }
@@ -278,12 +281,13 @@ struct dialog_state_t
     HICON hIcon;
     HWND yesButton;
     HWND noButton;
+    int dpi;
     ULONG_PTR gdiplustoken = 0;
 
     dialog_state_t()
         : background(nullptr),
           buttonBackground(nullptr),
-          dark(FALSE),
+          dark(is_dark_mode_active()),
           confirmed(FALSE),
           label(nullptr),
           icon(nullptr),
@@ -294,31 +298,23 @@ struct dialog_state_t
         Gdiplus::GdiplusStartupInput input{};
         if (Gdiplus::GdiplusStartup(&gdiplustoken, &input, nullptr) != 0)
             gdiplustoken = 0;
+        this->dpi = static_cast<int>(get_system_dpi());
+        updateBackground();
     }
 
     ~dialog_state_t()
     {
+        if (this->hIcon)
+            DestroyIcon(this->hIcon);
+        if (this->buttonBackground)
+            DeleteObject(this->buttonBackground);
+        if (this->background)
+            DeleteObject(this->background);
         if (gdiplustoken)
             Gdiplus::GdiplusShutdown(gdiplustoken);
     }
 
-    void darkModeUpdate(HWND hwnd)
-    {
-        dark = is_dark_mode_active();
-        set_immersive_dark_mode(hwnd, dark);
-        if (buttonBackground)
-            DeleteObject(buttonBackground);
-        buttonBackground = CreateSolidBrush(dark ? RGB(0x2B, 0x2B, 0x2B)
-                                                 : RGB(0xF3, 0xF3, 0xF3));
-        if (auto set_theme = LibraryLoader("uxtheme.dll").getProcedure<HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR)>("SetWindowTheme"))
-        {
-            set_theme(label, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
-            set_theme(yesButton, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
-            set_theme(noButton, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
-        }
-    }
-
-    void reloadIcon(int dpi)
+    void reloadIcon()
     {
         if (!icon)
             return;
@@ -333,12 +329,12 @@ struct dialog_state_t
         MoveWindow(icon, MulDiv(16, dpi, 96), MulDiv(16, dpi, 96), size, size, TRUE);
     }
 
-    void updateLayout(int dpi)
-    {
-        auto px = [dpi](int v)
-        { return MulDiv(v, dpi, 96); };
+    int px(int v) { return MulDiv(v, dpi, 96); }
 
-        reloadIcon(dpi);
+    void updateLayout(HWND hwnd)
+    {
+        this->applyVisualStyle(hwnd);
+        reloadIcon();
         MoveWindow(label, px(96), px(20), px(284), px(56), TRUE);
         MoveWindow(yesButton, px(195), px(88), px(90), px(28), TRUE);
         MoveWindow(noButton, px(295), px(88), px(90), px(28), TRUE);
@@ -354,11 +350,44 @@ struct dialog_state_t
             SendMessageW(noButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
         }
         {
-            // Antialiased edges would blend with the magenta color key.
-            ncm.lfMessageFont.lfQuality = NONANTIALIASED_QUALITY;
+            if (has_composition())
+                ncm.lfMessageFont.lfQuality = NONANTIALIASED_QUALITY;
             ncm.lfMessageFont.lfHeight = px(18);
             HFONT font = CreateFontIndirectW(&ncm.lfMessageFont);
             SendMessageW(label, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+        }
+    }
+
+private:
+    auto updateBackground() -> void
+    {
+        if (this->background)
+            DeleteObject(this->background);
+        if (has_composition())
+            this->background = CreateSolidBrush(colorKey);
+        else
+            this->background = CreateSolidBrush(dark ? RGB(0x20, 0x20, 0x20) : GetSysColor(COLOR_BTNFACE));
+    }
+
+    auto applyVisualStyle(HWND hwnd) -> void
+    {
+        toggle_exstyle(hwnd, has_composition(), WS_EX_COMPOSITED | WS_EX_LAYERED);
+
+        if (has_composition())
+            set_layered_window_attributes(hwnd, colorKey, 0, LWA_COLORKEY);
+
+        glass_window(hwnd);
+
+        set_immersive_dark_mode(hwnd, dark);
+        if (buttonBackground)
+            DeleteObject(buttonBackground);
+        buttonBackground = CreateSolidBrush(dark ? RGB(0x2B, 0x2B, 0x2B)
+                                                 : RGB(0xF3, 0xF3, 0xF3));
+        if (auto set_theme = LibraryLoader("uxtheme.dll").getProcedure<HRESULT(WINAPI *)(HWND, LPCWSTR, LPCWSTR)>("SetWindowTheme"))
+        {
+            set_theme(label, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+            set_theme(yesButton, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+            set_theme(noButton, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
         }
     }
 };
@@ -371,12 +400,9 @@ static auto CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         GetWindowLongPtrW(hwnd, GWLP_USERDATA));
     switch (msg)
     {
-    case WM_CREATE:
-        toggle_exstyle(hwnd, has_composition(), WS_EX_LAYERED | WS_EX_COMPOSITED);
-        break;
     case WM_SETTINGCHANGE:
-        toggle_exstyle(hwnd, has_composition(), WS_EX_LAYERED | WS_EX_COMPOSITED);
-        state->darkModeUpdate(hwnd);
+        state->dark = is_dark_mode_active();
+        state->updateLayout(hwnd);
         InvalidateRect(hwnd, nullptr, FALSE);
         break;
     case WM_COMMAND:
@@ -388,7 +414,8 @@ static auto CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         }
         break;
     case WM_DPICHANGED:
-        state->updateLayout(HIWORD(wParam));
+        state->dpi = HIWORD(wParam);
+        state->updateLayout(hwnd);
         break;
     case WM_CTLCOLORSTATIC:
         SetTextColor(reinterpret_cast<HDC>(wParam), state->dark ? RGB(255, 255, 255) : RGB(0, 0, 0));
@@ -398,6 +425,13 @@ static auto CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
         SetTextColor(reinterpret_cast<HDC>(wParam), state->dark ? RGB(255, 255, 255) : RGB(0, 0, 0));
         SetBkMode(reinterpret_cast<HDC>(wParam), TRANSPARENT);
         return reinterpret_cast<LRESULT>(state->buttonBackground);
+    // Make the whole window movable
+    case WM_LBUTTONDOWN:
+    {
+        ReleaseCapture();
+        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+        return 0;
+    }
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
@@ -410,8 +444,6 @@ static auto CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
 static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *yes, const wchar_t *no) -> bool
 {
     dialog_state_t state{};
-    state.dark = is_dark_mode_active();
-    state.background = CreateSolidBrush(has_composition() ? colorKey : GetSysColor(COLOR_BTNFACE));
     WNDCLASSW wc;
     zero_memory(wc);
     wc.lpfnWndProc = confirm_window_procedure;
@@ -421,28 +453,21 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
     wc.lpszClassName = L"InstallerConfirm";
     RegisterClassW(&wc);
 
-    const int dpi = static_cast<int>(get_system_dpi());
-    auto px = [dpi](int v)
-    { return MulDiv(v, dpi, 96); };
-
     const DWORD style = WS_CAPTION | WS_SYSMENU;
     const DWORD exStyle = WS_EX_DLGMODALFRAME | WS_EX_TOPMOST | WS_EX_RTLREADING | WS_EX_LAYOUTRTL;
-    RECT rc = {0, 0, px(400), px(130)};
+    RECT rc = {0, 0, state.px(400), state.px(130)};
     AdjustWindowRectEx(&rc, style, FALSE, exStyle);
     HWND hwnd = CreateWindowExW(exStyle, wc.lpszClassName, title, style, CW_USEDEFAULT, CW_USEDEFAULT,
                                 rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, wc.hInstance, nullptr);
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
-    set_layered_window_attributes(hwnd, colorKey, 0, LWA_COLORKEY);
 
     state.label = CreateWindowExW(0, L"STATIC", text, WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, hwnd, nullptr, wc.hInstance, nullptr);
     state.icon = CreateWindowExW(0, L"STATIC", nullptr,
                                  WS_CHILD | WS_VISIBLE | SS_ICON | SS_CENTERIMAGE,
                                  0, 0, 0, 0, hwnd, nullptr, wc.hInstance, nullptr);
-    state.yesButton = CreateWindowExW(0, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON , 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
+    state.yesButton = CreateWindowExW(0, L"BUTTON", yes, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDYES)), wc.hInstance, nullptr);
     state.noButton = CreateWindowExW(0, L"BUTTON", no, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDNO)), wc.hInstance, nullptr);
-    state.updateLayout(dpi);
-    glass_window(hwnd);
-    state.darkModeUpdate(hwnd);
+    state.updateLayout(hwnd);
 
     ShowWindow(hwnd, SW_SHOW);
     SetForegroundWindow(hwnd);
@@ -455,11 +480,6 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
             TranslateMessage(&m);
             DispatchMessageW(&m);
         }
-
-    if (state.hIcon)
-        DestroyIcon(state.hIcon);
-    if (state.buttonBackground)
-        DeleteObject(state.buttonBackground);
 
     return state.confirmed;
 }
