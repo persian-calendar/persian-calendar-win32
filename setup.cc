@@ -100,18 +100,6 @@ static auto make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar
     return ok;
 }
 
-static void set_str(HKEY k, const wchar_t *name, const wchar_t *v)
-{
-    DWORD n = static_cast<DWORD>(lstrlenW(v));
-    RegSetValueExW(k, name, 0, REG_SZ, reinterpret_cast<const BYTE *>(v), (n + 1) * sizeof(wchar_t));
-}
-
-static void set_one(HKEY k, const wchar_t *name)
-{
-    DWORD one = 1;
-    RegSetValueExW(k, name, 0, REG_DWORD, reinterpret_cast<const BYTE *>(&one), sizeof one);
-}
-
 static void run_hidden(const wchar_t *cmd, bool wait)
 {
     STARTUPINFOW si;
@@ -165,13 +153,23 @@ static auto install(const Paths &p) -> UINT
     HKEY k;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, uninstall_key, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS)
     {
-        set_str(k, L"DisplayName", APP_NAME);
-        set_str(k, L"UninstallString", cmd);
-        set_str(k, L"QuietUninstallString", silentCmd);
-        set_str(k, L"DisplayIcon", p.uninstallExe);
-        set_str(k, L"InstallLocation", p.dir);
-        set_one(k, L"NoModify");
-        set_one(k, L"NoRepair");
+        auto set_str = [k](const wchar_t *name, const wchar_t *v)
+        {
+            DWORD n = static_cast<DWORD>(lstrlenW(v));
+            RegSetValueExW(k, name, 0, REG_SZ, reinterpret_cast<const BYTE *>(v), (n + 1) * sizeof(wchar_t));
+        };
+        set_str(L"DisplayName", APP_NAME);
+        set_str(L"UninstallString", cmd);
+        set_str(L"QuietUninstallString", silentCmd);
+        set_str(L"DisplayIcon", p.uninstallExe);
+        set_str(L"InstallLocation", p.dir);
+        auto set_one = [k](const wchar_t *name)
+        {
+            DWORD one = 1;
+            RegSetValueExW(k, name, 0, REG_DWORD, reinterpret_cast<const BYTE *>(&one), sizeof one);
+        };
+        set_one(L"NoModify");
+        set_one(L"NoRepair");
         RegCloseKey(k);
     }
     // Add to startup
