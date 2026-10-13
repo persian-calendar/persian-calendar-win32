@@ -11,9 +11,11 @@ IB_WARNING_DISABLE_CLANG_POP
 #include <Shlwapi.h>
 
 #define APP_ID L"PersianCalendarWin32"
+#define APP_TITLE L"تقویم فارسی"
 
 // a magenta color used to create a color key for transparency in glass windows
 constexpr COLORREF colorKey = RGB(0xFE, 0x01, 0xFD);
+constexpr auto fresh_install_argument = L"/fresh";
 
 struct LibraryLoader
 {

@@ -5,7 +5,7 @@
 #include <propkey.h>
 #include <gdiplus.h>
 
-#include "setup-rc.h"
+#include "setup.rc.h"
 
 static const unsigned char appExe[] = {
 #embed "PersianCalendar.exe"
@@ -16,7 +16,6 @@ static const unsigned char appExe[] = {
 
 constexpr auto uninstall_key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32";
 constexpr auto startup_key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-constexpr auto app_title = L"تقویم فارسی";
 
 static auto write_file(const wchar_t *path, const void *data, DWORD size) -> bool
 {
@@ -155,12 +154,12 @@ static auto install(const Paths &p) -> UINT
     if (!write_file(p.appExe, appExe, sizeof appExe) ||
         !CopyFileW(p.self, p.uninstallExe, FALSE))
     {
-        MessageBoxW(nullptr, L"Failed to copy the files.", app_title, MB_ICONERROR);
+        MessageBoxW(nullptr, L"Failed to copy the files.", APP_TITLE, MB_ICONERROR);
         return 1;
     }
     if (!make_shortcut(p.lnk, p.appExe, silentCmd))
     {
-        MessageBoxW(nullptr, L"Failed to create shortcut.", app_title, MB_ICONERROR);
+        MessageBoxW(nullptr, L"Failed to create shortcut.", APP_TITLE, MB_ICONERROR);
         return 1;
     }
     HKEY k;
@@ -486,7 +485,7 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
 
 static auto ask(const wchar_t *text, const wchar_t *yes) -> bool
 {
-    return confirm(app_title, text, yes, L"خیر");
+    return confirm(APP_TITLE, text, yes, L"خیر");
 }
 
 extern "C" [[noreturn]] void start();
@@ -497,7 +496,7 @@ void start()
     Paths p{};
     if (p.failed)
     {
-        MessageBoxW(nullptr, L"Failed to retrieve paths", app_title, MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, L"Failed to retrieve paths", APP_TITLE, MB_OK | MB_ICONERROR);
         ExitProcess(1);
     }
 
@@ -516,14 +515,14 @@ void start()
         bool isSilent = StrStrW(GetCommandLineW(), L"/silent") != nullptr;
         if (isInstalled)
         {
-            if (isSilent || ask(L"مایلید تقویم فارسی را حذف نصب کنید؟", L"حذف نصب"))
+            if (isSilent || ask(L"مایلید " APP_TITLE " را حذف نصب کنید؟", L"حذف نصب"))
                 code = uninstall(p);
         }
-        else if (isSilent || ask(L"مایلید تقویم فارسی را نصب کنید؟", L"نصب"))
+        else if (isSilent || ask(L"مایلید " APP_TITLE " را نصب کنید؟", L"نصب"))
         {
             code = install(p);
             if (code == 0 && !isSilent)
-                ShellExecuteW(nullptr, L"open", p.appExe, nullptr, p.dir, SW_SHOWNORMAL);
+                ShellExecuteW(nullptr, L"open", p.appExe, fresh_install_argument, p.dir, SW_SHOWNORMAL);
         }
     }
 

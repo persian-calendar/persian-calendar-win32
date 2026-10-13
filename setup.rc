@@ -1,5 +1,5 @@
 #include <winres.h>
-#include "setup-rc.h"
+#include "setup.rc.h"
 
 IDI_APP_ICON ICON "setup.ico"
 1 RT_MANIFEST "setup.manifest"

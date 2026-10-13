@@ -2,6 +2,7 @@
 #include <dwmapi.h>
 
 #include "persian-calendar.h"
+#include "persian-calendar.rc.h"
 
 IB_WARNING_DISABLE_CLANG_PUSH("-Wreserved-identifier")
 // https://web.archive.org/web/20190205041452/https://blogs.msdn.microsoft.com/oldnewthing/20041025-00/?p=37483
@@ -90,9 +91,9 @@ constexpr static const wchar_t *widgetClassName = L"WgtDlg";
 constexpr static const wchar_t *converterClassName = L"CnvDlg";
 
 #if defined(__clang__) && __has_cpp_attribute(clang::lifetimebound)
-#  define LIFETIME_BOUND [[clang::lifetimebound]]
+#define LIFETIME_BOUND [[clang::lifetimebound]]
 #else
-#  define LIFETIME_BOUND
+#define LIFETIME_BOUND
 #endif
 
 struct app_state_t
@@ -106,9 +107,8 @@ struct app_state_t
     BOOL always_on_top_widget{false};
     HWND widget_hwnd{nullptr};
 
-    app_state_t(NOTIFYICONDATAW *notify_icon_data_ LIFETIME_BOUND) :
-        notify_icon_data(notify_icon_data_),
-        black_background(get_build_number() < 18362)
+    app_state_t(NOTIFYICONDATAW *notify_icon_data_ LIFETIME_BOUND) : notify_icon_data(notify_icon_data_),
+                                                                     black_background(get_build_number() < 18362)
     {
     }
 };
@@ -237,12 +237,6 @@ constexpr unsigned dlg_gregorian_day_combo_id = 2004;
 constexpr unsigned dlg_gregorian_month_combo_id = 2005;
 constexpr unsigned dlg_gregorian_year_combo_id = 2006;
 
-template <typename T, size_t N>
-constexpr auto array_length(T (&)[N]) -> size_t
-{
-    return N;
-}
-
 struct formatted_number_t
 {
     wchar_t value[8];
@@ -250,7 +244,7 @@ struct formatted_number_t
 static auto format_number(unsigned number, bool local_digits = true) -> formatted_number_t
 {
     formatted_number_t result;
-    constexpr size_t size = array_length(result.value);
+    constexpr size_t size = ARRAYSIZE(result.value);
     wsprintfW(result.value, L"%d", number);
     if (local_digits)
         for (unsigned i = 0; i < size && result.value[i % size]; ++i)
@@ -973,7 +967,7 @@ static auto CALLBACK tray_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, L
             TrackPopupMenu(state->menu, TPM_RIGHTALIGN | TPM_RIGHTBUTTON | TPM_LAYOUTRTL,
                            p.x, p.y, 0, hWnd, nullptr);
         }
-        else if (lParam == WM_LBUTTONDBLCLK)
+        else if (lParam == WM_LBUTTONDBLCLK || lParam == NIN_BALLOONUSERCLICK)
             open_converter_dialog(hWnd);
         else if (lParam == WM_LBUTTONUP && state->show_widget && state->widget_hwnd)
             SetForegroundWindow(state->widget_hwnd);
@@ -1048,32 +1042,33 @@ static auto CALLBACK tray_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, L
 // This is instead of putting a manifest XML
 static void enable_visual_styles()
 {
-    // CreateActCtxA and ActivateActCtx aren't available in Windowws 2000, so
+    // CreateActCtxW and ActivateActCtx aren't available in Windows 2000, so
     LibraryLoader kernel32("kernel32.dll");
-    auto pCreateActCtxA = kernel32.getProcedure<HANDLE(WINAPI *)(PCACTCTXA pActCtx)>("CreateActCtxA");
+    auto pCreateActCtxW = kernel32.getProcedure<HANDLE(WINAPI *)(PCACTCTXW pActCtx)>("CreateActCtxW");
     auto pActivateActCtx = kernel32.getProcedure<BOOL(WINAPI *)(HANDLE hActCtx, ULONG_PTR * lpCookie)>(
         "ActivateActCtx");
-    if (!pCreateActCtxA || !pActivateActCtx)
+    if (!pCreateActCtxW || !pActivateActCtx)
         return;
 
-    char dir[MAX_PATH];
-    GetSystemDirectoryA(dir, MAX_PATH);
-    ACTCTXA actCtx;
+    wchar_t dir[MAX_PATH];
+    GetSystemDirectoryW(dir, MAX_PATH);
+    ACTCTXW actCtx;
     zero_memory(actCtx);
     actCtx.cbSize = sizeof actCtx;
     actCtx.dwFlags = ACTCTX_FLAG_RESOURCE_NAME_VALID | ACTCTX_FLAG_SET_PROCESS_DEFAULT | ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID;
-    actCtx.lpSource = "shell32.dll";
+    actCtx.lpSource = L"shell32.dll";
     actCtx.lpAssemblyDirectory = dir;
-    actCtx.lpResourceName = MAKEINTRESOURCEA(124);
+    actCtx.lpResourceName = MAKEINTRESOURCEW(124);
     ULONG_PTR ulpActivationCookie = FALSE;
-    pActivateActCtx(pCreateActCtxA(&actCtx), &ulpActivationCookie);
+    pActivateActCtx(pCreateActCtxW(&actCtx), &ulpActivationCookie);
 }
 
 extern "C" [[noreturn]] void start();
 void start()
 {
     HANDLE mutex = CreateMutexW(nullptr, 0, APP_ID);
-    bool is_portable = StrStrW(GetCommandLineW(), L"/portable") != nullptr ||
+    auto command_line = GetCommandLineW();
+    bool is_portable = StrStrW(command_line, L"/portable") != nullptr ||
                        !mutex || GetLastError() == ERROR_ALREADY_EXISTS;
 
     {
@@ -1111,11 +1106,10 @@ void start()
         notify_icon_data.uCallbackMessage = notifyClickId;
         notify_icon_data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         notify_icon_data.hWnd = hWnd;
-        if (!is_portable)
-            Shell_NotifyIconW(NIM_ADD, &notify_icon_data);
     }
 
     app_state_t state(&notify_icon_data);
+    HICON balloon_icon = nullptr;
     if (!is_portable)
     {
         SetWindowLongPtrW(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&state));
@@ -1123,6 +1117,33 @@ void start()
         handle_widget(hWnd, &state);
         update(hWnd, &state);
         SetTimer(hWnd, mainTimerId, 60000, nullptr);
+        UINT oldFlags = notify_icon_data.uFlags;
+        if (StrStrW(command_line, fresh_install_argument) != nullptr)
+        {
+            notify_icon_data.hWnd = hWnd;
+            notify_icon_data.uID = 0;
+            notify_icon_data.uFlags |= NIF_INFO;
+            balloon_icon = static_cast<HICON>(LoadImageW(hInst, MAKEINTRESOURCEW(IDI_APP_ICON), IMAGE_ICON,
+                                                         GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0));
+            if (balloon_icon)
+            {
+                notify_icon_data.dwInfoFlags = NIIF_USER | NIIF_NOSOUND;
+                notify_icon_data.hBalloonIcon = balloon_icon;
+            }
+            else
+                notify_icon_data.dwInfoFlags = NIIF_INFO | NIIF_NOSOUND;
+            notify_icon_data.uTimeout = 10000;
+            static_assert(ARRAYSIZE(APP_TITLE) <= ARRAYSIZE(notify_icon_data.szInfoTitle), "Title is too long for the notify icon info field");
+            wsprintfW(notify_icon_data.szInfoTitle, APP_TITLE);
+#define NOTIFY_MESSAGE L"برنامه در سینی سامانه اجرا شد.\nبرای دسترسی روی آیکون آن کلیک کنید."
+            static_assert(ARRAYSIZE(NOTIFY_MESSAGE) <= ARRAYSIZE(notify_icon_data.szInfo), "Message is too long for the notify icon info field");
+            wsprintfW(notify_icon_data.szInfo, NOTIFY_MESSAGE);
+#undef NOTIFY_MESSAGE
+        }
+        Shell_NotifyIconW(NIM_ADD, &notify_icon_data);
+        notify_icon_data.uFlags = oldFlags;
+        notify_icon_data.dwInfoFlags = 0;
+        notify_icon_data.hBalloonIcon = nullptr;
     }
 
     if (is_portable)
@@ -1140,7 +1161,10 @@ void start()
     if (!is_portable)
     {
         Shell_NotifyIconW(NIM_DELETE, &notify_icon_data);
-        DestroyIcon(notify_icon_data.hIcon);
+        if (notify_icon_data.hIcon)
+            DestroyIcon(notify_icon_data.hIcon);
+        if (balloon_icon)
+            DestroyIcon(balloon_icon);
     }
 
     ExitProcess(static_cast<UINT>(msg.wParam));
