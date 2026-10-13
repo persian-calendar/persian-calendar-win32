@@ -311,21 +311,6 @@ struct dialog_state_t
             Gdiplus::GdiplusShutdown(gdiplustoken);
     }
 
-    void reloadIcon()
-    {
-        if (!icon)
-            return;
-        const int size = MulDiv(64, dpi, 96);
-        HICON fresh = load_png_icon(size, size);
-        if (!fresh)
-            return;
-        if (hIcon)
-            DestroyIcon(hIcon);
-        hIcon = fresh;
-        SendMessageW(icon, STM_SETICON, reinterpret_cast<WPARAM>(hIcon), 0);
-        MoveWindow(icon, MulDiv(16, dpi, 96), MulDiv(16, dpi, 96), size, size, TRUE);
-    }
-
     int px(int v) { return MulDiv(v, dpi, 96); }
 
     void updateLayout(HWND hwnd)
@@ -356,6 +341,21 @@ struct dialog_state_t
     }
 
 private:
+    auto reloadIcon() -> void
+    {
+        if (!icon)
+            return;
+        const int size = MulDiv(64, dpi, 96);
+        HICON fresh = load_png_icon(size, size);
+        if (!fresh)
+            return;
+        if (hIcon)
+            DestroyIcon(hIcon);
+        hIcon = fresh;
+        SendMessageW(icon, STM_SETICON, reinterpret_cast<WPARAM>(hIcon), 0);
+        MoveWindow(icon, MulDiv(16, dpi, 96), MulDiv(16, dpi, 96), size, size, TRUE);
+    }
+
     auto updateBackground() -> void
     {
         if (this->background)
