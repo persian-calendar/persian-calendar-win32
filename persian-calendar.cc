@@ -1135,7 +1135,7 @@ void start()
             notify_icon_data.uTimeout = 10000;
             static_assert(ARRAYSIZE(APP_TITLE) <= ARRAYSIZE(notify_icon_data.szInfoTitle), "Title is too long for the notify icon info field");
             wsprintfW(notify_icon_data.szInfoTitle, APP_TITLE);
-#define NOTIFY_MESSAGE L"برنامه در سینی سامانه اجرا شد.\nبرای دسترسی روی آیکون آن کلیک کنید."
+#define NOTIFY_MESSAGE L"برنامه در سینی سامانه اجرا شد\nبرای دسترسی روی آیکون آن کلیک کنید"
             static_assert(ARRAYSIZE(NOTIFY_MESSAGE) <= ARRAYSIZE(notify_icon_data.szInfo), "Message is too long for the notify icon info field");
             wsprintfW(notify_icon_data.szInfo, NOTIFY_MESSAGE);
 #undef NOTIFY_MESSAGE
