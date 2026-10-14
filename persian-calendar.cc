@@ -24,12 +24,12 @@ static auto get_system_font(LONG size, bool disable_antialiasing = false) -> HFO
     return reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
 }
 
-static auto is_in_wine() -> bool
+[[nodiscard]] static auto is_in_wine() -> bool
 {
     return !!LibraryLoader("ntdll.dll").getProcedure<const char *(CDECL *)()>("wine_get_version");
 }
 
-static auto is_system_in_dark_mode() -> bool
+[[nodiscard]] static auto is_system_in_dark_mode() -> bool
 {
     if (get_build_number() < 18362)
         return is_dark_mode_active();
@@ -90,12 +90,6 @@ constexpr static const int widgetTimerId = 2;
 constexpr static const wchar_t *widgetClassName = L"WgtDlg";
 constexpr static const wchar_t *converterClassName = L"CnvDlg";
 
-#if defined(__clang__) && __has_cpp_attribute(clang::lifetimebound)
-#define LIFETIME_BOUND [[clang::lifetimebound]]
-#else
-#define LIFETIME_BOUND
-#endif
-
 struct app_state_t
 {
     NOTIFYICONDATAW *notify_icon_data;
@@ -114,78 +108,41 @@ struct app_state_t
 };
 
 constexpr unsigned date_id = 1000;
-constexpr unsigned first_separator_id = 1001;
-constexpr unsigned local_digits_id = 1002;
-constexpr unsigned black_background_id = 1003;
-constexpr unsigned second_separator_id = 1004;
-constexpr unsigned show_widget_id = 1005;
-constexpr unsigned fixed_widget_placement_id = 1006;
-constexpr unsigned always_on_top_widget_id = 1007;
-constexpr unsigned third_separator_id = 1008;
-constexpr unsigned date_converter_id = 1009;
-constexpr unsigned fourth_separator_id = 1010;
-constexpr unsigned exit_id = 1011;
+constexpr unsigned local_digits_id = 1001;
+constexpr unsigned black_background_id = 1002;
+constexpr unsigned show_widget_id = 1003;
+constexpr unsigned fixed_widget_placement_id = 1004;
+constexpr unsigned always_on_top_widget_id = 1005;
+constexpr unsigned date_converter_id = 1006;
+constexpr unsigned exit_id = 1007;
 
 static void create_menu(app_state_t *state, wchar_t *date)
 {
     HMENU menu = CreatePopupMenu();
-    MENUITEMINFOW menu_item;
-    zero_memory(menu_item);
-    menu_item.cbSize = sizeof menu_item;
-    menu_item.fMask = MIIM_ID | MIIM_TYPE | MIIM_STATE | MIIM_DATA;
-    {
-        menu_item.fState = MFS_DISABLED;
-        menu_item.wID = date_id;
-        menu_item.dwTypeData = date;
-        InsertMenuItemW(menu, date_id, TRUE, &menu_item);
-    }
-    InsertMenuW(menu, first_separator_id, MF_SEPARATOR, TRUE, nullptr);
-    {
-        menu_item.fState = state->local_digits ? MFS_CHECKED : 0;
-        menu_item.wID = local_digits_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"اعداد فارسی");
-        InsertMenuItemW(menu, local_digits_id, TRUE, &menu_item);
-    }
-    {
-        menu_item.fState = state->black_background ? MFS_CHECKED : 0;
-        menu_item.wID = black_background_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"پس‌زمینهٔ سیاه آیکون");
-        InsertMenuItemW(menu, black_background_id, TRUE, &menu_item);
-    }
-    InsertMenuW(menu, second_separator_id, MF_SEPARATOR, TRUE, nullptr);
-    {
-        menu_item.fState = state->show_widget ? MFS_CHECKED : 0;
-        menu_item.wID = show_widget_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"نمایش ویجت");
-        InsertMenuItemW(menu, show_widget_id, TRUE, &menu_item);
-    }
-    UINT disabled_item = state->show_widget ? 0 : MFS_DISABLED;
-    {
-        menu_item.fState = (state->fixed_widget_placement ? MFS_CHECKED : 0) | disabled_item;
-        menu_item.wID = fixed_widget_placement_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"مکان ثابت ویجت");
-        InsertMenuItemW(menu, fixed_widget_placement_id, TRUE, &menu_item);
-    }
-    {
-        menu_item.fState = (state->always_on_top_widget ? MFS_CHECKED : 0) | disabled_item;
-        menu_item.wID = always_on_top_widget_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"ویجت همیشه نمایان");
-        InsertMenuItemW(menu, always_on_top_widget_id, TRUE, &menu_item);
-    }
-    InsertMenuW(menu, third_separator_id, MF_SEPARATOR, TRUE, nullptr);
-    {
-        menu_item.fState = 0;
-        menu_item.wID = date_converter_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"تبدیل تاریخ");
-        InsertMenuItemW(menu, date_converter_id, TRUE, &menu_item);
-    }
-    InsertMenuW(menu, fourth_separator_id, MF_SEPARATOR, TRUE, nullptr);
-    {
-        menu_item.fState = 0;
-        menu_item.wID = exit_id;
-        menu_item.dwTypeData = const_cast<wchar_t *>(L"خروج");
-        InsertMenuItemW(menu, exit_id, TRUE, &menu_item);
-    }
+
+    AppendMenuW(menu, MF_STRING | MF_GRAYED, date_id, date);
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, static_cast<UINT>(MF_STRING | (state->local_digits ? MF_CHECKED : 0)),
+                local_digits_id, L"اعداد فارسی");
+    AppendMenuW(menu, static_cast<UINT>(MF_STRING | (state->black_background ? MF_CHECKED : 0)),
+                black_background_id, L"پس‌زمینهٔ سیاه آیکون");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, static_cast<UINT>(MF_STRING | (state->show_widget ? MF_CHECKED : 0)),
+                show_widget_id, L"نمایش ویجت");
+
+    UINT disabled_item = state->show_widget ? 0 : MF_GRAYED;
+    AppendMenuW(menu,
+                MF_STRING | (state->fixed_widget_placement ? MF_CHECKED : 0) | disabled_item,
+                fixed_widget_placement_id, L"مکان ثابت ویجت");
+    AppendMenuW(menu,
+                MF_STRING | (state->always_on_top_widget ? MF_CHECKED : 0) | disabled_item,
+                always_on_top_widget_id, L"ویجت همیشه نمایان");
+
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, date_converter_id, L"تبدیل تاریخ");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, exit_id, L"خروج");
+
     HMENU old_menu = state->menu;
     state->menu = menu;
     if (old_menu)
@@ -230,6 +187,10 @@ const static wchar_t *gregorian_months[] = {
     L"دسامبر",
 };
 
+static_assert(ARRAYSIZE(weekdays) == 7);
+static_assert(ARRAYSIZE(persian_months) == 12);
+static_assert(ARRAYSIZE(gregorian_months) == 12);
+
 constexpr unsigned dlg_persian_day_combo_id = 2001;
 constexpr unsigned dlg_persian_month_combo_id = 2002;
 constexpr unsigned dlg_persian_year_combo_id = 2003;
@@ -252,7 +213,7 @@ static auto format_number(unsigned number, bool local_digits = true) -> formatte
     return result;
 }
 
-static auto today_in_days() -> unsigned
+[[nodiscard]] static auto today_in_days() -> unsigned
 {
     SYSTEMTIME st;
     GetLocalTime(&st);
@@ -368,6 +329,13 @@ static void update_window_visual_styles(HWND hWnd)
         }
 }
 
+struct widget_position_t
+{
+    int left = CW_USEDEFAULT;
+    int top = CW_USEDEFAULT;
+    int size = CW_USEDEFAULT;
+};
+
 struct Registry
 {
     Registry(const Registry &) = delete;
@@ -444,20 +412,22 @@ struct Registry
         set_value(widget_size_key, static_cast<DWORD>(size));
     }
 
-    void get_widget_position(int &left, int &top, int &size) const // NOLINT(bugprone-easily-swappable-parameters)
+    [[nodiscard]] widget_position_t get_widget_position() const
     {
+        widget_position_t pos{};
         if (!key)
-            return;
+            return pos;
         DWORD value = 0;
         DWORD value_size = sizeof value;
         DWORD type = 0;
 
         if (RegQueryValueExW(key, widget_left_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &value_size) == ERROR_SUCCESS && type == REG_DWORD)
-            left = static_cast<int>(value);
+            pos.left = static_cast<int>(value);
         if (RegQueryValueExW(key, widget_top_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &value_size) == ERROR_SUCCESS && type == REG_DWORD)
-            top = static_cast<int>(value);
+            pos.top = static_cast<int>(value);
         if (RegQueryValueExW(key, widget_size_key, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &value_size) == ERROR_SUCCESS && type == REG_DWORD)
-            size = static_cast<int>(value);
+            pos.size = static_cast<int>(value);
+        return pos;
     }
 
     ~Registry()
@@ -511,26 +481,25 @@ static void handle_widget(HWND hWnd, app_state_t *app_state)
     {
         if (!widgetHwnd)
         {
-            int left = CW_USEDEFAULT, top = CW_USEDEFAULT, size = CW_USEDEFAULT;
-            Registry().get_widget_position(left, top, size);
-            if (left == CW_USEDEFAULT || top == CW_USEDEFAULT || size == CW_USEDEFAULT)
+            widget_position_t pos = Registry().get_widget_position();
+            if (pos.left == CW_USEDEFAULT || pos.top == CW_USEDEFAULT || pos.size == CW_USEDEFAULT)
             {
                 RECT rc;
-                size = static_cast<int>(get_system_dpi() / 7 * 12);
+                pos.size = static_cast<int>(get_system_dpi() / 7 * 12);
                 if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &rc, 0))
                 {
                     int newValue = static_cast<int>(rc.bottom / 10);
-                    size = newValue > size ? newValue : size;
-                    left = rc.right - size - size / 10;
-                    top = rc.bottom - size - size / 10;
+                    pos.size = newValue > pos.size ? newValue : pos.size;
+                    pos.left = rc.right - pos.size - pos.size / 10;
+                    pos.top = rc.bottom - pos.size - pos.size / 10;
                 }
             }
             widgetHwnd = CreateWindowExW(
                 WS_EX_RTLREADING | WS_EX_LAYOUTRTL | WS_EX_COMPOSITED | WS_EX_LAYERED | WS_EX_TOOLWINDOW,
                 widgetClassName, L"",
                 WS_POPUP | WS_OVERLAPPED | WS_SIZEBOX,
-                left, top,
-                size, size,
+                pos.left, pos.top,
+                pos.size, pos.size,
                 hWnd, nullptr, hInst, nullptr);
             SetTimer(widgetHwnd, widgetTimerId, 60000, nullptr);
             DWM_WINDOW_CORNER_PREFERENCE preference = DWMWCP_ROUND;
@@ -554,13 +523,12 @@ static void handle_widget(HWND hWnd, app_state_t *app_state)
             KillTimer(widgetHwnd, widgetTimerId);
             CloseWindow(widgetHwnd);
             DestroyWindow(widgetHwnd);
-            // widgetHwnd = nullptr;
             app_state->widget_hwnd = nullptr;
         }
     }
 }
 
-static auto get_month_days(unsigned year, unsigned month) -> unsigned
+[[nodiscard]] static auto get_month_days(unsigned year, unsigned month) -> unsigned
 {
     return persian_to_days({.year = month == 12 ? year + 1 : year, .month = month == 12 ? 1 : month + 1, .day = 1}) - persian_to_days({.year = year, .month = month, .day = 1});
 }
@@ -942,7 +910,7 @@ static void update(HWND hWnd, app_state_t *state)
     Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
 
-const unsigned notifyClickId = WM_USER + 1;
+constexpr unsigned notifyClickId = WM_USER + 1;
 static auto CALLBACK tray_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) -> LRESULT
 {
     auto *state = reinterpret_cast<app_state_t *>(
@@ -996,8 +964,6 @@ static auto CALLBACK tray_window_procedure(HWND hWnd, UINT msg, WPARAM wParam, L
             state->show_widget = newValue;
             handle_widget(hWnd, state);
             const Registry &registry = Registry();
-            // if (!newValue)
-            //     registry.set_widget_position(CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT);
             update(hWnd, state);
             registry.set_show_widget(newValue);
             return 0;

@@ -17,7 +17,7 @@ static const unsigned char appExe[] = {
 constexpr auto uninstall_key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PersianCalendarWin32";
 constexpr auto startup_key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 
-static auto write_file(const wchar_t *path, const void *data, DWORD size) -> bool
+[[nodiscard]] static auto write_file(const wchar_t *path, const void *data, DWORD size) -> bool
 {
     HANDLE f = CreateFileW(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (f == INVALID_HANDLE_VALUE)
@@ -65,7 +65,7 @@ struct Paths
     }
 };
 
-static auto make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar_t *uninstCmd) -> bool
+[[nodiscard]] static auto make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar_t *uninstCmd) -> bool
 {
     IShellLinkW *sl = nullptr;
     if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, reinterpret_cast<void **>(&sl))))
@@ -132,7 +132,7 @@ static void kill_process(const wchar_t *exe_name)
     Sleep(150);
 }
 
-static auto install(const Paths &p) -> UINT
+[[nodiscard]] static auto install(const Paths &p) -> UINT
 {
     kill_process(APP_EXE);
     CreateDirectoryW(p.dir, nullptr);
@@ -181,7 +181,7 @@ static auto install(const Paths &p) -> UINT
     return 0;
 }
 
-static auto uninstall(const Paths &p) -> UINT
+[[nodiscard]] static auto uninstall(const Paths &p) -> UINT
 {
     kill_process(APP_EXE);
 
@@ -212,7 +212,7 @@ static auto uninstall(const Paths &p) -> UINT
     return 0;
 }
 
-static auto load_png_icon(int cx, int cy) -> HICON
+[[nodiscard]] static auto load_png_icon(int cx, int cy) -> HICON
 {
     HRSRC group = FindResourceW(nullptr, MAKEINTRESOURCEW(IDI_APP_ICON), RT_GROUP_ICON);
     if (!group)
@@ -279,7 +279,7 @@ struct dialog_state_t
     HWND yesButton;
     HWND noButton;
     int dpi;
-    ULONG_PTR gdiplustoken = 0;
+    ULONG_PTR gdiplustoken;
 
     dialog_state_t()
         : background(nullptr),
@@ -290,12 +290,13 @@ struct dialog_state_t
           icon(nullptr),
           hIcon(nullptr),
           yesButton(nullptr),
-          noButton(nullptr)
+          noButton(nullptr),
+          dpi(static_cast<int>(get_system_dpi())),
+          gdiplustoken(0)
     {
         Gdiplus::GdiplusStartupInput input{};
         if (Gdiplus::GdiplusStartup(&gdiplustoken, &input, nullptr) != 0)
             gdiplustoken = 0;
-        this->dpi = static_cast<int>(get_system_dpi());
         updateBackground();
     }
 
@@ -311,7 +312,10 @@ struct dialog_state_t
             Gdiplus::GdiplusShutdown(gdiplustoken);
     }
 
-    int px(int v) { return MulDiv(v, dpi, 96); }
+    dialog_state_t(const dialog_state_t &) = delete;
+    dialog_state_t &operator=(const dialog_state_t &) = delete;
+
+    [[nodiscard]] int px(int v) const { return MulDiv(v, dpi, 96); }
 
     void updateLayout(HWND hwnd)
     {
@@ -341,7 +345,7 @@ struct dialog_state_t
     }
 
 private:
-    auto reloadIcon() -> void
+    void reloadIcon()
     {
         if (!icon)
             return;
@@ -356,7 +360,7 @@ private:
         MoveWindow(icon, MulDiv(16, dpi, 96), MulDiv(16, dpi, 96), size, size, TRUE);
     }
 
-    auto updateBackground() -> void
+    void updateBackground()
     {
         if (this->background)
             DeleteObject(this->background);
@@ -366,7 +370,7 @@ private:
             this->background = CreateSolidBrush(dark ? RGB(0x20, 0x20, 0x20) : GetSysColor(COLOR_BTNFACE));
     }
 
-    auto applyVisualStyle(HWND hwnd) -> void
+    void applyVisualStyle(HWND hwnd)
     {
         toggle_exstyle(hwnd, has_composition(), WS_EX_COMPOSITED | WS_EX_LAYERED);
 
@@ -438,7 +442,7 @@ static auto CALLBACK confirm_window_procedure(HWND hwnd, UINT msg, WPARAM wParam
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
-static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *yes, const wchar_t *no) -> bool
+[[nodiscard]] static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *yes, const wchar_t *no) -> bool
 {
     dialog_state_t state{};
     WNDCLASSW wc;
@@ -478,10 +482,10 @@ static auto confirm(const wchar_t *title, const wchar_t *text, const wchar_t *ye
             DispatchMessageW(&m);
         }
 
-    return state.confirmed;
+    return state.confirmed != FALSE;
 }
 
-static auto ask(const wchar_t *text, const wchar_t *yes) -> bool
+[[nodiscard]] static auto ask(const wchar_t *text, const wchar_t *yes) -> bool
 {
     return confirm(APP_TITLE, text, yes, L"خیر");
 }

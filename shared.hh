@@ -17,6 +17,18 @@ IB_WARNING_DISABLE_CLANG_POP
 constexpr COLORREF colorKey = RGB(0xFE, 0x01, 0xFD);
 constexpr auto fresh_install_argument = L"/fresh";
 
+#if defined(__has_cpp_attribute)
+#if __has_cpp_attribute(clang::lifetimebound)
+#define LIFETIME_BOUND [[clang::lifetimebound]]
+#elif __has_cpp_attribute(msvc::lifetimebound)
+#define LIFETIME_BOUND [[msvc::lifetimebound]]
+#else
+#define LIFETIME_BOUND
+#endif
+#else
+#define LIFETIME_BOUND
+#endif
+
 struct LibraryLoader
 {
 private:
@@ -25,7 +37,8 @@ private:
 public:
     LibraryLoader(const LibraryLoader &) = delete;
     LibraryLoader &operator=(const LibraryLoader &) = delete;
-    // Let's just don't free, all we load is system libraries and they are always loaded anyway, so no need to free them.
+    // We never free: every library we load is a system DLL that stays
+    // resident for the process lifetime anyway.
     // ~LibraryLoader() { if (module) FreeLibrary(module); }
     LibraryLoader(const char *name) : module(GetModuleHandleA(name))
     {
@@ -59,7 +72,7 @@ zero_memory(T &ptr, size_t size = sizeof(T)) -> void
 }
 
 // This isn't always accurate in multimonitor with different DPIs setups
-inline static auto
+[[nodiscard]] inline static auto
 get_system_dpi() -> UINT
 {
     HDC hdc = GetDC(nullptr);
@@ -70,10 +83,11 @@ get_system_dpi() -> UINT
     return static_cast<UINT>(dpi);
 }
 
-inline static auto
+// Cached: the OS build number cannot change for the lifetime of the process.
+[[nodiscard]] inline static auto
 get_build_number() -> DWORD
 {
-    if (auto pRtlGetVersion = LibraryLoader("ntdll.dll").getProcedure<LONG(WINAPI *)(PRTL_OSVERSIONINFOW lpVersionInformation)>("RtlGetVersion"))
+    if (auto pRtlGetVersion = LibraryLoader("ntdll.dll").getProcedure<LONG(WINAPI *)(PRTL_OSVERSIONINFOW)>("RtlGetVersion"))
     {
         RTL_OSVERSIONINFOW rovi;
         rovi.dwOSVersionInfoSize = sizeof rovi;
@@ -83,7 +97,7 @@ get_build_number() -> DWORD
     return 0;
 }
 
-inline static auto
+[[nodiscard]] inline static auto
 is_dark_mode_active() -> bool
 {
     // https://github.com/hrydgard/ppsspp/blob/10c2f05/Windows/W32Util/DarkMode.h#L68-L81
@@ -148,7 +162,7 @@ glass_window(HWND hWnd) -> void
     }
 }
 
-inline static auto
+[[nodiscard]] inline static auto
 has_composition() -> bool
 {
     if (auto pDwmIsCompositionEnabled = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(BOOL * pfEnabled)>("DwmIsCompositionEnabled"))
