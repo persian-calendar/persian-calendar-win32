@@ -1,8 +1,9 @@
-#include <winres.h>
+#include <winresrc.h>
 #include "persian-calendar.rc.h"
 
-IDI_APP_ICON ICON "persian-calendar.ico"
 LANGUAGE LANG_PERSIAN, SUBLANG_NEUTRAL
+
+IDI_APP_ICON ICON "persian-calendar.ico"
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION    5,7,22,0
 PRODUCTVERSION 5,7,22,0

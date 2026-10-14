@@ -298,8 +298,8 @@ static void update_layout(HWND hWnd, unsigned width, unsigned height)
         SendMessageW(item, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
         unsigned row = i % 3;
         MoveWindow(item,
-                   MulDiv(static_cast<int>(width), static_cast<int>(row == 0 ? 1 : (row == 1 ? 6 : 19)), 25),
-                   MulDiv(static_cast<int>(height), static_cast<int>(i < 3 ? 2 : 14), 25 * table_height_ratio),
+                   MulDiv(static_cast<int>(width), row == 0 ? 1 : (row == 1 ? 6 : 19), 25),
+                   MulDiv(static_cast<int>(height), i < 3 ? 2 : 14, 25 * table_height_ratio),
                    MulDiv(static_cast<int>(width), row == 0 ? 4 : (row == 1 ? 12 : 5), 25),
                    // The height parameter here is only used for the dropdown size of the ComboBox,
                    // so making it larger ensures the dropdown is sufficiently tall.
@@ -739,7 +739,7 @@ static auto CALLBACK converter_window_procedure(HWND hWnd, UINT msg, WPARAM wPar
                 0, L"COMBOBOX", nullptr,
                 WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
                 0, 0, 0, 0, hWnd,
-                reinterpret_cast<HMENU>(static_cast<uintptr_t>(dlg_persian_day_combo_id + i)), hInst, nullptr);
+                reinterpret_cast<HMENU>(dlg_persian_day_combo_id + i), hInst, nullptr);
             bool is_persian = i < 3;
             unsigned row = i % 3;
             if (row == 0)

@@ -1,9 +1,10 @@
-#include <winres.h>
+#include <winresrc.h>
 #include "setup.rc.h"
+
+LANGUAGE LANG_PERSIAN, SUBLANG_NEUTRAL
 
 IDI_APP_ICON ICON "setup.ico"
 1 RT_MANIFEST "setup.manifest"
-LANGUAGE LANG_PERSIAN, SUBLANG_NEUTRAL
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION    5,7,22,0
 PRODUCTVERSION 5,7,22,0
