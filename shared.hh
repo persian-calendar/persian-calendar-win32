@@ -20,25 +20,23 @@ constexpr auto fresh_install_argument = L"/fresh";
 struct LibraryLoader
 {
 private:
-    HMODULE m_module;
-
-    static auto getModuleWithFallback(const char *name) -> HMODULE
-    {
-        HMODULE module = GetModuleHandleA(name);
-        return module ? module : LoadLibraryA(name);
-    }
+    HMODULE module;
 
 public:
     LibraryLoader(const LibraryLoader &) = delete;
-    void operator=(const LibraryLoader &) = delete;
-    LibraryLoader(const char *name) : m_module(getModuleWithFallback(name)) {}
+    LibraryLoader &operator=(const LibraryLoader &) = delete;
     // Let's just don't free, all we load is system libraries and they are always loaded anyway, so no need to free them.
     // ~LibraryLoader() { if (module) FreeLibrary(module); }
+    LibraryLoader(const char *name) : module(GetModuleHandleA(name))
+    {
+        if (!module)
+            module = LoadLibraryA(name);
+    }
 
     template <typename T>
-    auto getProcedure(const char *procName)
+    T getProcedure(const char *name) const
     {
-        return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(m_module, procName))); // NOLINT(bugprone-casting-through-void)
+        return reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(module, name)));
     }
 };
 
@@ -105,9 +103,8 @@ enable_dark_mode_support()
     LibraryLoader uxtheme("uxtheme.dll");
     if (build_number < 18362)
     {
-        auto pAllowDarkModeForApp = uxtheme.getProcedure<bool(WINAPI *)(bool allow)>(
-            MAKEINTRESOURCEA(135)); // undocumented AllowDarkModeForApp
-        if (pAllowDarkModeForApp)
+        if (auto pAllowDarkModeForApp = uxtheme.getProcedure<bool(WINAPI *)(bool allow)>(
+                MAKEINTRESOURCEA(135))) // undocumented AllowDarkModeForApp
             pAllowDarkModeForApp(true);
     }
     else
@@ -120,9 +117,8 @@ enable_dark_mode_support()
             ForceLight,
             Max
         };
-        auto pSetPreferredAppMode = uxtheme.getProcedure<INT(WINAPI *)(PreferredAppMode value)>(
-            MAKEINTRESOURCEA(135)); // undocumented SetPreferredAppMode
-        if (pSetPreferredAppMode)
+        if (auto pSetPreferredAppMode = uxtheme.getProcedure<INT(WINAPI *)(PreferredAppMode value)>(
+                MAKEINTRESOURCEA(135))) // undocumented SetPreferredAppMode
             pSetPreferredAppMode(PreferredAppMode::AllowDark);
     }
 }
