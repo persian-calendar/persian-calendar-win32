@@ -17,6 +17,9 @@ else
     echo "==> Using system clang"
 fi
 
+STRIP="$LLVM_PREFIX/bin/llvm-strip"
+OBJCOPY="$LLVM_PREFIX/bin/llvm-objcopy"
+
 COMMON=(
     --target=i686-w64-mingw32
     --sysroot="$SYSROOT"
@@ -32,6 +35,8 @@ COMMON=(
     -Wl,-subsystem,windows
     -Wl,--disable-reloc-section
     -Wl,--build-id=none
+    -ffunction-sections -fdata-sections
+    -Wl,--gc-sections
 )
 
 LIBS_MAIN=(-lkernel32 -luser32 -lshell32 -lgdi32 -ladvapi32 -lshlwapi)
@@ -41,12 +46,14 @@ echo "==> Building PersianCalendar.exe"
 "$WINDRES" "${MINGW_INCLUDES[@]}" persian-calendar.rc -o persian-calendar.res
 "$CLANG" "${COMMON[@]}" persian-calendar.cc persian-calendar.res \
     -o PersianCalendar.exe "${LIBS_MAIN[@]}"
+"$STRIP" --strip-all PersianCalendar.exe
 python3 postlink.py PersianCalendar.exe
 
 echo "==> Building PersianCalendarSetup.exe"
 "$WINDRES" "${MINGW_INCLUDES[@]}" setup.rc -o setup.res
 "$CLANG" "${COMMON[@]}" -Wno-c23-extensions setup.cc setup.res \
     -o PersianCalendarSetup.exe "${LIBS_SETUP[@]}"
+"$STRIP" --strip-all PersianCalendarSetup.exe
 python3 postlink.py PersianCalendarSetup.exe
 
 if command -v wine &>/dev/null; then
