@@ -24,11 +24,6 @@ static auto get_system_font(LONG size, bool disable_antialiasing = false) -> HFO
     return reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
 }
 
-[[nodiscard]] static auto is_in_wine() -> bool
-{
-    return !!LibraryLoader("ntdll.dll").getProcedure<const char *(CDECL *)()>("wine_get_version");
-}
-
 [[nodiscard]] static auto is_system_in_dark_mode() -> bool
 {
     if (get_build_number() < 18362)

@@ -1,5 +1,4 @@
 #include "shared.hh"
-#include <ShlObj.h>
 #include <objbase.h>
 #include <propsys.h>
 #include <propkey.h>

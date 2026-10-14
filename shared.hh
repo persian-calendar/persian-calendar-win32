@@ -5,10 +5,11 @@
 #define WINVER 0x0500 // XP support, and maybe 2000? Why not
 IB_WARNING_DISABLE_CLANG_PUSH("-Wnonportable-system-include-path")
 #include <windows.h>
+#include <Shlwapi.h>
+#include <ShlObj.h>
 IB_WARNING_DISABLE_CLANG_POP
 #include <shellapi.h>
 #include <dwmapi.h>
-#include <Shlwapi.h>
 
 #define APP_ID L"PersianCalendarWin32"
 #define APP_TITLE L"تقویم فارسی"
@@ -162,9 +163,16 @@ glass_window(HWND hWnd) -> void
     }
 }
 
+[[nodiscard]] static auto is_in_wine() -> bool
+{
+    return !!LibraryLoader("ntdll.dll").getProcedure<const char *(CDECL *)()>("wine_get_version");
+}
+
 [[nodiscard]] inline static auto
 has_composition() -> bool
 {
+    if (is_in_wine())
+        return false;
     if (auto pDwmIsCompositionEnabled = LibraryLoader("dwmapi.dll").getProcedure<HRESULT(WINAPI *)(BOOL * pfEnabled)>("DwmIsCompositionEnabled"))
     {
         BOOL result;
